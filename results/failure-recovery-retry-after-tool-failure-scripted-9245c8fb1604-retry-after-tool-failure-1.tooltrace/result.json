@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "framework_version": "0.1.0",
-  "run_id": "82cf39591e1c-retry-after-tool-failure-0",
+  "run_id": "9245c8fb1604-retry-after-tool-failure-1",
   "task_id": "failure-recovery/retry-after-tool-failure",
   "task_version": "1.0.0",
   "task_protocol_version": 1,
@@ -53,9 +53,9 @@
   "unnecessary_changes": 0,
   "workspace_violations": 0,
   "test_pass_ratio": null,
-  "wall_ms": 12.871,
+  "wall_ms": 2.471,
   "model_ms": null,
-  "tool_ms": 12.463,
+  "tool_ms": 1.936,
   "usage": {
     "tokens": null,
     "model_time_ms": null,
@@ -64,7 +64,7 @@
   },
   "trust_state": "LOCAL",
   "judge_config": null,
-  "started_at": "2026-08-22T16:08:13.346960+00:00",
-  "finished_at": "2026-08-22T16:08:13.386986+00:00",
+  "started_at": "2026-08-22T16:41:59.402535+00:00",
+  "finished_at": "2026-08-22T16:41:59.408916+00:00",
   "bundle_path": null
 }

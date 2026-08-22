@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "framework_version": "0.1.0",
-  "run_id": "82cf39591e1c-users-to-csv-0",
+  "run_id": "9245c8fb1604-users-to-csv-0",
   "task_id": "json-csv-transform/users-to-csv",
   "task_version": "1.0.0",
   "task_protocol_version": 1,
@@ -40,9 +40,9 @@
   "unnecessary_changes": 0,
   "workspace_violations": 0,
   "test_pass_ratio": null,
-  "wall_ms": 1.119,
+  "wall_ms": 2.256,
   "model_ms": null,
-  "tool_ms": 0.956,
+  "tool_ms": 1.914,
   "usage": {
     "tokens": null,
     "model_time_ms": null,
@@ -51,7 +51,7 @@
   },
   "trust_state": "LOCAL",
   "judge_config": null,
-  "started_at": "2026-08-22T16:08:13.506918+00:00",
-  "finished_at": "2026-08-22T16:08:13.510430+00:00",
+  "started_at": "2026-08-22T16:41:59.445726+00:00",
+  "finished_at": "2026-08-22T16:41:59.453141+00:00",
   "bundle_path": null
 }

@@ -276,10 +276,30 @@ def cmd_report(args: argparse.Namespace) -> int:
 
     results = []
     for pattern_dir in [Path(p) for p in args.bundles]:
-        for bundle in sorted(pattern_dir.glob("*.tooltrace")):
+        for bundle in sorted(pattern_dir.rglob("*.tooltrace")):
             from tooltrace.bundles import load_bundle_result
 
-            results.append(load_bundle_result(bundle).model_dump(mode="json"))
+            row = load_bundle_result(bundle).model_dump(mode="json")
+            # attach trace timeline + workspace diff so HTML/MD reports can embed them
+            trace_path = bundle / "trace.jsonl"
+            diff_path = bundle / "workspace.diff"
+            if trace_path.is_file():
+                events = []
+                for line in trace_path.read_text(encoding="utf-8").splitlines():
+                    if line.strip():
+                        try:
+                            ev = json.loads(line)
+                            events.append(
+                                f"#{ev.get('seq')} {ev.get('type')}"
+                                f"{': ' + str(ev.get('payload', {}).get('tool')) if ev.get('payload', {}).get('tool') else ''}"
+                                f"{': ' + str(ev.get('payload', {}).get('status')) if ev.get('payload', {}).get('status') else ''}"
+                            )
+                        except json.JSONDecodeError:
+                            continue
+                row["trace_timeline"] = events
+            if diff_path.is_file():
+                row["workspace_diff"] = diff_path.read_text(encoding="utf-8")[:20000]
+            results.append(row)
     payload = {"results": results}
     text = export_report(payload, args.format, Path(args.output) if args.output else None)
     if not args.output:

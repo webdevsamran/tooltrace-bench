@@ -6,6 +6,6 @@
     "mean_score": 1.0,
     "mean_steps": 3.0,
     "failed_tool_calls_mean": 0.3333333333333333,
-    "wall_ms_p95": 12.871
+    "wall_ms_p95": 22.175
   }
 ]

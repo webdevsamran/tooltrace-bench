@@ -30,6 +30,7 @@ pre{background:#1e293b;padding:1rem;border-radius:6px;overflow:auto}
 <th>Steps</th><th>Tool calls</th><th>Failed</th><th>Wall ms</th><th>Failure reason</th></tr>
 @@ROWS@@</table>
 <h2>Summary</h2><pre>@@SUMMARY@@</pre>
+@@DETAILS@@
 </body></html>"""
 
 
@@ -137,11 +138,28 @@ def to_html(payload: dict[str, Any]) -> str:
         )
     from datetime import datetime
 
+    details: list[str] = []
+    for r in _rows(payload.get("results", [])):
+        timeline = r.get("trace_timeline")
+        diff = r.get("workspace_diff")
+        if not timeline and not diff:
+            continue
+        title = f"{r.get('task_id')} [{r.get('agent')}]"
+        block = [f"<h2>Detail — {title}</h2>"]
+        if timeline:
+            items = "".join(f"<li>{ev}</li>" for ev in timeline[:200])
+            block.append(f"<h3>Trace timeline</h3><ol>{items}</ol>")
+        if diff:
+            import html as _html
+
+            block.append(f"<h3>Workspace diff</h3><pre>{_html.escape(str(diff))}</pre>")
+        details.append("".join(block))
     return (
         HTML_TEMPLATE.replace("@@GENERATED@@", datetime.now(UTC).isoformat())
         .replace("@@RUN_ID@@", str(payload.get("run_id", "-")))
         .replace("@@ROWS@@", chr(10).join(rows))
         .replace("@@SUMMARY@@", json.dumps(payload.get("summary", {}), indent=2)[:4000])
+        .replace("@@DETAILS@@", chr(10).join(details))
     )
 
 
