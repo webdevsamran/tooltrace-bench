@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/webdevsamran/tooltrace-bench/schemas/result.schema.json",
+  "title": "ToolTrace Bench evaluation result",
+  "type": "object",
+  "required": ["schema_version", "run_id", "task_id", "task_version", "agent", "success", "score"],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "framework_version": { "type": "string" },
+    "run_id": { "type": "string" },
+    "task_id": { "type": "string" },
+    "task_version": { "type": "string" },
+    "task_protocol_version": { "type": "integer" },
+    "agent": { "type": "string" },
+    "agent_config": { "type": "object" },
+    "success": { "type": "boolean" },
+    "partial_success": { "type": "boolean" },
+    "score": {
+      "type": "object",
+      "required": ["total"],
+      "properties": {
+        "total": { "type": "number", "minimum": 0, "maximum": 1 },
+        "components": { "type": "object", "additionalProperties": { "type": "number" } },
+        "weights": { "type": "object", "additionalProperties": { "type": "number" } }
+      }
+    },
+    "failure_reason": {
+      "enum": [
+        "none", "planning", "tool_selection", "bad_arguments", "execution",
+        "environment", "verification", "hallucinated_resource", "timeout",
+        "loop", "context_loss", "destructive_edit", "policy_violation"
+      ]
+    },
+    "failure_detail": { "type": "string" },
+    "steps": { "type": "integer", "minimum": 0 },
+    "tool_calls": { "type": "integer", "minimum": 0 },
+    "failed_tool_calls": { "type": "integer", "minimum": 0 },
+    "invalid_tool_calls": { "type": "integer", "minimum": 0 },
+    "repeated_calls": { "type": "integer", "minimum": 0 },
+    "unnecessary_changes": { "type": "integer", "minimum": 0 },
+    "workspace_violations": { "type": "integer", "minimum": 0 },
+    "test_pass_ratio": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+    "wall_ms": { "type": "number", "minimum": 0 },
+    "model_ms": { "type": ["number", "null"] },
+    "tool_ms": { "type": "number", "minimum": 0 },
+    "usage": {
+      "type": "object",
+      "properties": {
+        "tokens": {
+          "type": ["object", "null"],
+          "properties": {
+            "prompt_tokens": { "type": ["integer", "null"] },
+            "completion_tokens": { "type": ["integer", "null"] },
+            "total_tokens": { "type": ["integer", "null"] }
+          }
+        },
+        "model_time_ms": { "type": ["number", "null"] },
+        "provider_cost_reported": { "type": ["number", "null"] },
+        "currency": { "type": ["string", "null"] }
+      }
+    },
+    "trust_state": {
+      "enum": ["LOCAL", "COMMUNITY_VALIDATED", "REPRODUCED", "MAINTAINER_VERIFIED"]
+    },
+    "judge_config": { "type": ["object", "null"] },
+    "started_at": { "type": "string" },
+    "finished_at": { "type": "string" },
+    "bundle_path": { "type": ["string", "null"] }
+  }
+}

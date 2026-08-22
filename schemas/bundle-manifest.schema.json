@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/webdevsamran/tooltrace-bench/schemas/bundle-manifest.schema.json",
+  "title": "ToolTrace Bench .tooltrace bundle manifest",
+  "type": "object",
+  "required": ["bundle_version", "files", "checksums"],
+  "properties": {
+    "bundle_version": { "type": "integer", "const": 1 },
+    "created_at": { "type": "string" },
+    "framework_version": { "type": "string" },
+    "compatibility_key": { "type": "string" },
+    "trust_state": {
+      "enum": ["LOCAL", "COMMUNITY_VALIDATED", "REPRODUCED", "MAINTAINER_VERIFIED"]
+    },
+    "files": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string" }
+    },
+    "checksums": {
+      "type": "object",
+      "description": "Relative file path -> SHA-256 hex digest.",
+      "additionalProperties": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+    }
+  }
+}

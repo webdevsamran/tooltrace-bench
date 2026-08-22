@@ -1,0 +1,57 @@
+id: file-editing/fix-config-typo
+name: Fix config key typo
+category: file-editing
+tags:
+- config
+- typo
+objective: Fix the misspelled key 'timout' to 'timeout' in config.ini, preserving
+  all other content.
+description: config.ini contains a misspelled key. Correct it without altering any
+  other line.
+starting_workspace:
+  config.ini: '[server]
+
+    host = localhost
+
+    port = 8080
+
+    timout = 30
+
+    '
+allowed_tools:
+- read_file
+- patch_file
+- write_file
+- list_directory
+- search_text
+assertions:
+- type: file_not_contains
+  params:
+    path: config.ini
+    text: timout
+  weight: 1.0
+  description: typo removed
+- type: file_contains
+  params:
+    path: config.ini
+    any_of:
+    - timeout = 30
+  weight: 1.0
+  description: correct key present
+expected_artifacts:
+- config.ini
+metadata:
+  scripted_script:
+  - tool: read_file
+    args:
+      path: config.ini
+  - tool: patch_file
+    args:
+      path: config.ini
+      search: timout
+      replace: timeout
+version: 1.0.0
+difficulty: easy
+network_policy: disabled
+timeout_seconds: 60
+max_steps: 10

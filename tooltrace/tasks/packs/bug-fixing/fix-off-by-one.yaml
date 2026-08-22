@@ -1,0 +1,43 @@
+id: bug-fixing/fix-off-by-one
+name: Fix off-by-one in average()
+category: bug-fixing
+tags:
+- python
+- loop
+objective: Fix the off-by-one bug in stats.py so the test suite passes.
+description: average() skips the last element. Fix it and verify with the bundled
+  test.
+starting_workspace:
+  stats.py: "def average(nums):\n    total = 0\n    for i in range(len(nums) - 1):\n\
+    \        total += nums[i]\n    return total / len(nums)\n"
+  test_stats.py: "from stats import average\n\ndef test_average():\n    assert average([1,\
+    \ 2, 3]) == 2\n"
+allowed_tools:
+- read_file
+- patch_file
+- write_file
+- list_directory
+- test_runner
+- shell
+assertions:
+- type: tests_pass
+  params:
+    path: .
+  weight: 1.0
+  description: test suite passes
+expected_artifacts:
+- stats.py
+metadata:
+  scripted_script:
+  - tool: patch_file
+    args:
+      path: stats.py
+      search: range(len(nums) - 1)
+      replace: range(len(nums))
+  - tool: test_runner
+    args: {}
+version: 1.0.0
+difficulty: easy
+network_policy: disabled
+timeout_seconds: 60
+max_steps: 10

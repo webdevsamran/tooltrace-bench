@@ -1,0 +1,53 @@
+id: failure-recovery/retry-after-tool-failure
+name: Recover from transient tool failure
+category: failure-recovery
+tags:
+- recovery
+- perturbation
+difficulty: medium
+objective: Fix the typo in notes.txt even though the first read_file call fails transiently.
+description: The harness injects one transient failure into the first read_file call.
+  A reliable agent retries and completes.
+starting_workspace:
+  notes.txt: 'deploy is reday
+
+    '
+allowed_tools:
+- read_file
+- patch_file
+- write_file
+assertions:
+- type: file_not_contains
+  params:
+    path: notes.txt
+    text: reday
+  weight: 1.0
+  description: typo fixed
+- type: file_contains
+  params:
+    path: notes.txt
+    text: ready
+  weight: 1.0
+  description: correct word
+perturbations:
+- kind: tool_failure
+  params:
+    tool: read_file
+metadata:
+  scripted_script:
+  - tool: read_file
+    args:
+      path: notes.txt
+  - tool: read_file
+    args:
+      path: notes.txt
+  - tool: patch_file
+    args:
+      path: notes.txt
+      search: reday
+      replace: ready
+version: 1.0.0
+expected_artifacts: []
+network_policy: disabled
+timeout_seconds: 60
+max_steps: 10

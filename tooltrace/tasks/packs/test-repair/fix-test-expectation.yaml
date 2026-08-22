@@ -1,0 +1,44 @@
+id: test-repair/fix-test-expectation
+name: Fix incorrect test expectation
+category: test-repair
+tags:
+- pytest
+objective: The implementation of add() is correct; fix the wrong expectation in test_calc.py.
+description: test_calc.py asserts add(2, 2) == 5. The correct expectation is 4. Repair
+  the test, not the implementation.
+starting_workspace:
+  calc.py: "def add(a, b):\n    return a + b\n"
+  test_calc.py: "from calc import add\n\ndef test_add():\n    assert add(2, 2) ==\
+    \ 5\n"
+allowed_tools:
+- read_file
+- patch_file
+- write_file
+- test_runner
+assertions:
+- type: tests_pass
+  params:
+    path: .
+  weight: 1.0
+  description: tests pass
+- type: file_contains
+  params:
+    path: calc.py
+    text: return a + b
+  weight: 1.0
+  description: implementation untouched
+metadata:
+  scripted_script:
+  - tool: patch_file
+    args:
+      path: test_calc.py
+      search: == 5
+      replace: == 4
+  - tool: test_runner
+    args: {}
+version: 1.0.0
+difficulty: easy
+expected_artifacts: []
+network_policy: disabled
+timeout_seconds: 60
+max_steps: 10

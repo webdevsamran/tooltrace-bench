@@ -1,0 +1,39 @@
+id: docs-correction/fix-install-command
+name: Fix install command in README
+category: docs-correction
+tags:
+- docs
+objective: Correct the misspelled install command in README.md.
+description: '''pip instal'' must become ''pip install''.'
+starting_workspace:
+  README.md: "# Demo\n\nInstall:\n\n    pip instal tooltrace-bench\n"
+allowed_tools:
+- read_file
+- patch_file
+- write_file
+assertions:
+- type: file_not_contains
+  params:
+    path: README.md
+    text: 'pip instal '
+  weight: 1.0
+  description: typo removed
+- type: file_contains
+  params:
+    path: README.md
+    text: pip install tooltrace-bench
+  weight: 1.0
+  description: correct command
+metadata:
+  scripted_script:
+  - tool: patch_file
+    args:
+      path: README.md
+      search: pip instal
+      replace: pip install
+version: 1.0.0
+difficulty: easy
+expected_artifacts: []
+network_policy: disabled
+timeout_seconds: 60
+max_steps: 10

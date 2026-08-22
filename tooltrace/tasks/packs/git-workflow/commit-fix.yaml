@@ -1,0 +1,53 @@
+id: git-workflow/commit-fix
+name: Commit a fix with git
+category: git-workflow
+tags:
+- git
+- shell
+objective: Fix the typo in app.py and create a git commit containing the fix.
+description: Initialize a git repository if needed, fix the typo, stage and commit
+  with any message.
+starting_workspace:
+  app.py: "def greet(name):\n    return 'Helo, ' + name\n"
+allowed_tools:
+- read_file
+- patch_file
+- write_file
+- shell
+- git
+assertions:
+- type: file_not_contains
+  params:
+    path: app.py
+    text: Helo
+  weight: 1.0
+  description: typo fixed
+- type: command_exit
+  params:
+    command: git rev-parse HEAD
+    expect_code: 0
+  weight: 1.0
+  description: a commit exists
+- type: command_exit
+  params:
+    command: git diff --quiet HEAD
+    expect_code: 0
+  weight: 1.0
+  description: working tree clean
+timeout_seconds: 90
+metadata:
+  scripted_script:
+  - tool: patch_file
+    args:
+      path: app.py
+      search: Helo
+      replace: Hello
+  - tool: shell
+    args:
+      command: git init -q && git add -A && git -c user.email=agent@example.test -c
+        user.name=Agent commit -qm fix-greeting
+version: 1.0.0
+difficulty: easy
+expected_artifacts: []
+network_policy: disabled
+max_steps: 10

@@ -1,0 +1,43 @@
+id: shell-workflow/create-structure
+name: Create project structure
+category: shell-workflow
+tags:
+- shell
+objective: Create src/main.py containing a line with hello.
+description: Use any tools to create the directory src and the file src/main.py that
+  prints hello.
+starting_workspace: {}
+allowed_tools:
+- shell
+- write_file
+- list_directory
+assertions:
+- type: file_exists
+  params:
+    path: src/main.py
+  weight: 1.0
+  description: file created
+- type: file_contains
+  params:
+    path: src/main.py
+    text: hello
+  weight: 1.0
+  description: content correct
+expected_artifacts:
+- src/main.py
+metadata:
+  scripted_script:
+  - tool: shell
+    args:
+      command: mkdir src
+  - tool: write_file
+    args:
+      path: src/main.py
+      content: 'print(''hello'')
+
+        '
+version: 1.0.0
+difficulty: easy
+network_policy: disabled
+timeout_seconds: 60
+max_steps: 10
