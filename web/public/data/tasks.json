@@ -1,0 +1,29 @@
+[
+  {
+    "id": "failure-recovery/retry-after-tool-failure",
+    "version": "1.0.0",
+    "category": "failure-recovery",
+    "difficulty": "medium",
+    "tags": [],
+    "max_steps": 0,
+    "perturbations": []
+  },
+  {
+    "id": "file-editing/fix-config-typo",
+    "version": "1.0.0",
+    "category": "file-editing",
+    "difficulty": "medium",
+    "tags": [],
+    "max_steps": 0,
+    "perturbations": []
+  },
+  {
+    "id": "json-csv-transform/users-to-csv",
+    "version": "1.0.0",
+    "category": "json-csv-transform",
+    "difficulty": "medium",
+    "tags": [],
+    "max_steps": 0,
+    "perturbations": []
+  }
+]
