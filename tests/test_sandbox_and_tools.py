@@ -102,9 +102,7 @@ def test_sanitize_secrets() -> None:
     from tooltrace.security.sanitize import sanitize_text
 
     # deliberately dummy values (contain "dummy" so the repo secret scan allows them)
-    text = (
-        "key=sk-dummyabcdefghijklmnopqrst token=Bearer dummyabcdefghijklmnopqrstuvwxyz123456"
-    )
+    text = "key=sk-dummyabcdefghijklmnopqrst token=Bearer dummyabcdefghijklmnopqrstuvwxyz123456"
     cleaned = sanitize_text(text)
     assert "sk-dummyabcdefghij" not in cleaned
     assert "dummyabcdefghijklmnopqrstuvwxyz123456" not in cleaned

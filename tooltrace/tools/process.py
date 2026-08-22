@@ -82,7 +82,7 @@ class ShellTool(Tool):
         command = args.get("command")
         if not isinstance(command, str) or not command.strip():
             return ToolResult(ok=False, error="command must be a non-empty string")
-        timeout = float(args.get("timeout_seconds", 30.0))
+        timeout = float(args.get("timeout_seconds", 30.0))  # type: ignore[arg-type]
         code, output = _run(command, ctx, timeout, shell=True)
         ok = code == 0
         return ToolResult(
@@ -113,7 +113,7 @@ class GitTool(Tool):
                 error=f"git '{parts[0]}' is blocked by task policy (network/remote operations)",
                 data={"blocked_subcommand": parts[0]},
             )
-        timeout = float(args.get("timeout_seconds", 30.0))
+        timeout = float(args.get("timeout_seconds", 30.0))  # type: ignore[arg-type]
         code, output = _run(["git", "--no-pager", *parts], ctx, timeout)
         ok = code == 0
         return ToolResult(
@@ -134,7 +134,7 @@ class TestRunnerTool(Tool):
     def run(self, args: dict[str, object], ctx: ToolContext) -> ToolResult:
         target = args.get("path", ".")
         framework = str(args.get("framework", "pytest"))
-        timeout = float(args.get("timeout_seconds", 60.0))
+        timeout = float(args.get("timeout_seconds", 60.0))  # type: ignore[arg-type]
         if framework != "pytest":
             return ToolResult(ok=False, error=f"unsupported test framework: {framework}")
         cmd = [

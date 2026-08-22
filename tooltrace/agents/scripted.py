@@ -35,11 +35,8 @@ class ScriptedAgent(AgentAdapter):
         tool = entry.get("tool")
         args = entry.get("args", {})
         if not isinstance(tool, str) or not isinstance(args, dict):
-            return AgentAction(
-                kind="finish",
-                finish_reason="error",  # type: ignore[arg-type]
-                message="malformed script entry",
-            )
+            self._messages.append("malformed script entry")
+            return AgentAction(kind="finish", message="malformed script entry")
         return AgentAction(kind="tool", tool=tool, args=args)
 
     def finalize(self) -> AgentOutcome:

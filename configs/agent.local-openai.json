@@ -1,0 +1,10 @@
+{
+  "_comment": "Example agent configuration for a local OpenAI-compatible endpoint (e.g. llama.cpp server, LM Studio, vLLM). No real keys required for local servers; use env vars for anything sensitive.",
+  "agent": "openai_compat",
+  "base_url": "http://127.0.0.1:8080/v1",
+  "model": "local-model",
+  "api_key_env": "LOCAL_LLM_API_KEY",
+  "temperature": 0.0,
+  "max_steps": 25,
+  "timeout_seconds": 120
+}

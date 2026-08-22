@@ -1,0 +1,34 @@
+# Example task pack demonstrating the authoring SDK.
+# Validate:  tooltrace task validate --path examples/example-pack
+# Test:      tooltrace task test --path examples/example-pack
+id: example-pack/write-greeting
+name: Write greeting file
+version: 1.0.0
+category: file-editing
+difficulty: easy
+tags: [example, getting-started]
+objective: Create greeting.txt containing exactly "hello world".
+description: >
+  Use write_file to create greeting.txt in the workspace root with the exact
+  single-line content "hello world" (no trailing whitespace).
+starting_workspace:
+  README.txt: |
+    This workspace starts with only this file.
+allowed_tools: [read_file, write_file, list_directory]
+assertions:
+  - type: file_exists
+    params: {path: greeting.txt}
+    weight: 0.5
+    description: greeting.txt was created
+  - type: data_equals
+    params: {path: greeting.txt, expected: "hello world"}
+    weight: 1.0
+    description: content matches exactly
+expected_artifacts: [greeting.txt]
+timeout_seconds: 60
+max_steps: 6
+network_policy: disabled
+metadata:
+  scripted_script:
+    - tool: write_file
+      args: {path: greeting.txt, content: "hello world"}

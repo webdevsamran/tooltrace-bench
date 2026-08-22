@@ -65,14 +65,14 @@ class OpenAICompatAgent(AgentAdapter):
         if not base_url:
             raise ValueError("openai_compat agent requires config 'base_url'")
         model = str(self.config.get("model", "local-model"))
-        timeout = float(self.config.get("timeout_seconds", 60))
+        timeout = float(self.config.get("timeout_seconds", 60))  # type: ignore[arg-type]
         headers = {"Content-Type": "application/json"}
         api_key = self._api_key()
         if api_key:
             headers["Authorization"] = f"Bearer {api_key}"
         payload = {
             "model": model,
-            "temperature": float(self.config.get("temperature", 0.0)),
+            "temperature": float(self.config.get("temperature", 0.0)),  # type: ignore[arg-type]
             "response_format": {"type": "json_object"},
             "messages": [
                 {"role": "system", "content": self._system_prompt()},
@@ -99,11 +99,14 @@ class OpenAICompatAgent(AgentAdapter):
                 completion_tokens=(prev.completion_tokens or 0) + (tokens.completion_tokens or 0),
                 total_tokens=(prev.total_tokens or 0) + (tokens.total_tokens or 0),
             )
-        choices = data.get("choices") or []
+        raw_choices = data.get("choices")
+        choices = raw_choices if isinstance(raw_choices, list) else []
         if not choices:
             raise ValueError("endpoint returned no choices")
-        message = choices[0].get("message", {})  # type: ignore[union-attr]
-        content = message.get("content", "{}")  # type: ignore[union-attr]
+        first = choices[0] if isinstance(choices[0], dict) else {}
+        message = first.get("message", {})
+        message = message if isinstance(message, dict) else {}
+        content = message.get("content", "{}")
         try:
             parsed = json.loads(str(content))
         except json.JSONDecodeError as exc:

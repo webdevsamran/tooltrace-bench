@@ -46,6 +46,14 @@ jobs:
         run: python scripts/secret_scan.py
       - name: Generate static web data
         run: python scripts/generate_web_data.py
+      - name: Generate SBOM (CycloneDX)
+        run: |
+          pip install cyclonedx-bom
+          cyclonedx-py requirements -o sbom.json --no-validate || python scripts/generate_sbom.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sbom
+          path: sbom.json
       - uses: actions/upload-artifact@v4
         with:
           name: results-and-webdata

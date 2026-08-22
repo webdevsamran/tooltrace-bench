@@ -44,7 +44,9 @@ class SubprocessAgent(AgentAdapter):
             return AgentAction(kind="finish", message=self._output)
         self._ran = True
         command = self._build_command()
-        timeout = float(self.config.get("timeout_seconds", self._ctx.timeout_seconds))
+        timeout = float(
+            self.config.get("timeout_seconds", self._ctx.timeout_seconds)  # type: ignore[arg-type]
+        )
         env = {k: v for k, v in os.environ.items() if k in set(DEFAULT_ENV_ALLOWLIST)}
         start = time.perf_counter()
         try:

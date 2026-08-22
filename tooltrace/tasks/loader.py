@@ -38,7 +38,7 @@ def _schemas() -> dict[str, dict[str, object]]:
                 name = f.name.removesuffix(".schema.json")
                 cache[name] = json.loads(f.read_text(encoding="utf-8"))
         else:  # pragma: no cover - wheel installs without repo checkout
-            for f in sorted(schema_root.glob("*.json")):
+            for f in sorted(schema_root.glob("*.json")):  # type: ignore[attr-defined]
                 name = f.name.removesuffix(".schema.json")
                 cache[name] = json.loads(f.read_text(encoding="utf-8"))
         _SCHEMA_CACHE = cache
