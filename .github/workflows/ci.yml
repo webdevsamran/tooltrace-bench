@@ -32,9 +32,10 @@ jobs:
         run: pytest --cov=tooltrace --cov-report=term-missing --cov-fail-under=80
       - name: Validate schemas + task packs
         run: |
-          python -m json.tool schemas/task-v1.json > /dev/null
-          python -m json.tool schemas/trace-v1.json > /dev/null
-          python -m json.tool schemas/result-bundle-v1.json > /dev/null
+          python -m json.tool schemas/task.schema.json > /dev/null
+          python -m json.tool schemas/trace.schema.json > /dev/null
+          python -m json.tool schemas/result.schema.json > /dev/null
+          python -m json.tool schemas/bundle-manifest.schema.json > /dev/null
           tooltrace validate --path tooltrace/tasks/packs --json
       - name: Deterministic sample evaluation
         run: python scripts/make_sample_results.py
