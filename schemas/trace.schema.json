@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/webdevsamran/tooltrace-bench/schemas/trace.schema.json",
+  "title": "ToolTrace Bench trace event (one JSONL line)",
+  "type": "object",
+  "required": ["schema_version", "timestamp", "seq", "type"],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "timestamp": { "type": "string", "format": "date-time" },
+    "seq": { "type": "integer", "minimum": 0 },
+    "type": {
+      "enum": [
+        "task_start",
+        "agent_message",
+        "tool_request",
+        "tool_result",
+        "workspace_diff",
+        "validation",
+        "retry_recovery",
+        "task_end"
+      ]
+    },
+    "payload": { "type": "object" }
+  }
+}

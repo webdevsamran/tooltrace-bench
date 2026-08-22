@@ -1,0 +1,75 @@
+id: multi-step-planning/clean-orders
+name: Clean orders and write report
+category: multi-step-planning
+tags:
+- pipeline
+difficulty: medium
+objective: Filter orders.csv to status=ok rows into processed/orders_clean.csv and
+  write report.txt containing the kept count.
+description: 'Multi-step: read, transform, write two artifacts.'
+starting_workspace:
+  orders.csv: 'id,status
+
+    1,ok
+
+    2,failed
+
+    3,ok
+
+    '
+allowed_tools:
+- read_file
+- write_file
+- list_directory
+assertions:
+- type: file_exists
+  params:
+    path: processed/orders_clean.csv
+  weight: 1.0
+  description: clean csv exists
+- type: csv_equals
+  params:
+    path: processed/orders_clean.csv
+    expected_csv: 'id,status
+
+      1,ok
+
+      3,ok
+
+      '
+  weight: 1.0
+  description: rows filtered
+- type: file_contains
+  params:
+    path: report.txt
+    text: '2'
+  weight: 1.0
+  description: report has count
+expected_artifacts:
+- processed/orders_clean.csv
+- report.txt
+metadata:
+  scripted_script:
+  - tool: read_file
+    args:
+      path: orders.csv
+  - tool: write_file
+    args:
+      path: processed/orders_clean.csv
+      content: 'id,status
+
+        1,ok
+
+        3,ok
+
+        '
+  - tool: write_file
+    args:
+      path: report.txt
+      content: 'kept 2 orders
+
+        '
+version: 1.0.0
+network_policy: disabled
+timeout_seconds: 60
+max_steps: 10

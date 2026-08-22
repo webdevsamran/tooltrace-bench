@@ -1,0 +1,59 @@
+id: data-analysis/summarize-numbers
+name: Summarize numbers.csv
+category: data-analysis
+tags:
+- csv
+- math
+objective: Write summary.json with count, sum and mean of the value column in numbers.csv.
+description: numbers.csv has a header 'value' and five rows. Compute count=5, sum=15,
+  mean=3.0 and write summary.json.
+starting_workspace:
+  numbers.csv: 'value
+
+    1
+
+    2
+
+    3
+
+    4
+
+    5
+
+    '
+allowed_tools:
+- read_file
+- calculator
+- write_file
+assertions:
+- type: json_equals
+  params:
+    path: summary.json
+    expected:
+      count: 5
+      sum: 15
+      mean: 3.0
+  weight: 1.0
+  description: summary exact
+expected_artifacts:
+- summary.json
+metadata:
+  scripted_script:
+  - tool: read_file
+    args:
+      path: numbers.csv
+  - tool: calculator
+    args:
+      expression: 1+2+3+4+5
+  - tool: calculator
+    args:
+      expression: 15/5
+  - tool: write_file
+    args:
+      path: summary.json
+      content: '{"count": 5, "sum": 15, "mean": 3.0}'
+version: 1.0.0
+difficulty: easy
+network_policy: disabled
+timeout_seconds: 60
+max_steps: 10

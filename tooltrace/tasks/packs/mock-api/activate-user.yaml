@@ -1,0 +1,42 @@
+id: mock-api/activate-user
+name: Activate user in local API state
+category: mock-api
+tags:
+- api-state
+objective: Set users[0].active to true in the local mock API state file.
+description: state.json represents a local mock API's persisted state. Flip the first
+  user's active flag to true.
+starting_workspace:
+  state.json: '{"users": [{"id": 1, "name": "Ada", "active": false}]}'
+allowed_tools:
+- read_file
+- patch_file
+- write_file
+assertions:
+- type: api_state
+  params:
+    file: state.json
+    json_path: users.0.active
+    equals: true
+  weight: 1.0
+  description: user active
+- type: api_state
+  params:
+    file: state.json
+    json_path: users.0.name
+    equals: Ada
+  weight: 1.0
+  description: other fields preserved
+metadata:
+  scripted_script:
+  - tool: patch_file
+    args:
+      path: state.json
+      search: '"active": false'
+      replace: '"active": true'
+version: 1.0.0
+difficulty: easy
+expected_artifacts: []
+network_policy: disabled
+timeout_seconds: 60
+max_steps: 10

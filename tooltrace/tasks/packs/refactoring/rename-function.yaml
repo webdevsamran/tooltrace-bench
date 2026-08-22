@@ -1,0 +1,46 @@
+id: refactoring/rename-function
+name: Rename compute_total to calculate_sum
+category: refactoring
+tags:
+- rename
+objective: Rename compute_total to calculate_sum everywhere in utils.py, keeping behavior
+  identical.
+description: Pure rename refactor; the report() call site must be updated too.
+starting_workspace:
+  utils.py: "def compute_total(items):\n    return sum(items)\n\n\ndef report(items):\n\
+    \    return compute_total(items)\n"
+allowed_tools:
+- read_file
+- patch_file
+- write_file
+- search_text
+assertions:
+- type: ast_check
+  params:
+    path: utils.py
+    defines:
+    - calculate_sum
+    - report
+    not_defines:
+    - compute_total
+  weight: 1.0
+  description: renamed definitions
+- type: file_contains
+  params:
+    path: utils.py
+    text: return calculate_sum(items)
+  weight: 1.0
+  description: call site updated
+metadata:
+  scripted_script:
+  - tool: write_file
+    args:
+      path: utils.py
+      content: "def calculate_sum(items):\n    return sum(items)\n\n\ndef report(items):\n\
+        \    return calculate_sum(items)\n"
+version: 1.0.0
+difficulty: easy
+expected_artifacts: []
+network_policy: disabled
+timeout_seconds: 60
+max_steps: 10
