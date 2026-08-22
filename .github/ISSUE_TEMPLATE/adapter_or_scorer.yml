@@ -1,0 +1,41 @@
+name: Adapter / scorer / sandbox proposal
+description: Propose a new agent adapter, deterministic scorer or sandbox provider
+labels: ["enhancement"]
+body:
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Kind
+      options:
+        - agent adapter
+        - deterministic scorer
+        - sandbox provider
+        - reporter/exporter
+        - tool implementation
+    validations:
+      required: true
+  - type: textarea
+    id: motivation
+    attributes:
+      label: Motivation
+      description: What capability gap does this fill? Keep it vendor-neutral.
+    validations:
+      required: true
+  - type: textarea
+    id: interface
+    attributes:
+      label: Proposed interface
+      description: Entry-point group, class/method signatures, config surface.
+    validations:
+      required: true
+  - type: checkboxes
+    id: constraints
+    attributes:
+      label: Constraints acknowledged
+      options:
+        - label: Works offline / locally by default (or is an optional extra)
+          required: true
+        - label: No fabricated results, agents, companies or partnerships involved
+          required: true
+        - label: Will include tests and type annotations
+          required: true

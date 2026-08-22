@@ -1,0 +1,55 @@
+name: Task pack proposal
+description: Propose a new deterministic task or task pack
+labels: ["task-pack", "enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Task packs are the heart of ToolTrace Bench. Proposals must be
+        deterministic, CI-safe (no network, no wall-clock dependence) and
+        scored by executable assertions.
+  - type: input
+    id: name
+    attributes:
+      label: Pack/task name
+      placeholder: "mypack/my-task"
+    validations:
+      required: true
+  - type: dropdown
+    id: category
+    attributes:
+      label: Category
+      options:
+        - file editing
+        - bug fixing
+        - test repair
+        - refactoring
+        - docs correction
+        - JSON/CSV transformation
+        - git workflows
+        - shell workflows
+        - local mock-API tasks
+        - data analysis
+        - multi-step planning
+        - failure recovery
+        - new category (describe below)
+    validations:
+      required: true
+  - type: textarea
+    id: objective
+    attributes:
+      label: Objective and starting workspace
+      description: What the agent must do, and what files it starts with.
+    validations:
+      required: true
+  - type: textarea
+    id: assertions
+    attributes:
+      label: Deterministic assertions
+      description: How success is verified without a model judge.
+    validations:
+      required: true
+  - type: textarea
+    id: difficulty
+    attributes:
+      label: Difficulty, tags and expected step budget

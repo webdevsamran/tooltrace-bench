@@ -1,0 +1,13 @@
+# Default owner for everything
+* @webdevsamran
+
+# Core engine changes require the lead maintainer
+/tooltrace/core/ @webdevsamran
+/tooltrace/sandbox/ @webdevsamran
+/tooltrace/security/ @webdevsamran
+
+# CI and supply chain
+/.github/ @webdevsamran
+
+# Frontend
+/web/ @webdevsamran

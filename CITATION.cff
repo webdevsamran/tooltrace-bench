@@ -1,0 +1,30 @@
+cff-version: 1.2.0
+message: "If you use ToolTrace Bench, please cite it as below."
+title: "ToolTrace Bench: vendor-neutral, reproducible benchmarking of AI agents"
+type: software
+authors:
+  - alias: webdevsamran
+    name-surname: Samran
+    name-given-names: ""
+    affiliation: "Independent / Open Source"
+identifiers:
+  - type: url
+    value: "https://github.com/webdevsamran/tooltrace-bench"
+repository-code: "https://github.com/webdevsamran/tooltrace-bench"
+url: "https://github.com/webdevsamran/tooltrace-bench"
+abstract: >-
+  ToolTrace Bench is a vendor-neutral, reproducible benchmarking framework for
+  AI agents. It measures task completion, tool-use correctness, failure
+  recovery, step efficiency, workspace safety, consistency across repeated
+  runs, latency (wall/model/tool), and token/cost data when available — using
+  deterministic executable scoring and complete versioned JSONL traces.
+keywords:
+  - benchmarking
+  - ai-agents
+  - evaluation
+  - tool-use
+  - reliability
+  - reproducibility
+license: Apache-2.0
+version: 0.1.0
+date-released: "2026-08-22"
