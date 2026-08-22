@@ -112,19 +112,28 @@ def reproduce_bundle(
 def promote_trust(bundle_dir: Path, state: TrustState) -> None:
     """Set a bundle's trust state in its manifest and result.json.
 
+    Checksums are refreshed so the bundle remains verifiable afterwards.
     Only call with evidence. Never implies verification without proof.
     """
+    import hashlib
     import json
 
-    manifest_path = bundle_dir / "manifest.json"
-    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    manifest["trust_state"] = state.value
-    manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+    def _sha(data: bytes) -> str:
+        return hashlib.sha256(data).hexdigest()
 
     result_path = bundle_dir / "result.json"
     result_data = json.loads(result_path.read_text(encoding="utf-8"))
     result_data["trust_state"] = state.value
-    result_path.write_text(json.dumps(result_data, indent=2), encoding="utf-8")
+    result_bytes = (json.dumps(result_data, indent=2) + chr(10)).encode("utf-8")
+    result_path.write_bytes(result_bytes)
+
+    manifest_path = bundle_dir / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    checksums = manifest.get("checksums", {})
+    if isinstance(checksums, dict) and "result.json" in checksums:
+        checksums["result.json"] = _sha(result_bytes)
+        manifest["trust_state"] = state.value
+        manifest_path.write_text(json.dumps(manifest, indent=2) + chr(10), encoding="utf-8")
 
 
 def require_verified(bundle_dir: Path) -> None:

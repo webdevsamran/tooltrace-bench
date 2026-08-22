@@ -38,7 +38,13 @@ DEFAULT_ENV_ALLOWLIST = [
 
 def _build_env(ctx: ToolContext) -> dict[str, str]:
     allow = set(DEFAULT_ENV_ALLOWLIST) | set(ctx.env_allowlist)
-    return {k: v for k, v in os.environ.items() if k in allow}
+    # Strip coverage/pytest plugin hooks so sandboxed subprocesses stay
+    # hermetic and never write coverage data into the host tree.
+    return {
+        k: v
+        for k, v in os.environ.items()
+        if k in allow and not k.startswith(("COV_CORE", "COVERAGE", "PYTEST_"))
+    }
 
 
 def _run(

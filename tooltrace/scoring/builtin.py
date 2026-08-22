@@ -125,6 +125,11 @@ def _command_exit(params: dict[str, object], workspace: Path) -> ScorerOutcome:
     if not isinstance(command, str):
         return ScorerOutcome(0.0, "command must be a string")
     timeout = float(params.get("timeout_seconds", 30))  # type: ignore[arg-type]
+    import os
+
+    env = {
+        k: v for k, v in os.environ.items() if not k.startswith(("COV_CORE", "COVERAGE", "PYTEST_"))
+    }
     try:
         proc = subprocess.run(
             command,
@@ -133,6 +138,7 @@ def _command_exit(params: dict[str, object], workspace: Path) -> ScorerOutcome:
             timeout=timeout,
             shell=True,
             text=True,
+            env=env,
         )
     except subprocess.TimeoutExpired:
         return ScorerOutcome(0.0, "command timed out")
@@ -157,8 +163,15 @@ def _tests_pass(params: dict[str, object], workspace: Path) -> ScorerOutcome:
         "no:cacheprovider",
         target,
     ]
+    import os
+
+    env = {
+        k: v for k, v in os.environ.items() if not k.startswith(("COV_CORE", "COVERAGE", "PYTEST_"))
+    }
     try:
-        proc = subprocess.run(cmd, cwd=str(workspace), capture_output=True, timeout=120, text=True)
+        proc = subprocess.run(
+            cmd, cwd=str(workspace), capture_output=True, timeout=120, text=True, env=env
+        )
     except subprocess.TimeoutExpired:
         return ScorerOutcome(0.0, "test run timed out")
     output = proc.stdout + proc.stderr
