@@ -1,0 +1,304 @@
+{
+  "run_id": "f5cc5388a3b1",
+  "created_at": "2026-08-22T17:08:01.143276+00:00",
+  "config": {
+    "agent": "scripted",
+    "agent_config": {},
+    "runs_per_task": 2,
+    "tasks": [
+      "file-editing/fix-config-typo",
+      "json-csv-transform/users-to-csv"
+    ]
+  },
+  "compatibility_key": "protocol=1;trace=1;result=1",
+  "results": [
+    {
+      "schema_version": 1,
+      "framework_version": "0.1.0",
+      "run_id": "f5cc5388a3b1-fix-config-typo-0",
+      "task_id": "file-editing/fix-config-typo",
+      "task_version": "1.0.0",
+      "task_protocol_version": 1,
+      "agent": "scripted",
+      "agent_config": {
+        "script": [
+          {
+            "tool": "read_file",
+            "args": {
+              "path": "config.ini"
+            }
+          },
+          {
+            "tool": "patch_file",
+            "args": {
+              "path": "config.ini",
+              "search": "timout",
+              "replace": "timeout"
+            }
+          }
+        ]
+      },
+      "success": true,
+      "partial_success": false,
+      "score": {
+        "total": 1.0,
+        "components": {
+          "typo removed": 1.0,
+          "correct key present": 1.0
+        },
+        "weights": {
+          "typo removed": 1.0,
+          "correct key present": 1.0
+        }
+      },
+      "failure_reason": "none",
+      "failure_detail": "no_failure",
+      "steps": 3,
+      "tool_calls": 2,
+      "failed_tool_calls": 0,
+      "invalid_tool_calls": 0,
+      "repeated_calls": 0,
+      "unnecessary_changes": 0,
+      "workspace_violations": 0,
+      "test_pass_ratio": null,
+      "wall_ms": 1.5,
+      "model_ms": null,
+      "tool_ms": 1.24,
+      "usage": {
+        "tokens": null,
+        "model_time_ms": null,
+        "provider_cost_reported": null,
+        "currency": null
+      },
+      "trust_state": "LOCAL",
+      "judge_config": null,
+      "started_at": "2026-08-22T17:08:01.105864+00:00",
+      "finished_at": "2026-08-22T17:08:01.110098+00:00",
+      "bundle_path": "file-editing-fix-config-typo-scripted-f5cc5388a3b1-fix-config-typo-0.tooltrace"
+    },
+    {
+      "schema_version": 1,
+      "framework_version": "0.1.0",
+      "run_id": "f5cc5388a3b1-fix-config-typo-1",
+      "task_id": "file-editing/fix-config-typo",
+      "task_version": "1.0.0",
+      "task_protocol_version": 1,
+      "agent": "scripted",
+      "agent_config": {
+        "script": [
+          {
+            "tool": "read_file",
+            "args": {
+              "path": "config.ini"
+            }
+          },
+          {
+            "tool": "patch_file",
+            "args": {
+              "path": "config.ini",
+              "search": "timout",
+              "replace": "timeout"
+            }
+          }
+        ]
+      },
+      "success": true,
+      "partial_success": false,
+      "score": {
+        "total": 1.0,
+        "components": {
+          "typo removed": 1.0,
+          "correct key present": 1.0
+        },
+        "weights": {
+          "typo removed": 1.0,
+          "correct key present": 1.0
+        }
+      },
+      "failure_reason": "none",
+      "failure_detail": "no_failure",
+      "steps": 3,
+      "tool_calls": 2,
+      "failed_tool_calls": 0,
+      "invalid_tool_calls": 0,
+      "repeated_calls": 0,
+      "unnecessary_changes": 0,
+      "workspace_violations": 0,
+      "test_pass_ratio": null,
+      "wall_ms": 1.523,
+      "model_ms": null,
+      "tool_ms": 1.277,
+      "usage": {
+        "tokens": null,
+        "model_time_ms": null,
+        "provider_cost_reported": null,
+        "currency": null
+      },
+      "trust_state": "LOCAL",
+      "judge_config": null,
+      "started_at": "2026-08-22T17:08:01.116435+00:00",
+      "finished_at": "2026-08-22T17:08:01.120271+00:00",
+      "bundle_path": "file-editing-fix-config-typo-scripted-f5cc5388a3b1-fix-config-typo-1.tooltrace"
+    },
+    {
+      "schema_version": 1,
+      "framework_version": "0.1.0",
+      "run_id": "f5cc5388a3b1-users-to-csv-0",
+      "task_id": "json-csv-transform/users-to-csv",
+      "task_version": "1.0.0",
+      "task_protocol_version": 1,
+      "agent": "scripted",
+      "agent_config": {
+        "script": [
+          {
+            "tool": "write_file",
+            "args": {
+              "path": "users.csv",
+              "content": "name,age\nAda,36\nLin,28\n"
+            }
+          }
+        ]
+      },
+      "success": true,
+      "partial_success": false,
+      "score": {
+        "total": 1.0,
+        "components": {
+          "csv created": 1.0,
+          "csv content exact": 1.0
+        },
+        "weights": {
+          "csv created": 1.0,
+          "csv content exact": 1.0
+        }
+      },
+      "failure_reason": "none",
+      "failure_detail": "no_failure",
+      "steps": 2,
+      "tool_calls": 1,
+      "failed_tool_calls": 0,
+      "invalid_tool_calls": 0,
+      "repeated_calls": 0,
+      "unnecessary_changes": 0,
+      "workspace_violations": 0,
+      "test_pass_ratio": null,
+      "wall_ms": 1.157,
+      "model_ms": null,
+      "tool_ms": 0.989,
+      "usage": {
+        "tokens": null,
+        "model_time_ms": null,
+        "provider_cost_reported": null,
+        "currency": null
+      },
+      "trust_state": "LOCAL",
+      "judge_config": null,
+      "started_at": "2026-08-22T17:08:01.125728+00:00",
+      "finished_at": "2026-08-22T17:08:01.129323+00:00",
+      "bundle_path": "json-csv-transform-users-to-csv-scripted-f5cc5388a3b1-users-to-csv-0.tooltrace"
+    },
+    {
+      "schema_version": 1,
+      "framework_version": "0.1.0",
+      "run_id": "f5cc5388a3b1-users-to-csv-1",
+      "task_id": "json-csv-transform/users-to-csv",
+      "task_version": "1.0.0",
+      "task_protocol_version": 1,
+      "agent": "scripted",
+      "agent_config": {
+        "script": [
+          {
+            "tool": "write_file",
+            "args": {
+              "path": "users.csv",
+              "content": "name,age\nAda,36\nLin,28\n"
+            }
+          }
+        ]
+      },
+      "success": true,
+      "partial_success": false,
+      "score": {
+        "total": 1.0,
+        "components": {
+          "csv created": 1.0,
+          "csv content exact": 1.0
+        },
+        "weights": {
+          "csv created": 1.0,
+          "csv content exact": 1.0
+        }
+      },
+      "failure_reason": "none",
+      "failure_detail": "no_failure",
+      "steps": 2,
+      "tool_calls": 1,
+      "failed_tool_calls": 0,
+      "invalid_tool_calls": 0,
+      "repeated_calls": 0,
+      "unnecessary_changes": 0,
+      "workspace_violations": 0,
+      "test_pass_ratio": null,
+      "wall_ms": 1.05,
+      "model_ms": null,
+      "tool_ms": 0.888,
+      "usage": {
+        "tokens": null,
+        "model_time_ms": null,
+        "provider_cost_reported": null,
+        "currency": null
+      },
+      "trust_state": "LOCAL",
+      "judge_config": null,
+      "started_at": "2026-08-22T17:08:01.134781+00:00",
+      "finished_at": "2026-08-22T17:08:01.138325+00:00",
+      "bundle_path": "json-csv-transform-users-to-csv-scripted-f5cc5388a3b1-users-to-csv-1.tooltrace"
+    }
+  ],
+  "summary": {
+    "overall": {
+      "runs": 4,
+      "rate": 1.0,
+      "ci_low": 0.5100999795960008,
+      "ci_high": 1.0,
+      "n": 4,
+      "partial_success_rate": 0.0,
+      "steps_mean": 2.5,
+      "steps_p95": 3.0,
+      "tool_calls_mean": 1.5,
+      "failed_tool_calls_mean": 0.0,
+      "wall_ms_p50": 1.329,
+      "wall_ms_p95": 1.52
+    },
+    "per_task": {
+      "file-editing/fix-config-typo": {
+        "runs": 2,
+        "rate": 1.0,
+        "ci_low": 0.34237195288961925,
+        "ci_high": 1.0,
+        "n": 2,
+        "partial_success_rate": 0.0,
+        "steps_mean": 3.0,
+        "steps_p95": 3.0,
+        "tool_calls_mean": 2.0,
+        "failed_tool_calls_mean": 0.0,
+        "wall_ms_p50": 1.511,
+        "wall_ms_p95": 1.522
+      },
+      "json-csv-transform/users-to-csv": {
+        "runs": 2,
+        "rate": 1.0,
+        "ci_low": 0.34237195288961925,
+        "ci_high": 1.0,
+        "n": 2,
+        "partial_success_rate": 0.0,
+        "steps_mean": 2.0,
+        "steps_p95": 2.0,
+        "tool_calls_mean": 1.0,
+        "failed_tool_calls_mean": 0.0,
+        "wall_ms_p50": 1.103,
+        "wall_ms_p95": 1.152
+      }
+    }
+  }
+}
