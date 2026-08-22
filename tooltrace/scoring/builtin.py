@@ -51,8 +51,8 @@ def _file_contains(params: dict[str, object], workspace: Path) -> ScorerOutcome:
     if not path.is_file():
         return ScorerOutcome(0.0, "file missing")
     text = _read(path)
-    needles = params.get("any_of") or [params.get("text", "")]
-    needles = [str(n) for n in needles]  # type: ignore[union-attr]
+    raw = params.get("any_of")
+    needles = [str(n) for n in raw] if isinstance(raw, list) else [str(params.get("text", ""))]
     hits = [n for n in needles if n in text]
     score = 1.0 if hits else 0.0
     return ScorerOutcome(score, f"matched {len(hits)}/{len(needles)} patterns")
@@ -64,7 +64,8 @@ def _file_not_contains(params: dict[str, object], workspace: Path) -> ScorerOutc
     if not path.is_file():
         return ScorerOutcome(0.0, "file missing")
     text = _read(path)
-    forbidden = [str(n) for n in (params.get("none_of") or [params.get("text", "")])]  # type: ignore[union-attr]
+    raw = params.get("none_of")
+    forbidden = [str(n) for n in raw] if isinstance(raw, list) else [str(params.get("text", ""))]
     bad = [n for n in forbidden if n in text]
     return ScorerOutcome(
         1.0 if not bad else 0.0,
@@ -120,10 +121,10 @@ def _csv_equals(params: dict[str, object], workspace: Path) -> ScorerOutcome:
 @register_scorer("command_exit")
 def _command_exit(params: dict[str, object], workspace: Path) -> ScorerOutcome:
     command = params.get("command")
-    expect = int(params.get("expect_code", 0))  # type: ignore[arg-type]
+    expect = int(params.get("expect_code", 0))  # type: ignore[call-overload]
     if not isinstance(command, str):
         return ScorerOutcome(0.0, "command must be a string")
-    timeout = float(params.get("timeout_seconds", 30))
+    timeout = float(params.get("timeout_seconds", 30))  # type: ignore[arg-type]
     try:
         proc = subprocess.run(
             command,
@@ -183,8 +184,10 @@ def _tests_pass(params: dict[str, object], workspace: Path) -> ScorerOutcome:
 @register_scorer("git_diff")
 def _git_diff(params: dict[str, object], workspace: Path) -> ScorerOutcome:
     """Check constraints on `git diff` output inside a git-initialized workspace."""
-    contains = [str(c) for c in (params.get("contains") or [])]  # type: ignore[union-attr]
-    not_contains = [str(c) for c in (params.get("not_contains") or [])]  # type: ignore[union-attr]
+    raw_contains = params.get("contains")
+    contains = [str(c) for c in raw_contains] if isinstance(raw_contains, list) else []
+    raw_not = params.get("not_contains")
+    not_contains = [str(c) for c in raw_not] if isinstance(raw_not, list) else []
     max_changed = params.get("max_changed_files")
     try:
         proc = subprocess.run(
@@ -206,7 +209,8 @@ def _git_diff(params: dict[str, object], workspace: Path) -> ScorerOutcome:
             problems.append(f"diff contains forbidden {needle!r}")
     if max_changed is not None:
         changed = {line.split()[2] for line in diff_text.splitlines() if line.startswith("+++ b/")}
-        if len(changed) > int(max_changed):  # type: ignore[arg-type]
+        limit = int(max_changed) if isinstance(max_changed, (int, float)) else 10**9
+        if len(changed) > limit:
             problems.append(f"changed files {len(changed)} > {max_changed}")
     return ScorerOutcome(
         1.0 if not problems else 0.0,
@@ -229,8 +233,10 @@ def _ast_check(params: dict[str, object], workspace: Path) -> ScorerOutcome:
         for node in ast.walk(tree)
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
     }
-    must_define = {str(d) for d in (params.get("defines") or [])}  # type: ignore[union-attr]
-    must_not = {str(d) for d in (params.get("not_defines") or [])}  # type: ignore[union-attr]
+    raw_defines = params.get("defines")
+    must_define = {str(d) for d in raw_defines} if isinstance(raw_defines, list) else set()
+    raw_not_defines = params.get("not_defines")
+    must_not = {str(d) for d in raw_not_defines} if isinstance(raw_not_defines, list) else set()
     problems = [f"missing definition {d}" for d in sorted(must_define - defined)]
     problems += [f"forbidden definition {d}" for d in sorted(must_not & defined)]
     return ScorerOutcome(

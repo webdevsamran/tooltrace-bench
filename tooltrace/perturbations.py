@@ -72,10 +72,10 @@ class PerturbationEngine:
             return bool(target_tool)
         return False
 
-    def _message_for(self, spec: PerturbationSpec) -> str:
+    def _message_for(self, spec: PerturbationSpec) -> str | None:
         kind = spec.kind
         if kind == "delay":
-            seconds = float(spec.params.get("seconds", 0.5))
+            seconds = float(spec.params.get("seconds", 0.5))  # type: ignore[arg-type]
             time.sleep(min(seconds, 5.0))
             return None  # a delay slows the call but does not fail it
         if kind == "command_exit":

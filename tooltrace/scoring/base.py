@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
+from pathlib import Path
 
 from pydantic import BaseModel
 
@@ -20,7 +21,7 @@ class ScorerOutcome:
     detail: str = ""
 
 
-Scorer = Callable[[dict[str, object]], ScorerOutcome]
+Scorer = Callable[[dict[str, object], "Path"], ScorerOutcome]
 
 
 class ScoringContext(BaseModel):

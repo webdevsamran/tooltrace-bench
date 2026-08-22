@@ -44,10 +44,12 @@ class HttpTool(Tool):
         if method not in {"GET", "POST", "PUT", "DELETE", "HEAD"}:
             return ToolResult(ok=False, error=f"unsupported method: {method}")
         body = args.get("body")
-        headers = {
-            str(k): str(v)
-            for k, v in (args.get("headers") or {}).items()  # type: ignore[union-attr]
-        }
+        raw_headers = args.get("headers")
+        headers = (
+            {str(k): str(v) for k, v in raw_headers.items()}
+            if isinstance(raw_headers, dict)
+            else {}
+        )
         try:
             with httpx.Client(timeout=10.0, follow_redirects=False) as client:
                 resp = client.request(

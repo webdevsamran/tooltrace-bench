@@ -77,16 +77,14 @@ def summarize_reliability(results: list[dict[str, object]]) -> dict[str, object]
         return {}
     successes = [bool(r.get("success")) for r in results]
     partials = [bool(r.get("partial_success")) for r in results]
-    steps = [float(r["steps"]) for r in results if isinstance(r.get("steps"), (int, float))]
-    tool_calls = [
-        float(r["tool_calls"]) for r in results if isinstance(r.get("tool_calls"), (int, float))
-    ]
-    failed_calls = [
-        float(r["failed_tool_calls"])
-        for r in results
-        if isinstance(r.get("failed_tool_calls"), (int, float))
-    ]
-    wall = [float(r["wall_ms"]) for r in results if isinstance(r.get("wall_ms"), (int, float))]
+
+    def _nums(key: str) -> list[float]:
+        return [float(v) for r in results if isinstance((v := r.get(key)), (int, float))]
+
+    steps = _nums("steps")
+    tool_calls = _nums("tool_calls")
+    failed_calls = _nums("failed_tool_calls")
+    wall = _nums("wall_ms")
     opportunities = sum(1 for r in results if r.get("recovered") is not None)
     recoveries = sum(1 for r in results if r.get("recovered"))
     out: dict[str, object] = {

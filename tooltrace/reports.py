@@ -151,7 +151,9 @@ FORMATS = {"json": to_json, "csv": to_csv, "md": to_markdown, "junit": to_junit,
 def export_report(payload: dict[str, Any], fmt: str, dest: Path | None = None) -> str:
     if fmt not in FORMATS:
         raise ValueError(f"unknown format {fmt!r}; available: {sorted(FORMATS)}")
-    text = to_csv(payload.get("results", [])) if fmt == "csv" else FORMATS[fmt](payload)
+    text = (
+        to_csv(payload.get("results", [])) if fmt == "csv" else FORMATS[fmt](payload)  # type: ignore[operator]
+    )
     if dest is not None:
         dest.parent.mkdir(parents=True, exist_ok=True)
         dest.write_text(text, encoding="utf-8")
