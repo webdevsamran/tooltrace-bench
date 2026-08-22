@@ -1,6 +1,6 @@
 [
   {
-    "bundle": "failure-recovery-retry-after-tool-failure-scripted-82cf39591e1c-retry-after-tool-failure-0.tooltrace",
+    "bundle": "failure-recovery-retry-after-tool-failure-scripted-9245c8fb1604-retry-after-tool-failure-0.tooltrace",
     "task_id": "failure-recovery/retry-after-tool-failure",
     "task_version": "1.0.0",
     "agent": "scripted",
@@ -14,16 +14,16 @@
     "repeated_calls": 1,
     "unnecessary_changes": 0,
     "workspace_violations": 0,
-    "wall_ms": 12.871,
+    "wall_ms": 22.175,
     "model_ms": null,
-    "tool_ms": 12.463,
+    "tool_ms": 21.435,
     "failure_reason": "execution",
     "trust_state": "LOCAL",
-    "run_id": "82cf39591e1c-retry-after-tool-failure-0",
-    "created_at": "2026-08-22T16:08:13.386986+00:00"
+    "run_id": "9245c8fb1604-retry-after-tool-failure-0",
+    "created_at": "2026-08-22T16:41:59.261877+00:00"
   },
   {
-    "bundle": "failure-recovery-retry-after-tool-failure-scripted-82cf39591e1c-retry-after-tool-failure-1.tooltrace",
+    "bundle": "failure-recovery-retry-after-tool-failure-scripted-9245c8fb1604-retry-after-tool-failure-1.tooltrace",
     "task_id": "failure-recovery/retry-after-tool-failure",
     "task_version": "1.0.0",
     "agent": "scripted",
@@ -37,16 +37,16 @@
     "repeated_calls": 1,
     "unnecessary_changes": 0,
     "workspace_violations": 0,
-    "wall_ms": 1.507,
+    "wall_ms": 2.471,
     "model_ms": null,
-    "tool_ms": 1.182,
+    "tool_ms": 1.936,
     "failure_reason": "execution",
     "trust_state": "LOCAL",
-    "run_id": "82cf39591e1c-retry-after-tool-failure-1",
-    "created_at": "2026-08-22T16:08:13.482746+00:00"
+    "run_id": "9245c8fb1604-retry-after-tool-failure-1",
+    "created_at": "2026-08-22T16:41:59.408916+00:00"
   },
   {
-    "bundle": "file-editing-fix-config-typo-scripted-82cf39591e1c-fix-config-typo-0.tooltrace",
+    "bundle": "file-editing-fix-config-typo-scripted-9245c8fb1604-fix-config-typo-0.tooltrace",
     "task_id": "file-editing/fix-config-typo",
     "task_version": "1.0.0",
     "agent": "scripted",
@@ -60,16 +60,16 @@
     "repeated_calls": 0,
     "unnecessary_changes": 0,
     "workspace_violations": 0,
-    "wall_ms": 1.412,
+    "wall_ms": 2.259,
     "model_ms": null,
-    "tool_ms": 1.171,
+    "tool_ms": 1.884,
     "failure_reason": "none",
     "trust_state": "LOCAL",
-    "run_id": "82cf39591e1c-fix-config-typo-0",
-    "created_at": "2026-08-22T16:08:13.491970+00:00"
+    "run_id": "9245c8fb1604-fix-config-typo-0",
+    "created_at": "2026-08-22T16:41:59.422809+00:00"
   },
   {
-    "bundle": "file-editing-fix-config-typo-scripted-82cf39591e1c-fix-config-typo-1.tooltrace",
+    "bundle": "file-editing-fix-config-typo-scripted-9245c8fb1604-fix-config-typo-1.tooltrace",
     "task_id": "file-editing/fix-config-typo",
     "task_version": "1.0.0",
     "agent": "scripted",
@@ -83,16 +83,16 @@
     "repeated_calls": 0,
     "unnecessary_changes": 0,
     "workspace_violations": 0,
-    "wall_ms": 1.497,
+    "wall_ms": 2.372,
     "model_ms": null,
-    "tool_ms": 1.259,
+    "tool_ms": 1.978,
     "failure_reason": "none",
     "trust_state": "LOCAL",
-    "run_id": "82cf39591e1c-fix-config-typo-1",
-    "created_at": "2026-08-22T16:08:13.501186+00:00"
+    "run_id": "9245c8fb1604-fix-config-typo-1",
+    "created_at": "2026-08-22T16:41:59.437327+00:00"
   },
   {
-    "bundle": "json-csv-transform-users-to-csv-scripted-82cf39591e1c-users-to-csv-0.tooltrace",
+    "bundle": "json-csv-transform-users-to-csv-scripted-9245c8fb1604-users-to-csv-0.tooltrace",
     "task_id": "json-csv-transform/users-to-csv",
     "task_version": "1.0.0",
     "agent": "scripted",
@@ -106,16 +106,16 @@
     "repeated_calls": 0,
     "unnecessary_changes": 0,
     "workspace_violations": 0,
-    "wall_ms": 1.119,
+    "wall_ms": 2.256,
     "model_ms": null,
-    "tool_ms": 0.956,
+    "tool_ms": 1.914,
     "failure_reason": "none",
     "trust_state": "LOCAL",
-    "run_id": "82cf39591e1c-users-to-csv-0",
-    "created_at": "2026-08-22T16:08:13.510430+00:00"
+    "run_id": "9245c8fb1604-users-to-csv-0",
+    "created_at": "2026-08-22T16:41:59.453141+00:00"
   },
   {
-    "bundle": "json-csv-transform-users-to-csv-scripted-82cf39591e1c-users-to-csv-1.tooltrace",
+    "bundle": "json-csv-transform-users-to-csv-scripted-9245c8fb1604-users-to-csv-1.tooltrace",
     "task_id": "json-csv-transform/users-to-csv",
     "task_version": "1.0.0",
     "agent": "scripted",
@@ -129,12 +129,12 @@
     "repeated_calls": 0,
     "unnecessary_changes": 0,
     "workspace_violations": 0,
-    "wall_ms": 1.04,
+    "wall_ms": 1.908,
     "model_ms": null,
-    "tool_ms": 0.883,
+    "tool_ms": 1.652,
     "failure_reason": "none",
     "trust_state": "LOCAL",
-    "run_id": "82cf39591e1c-users-to-csv-1",
-    "created_at": "2026-08-22T16:08:13.518864+00:00"
+    "run_id": "9245c8fb1604-users-to-csv-1",
+    "created_at": "2026-08-22T16:41:59.469165+00:00"
   }
 ]

@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "framework_version": "0.1.0",
-  "run_id": "82cf39591e1c-fix-config-typo-0",
+  "run_id": "9245c8fb1604-fix-config-typo-0",
   "task_id": "file-editing/fix-config-typo",
   "task_version": "1.0.0",
   "task_protocol_version": 1,
@@ -47,9 +47,9 @@
   "unnecessary_changes": 0,
   "workspace_violations": 0,
   "test_pass_ratio": null,
-  "wall_ms": 1.412,
+  "wall_ms": 2.259,
   "model_ms": null,
-  "tool_ms": 1.171,
+  "tool_ms": 1.884,
   "usage": {
     "tokens": null,
     "model_time_ms": null,
@@ -58,7 +58,7 @@
   },
   "trust_state": "LOCAL",
   "judge_config": null,
-  "started_at": "2026-08-22T16:08:13.488103+00:00",
-  "finished_at": "2026-08-22T16:08:13.491970+00:00",
+  "started_at": "2026-08-22T16:41:59.416725+00:00",
+  "finished_at": "2026-08-22T16:41:59.422809+00:00",
   "bundle_path": null
 }
