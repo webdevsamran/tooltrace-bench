@@ -9,6 +9,10 @@ import {
 import {
   ComparePage, FailureAnalysisPage, ReliabilityTrendsPage, ResultDetailPage,
 } from './pages/results'
+import {
+  CostEfficiencyPage, DatasetBrowserPage, PluginCatalogPage, RecoveryAnalysisPage,
+  TraceExplorerPage,
+} from './pages/operations'
 
 const NAV = [
   ['/', 'Home'],
@@ -19,8 +23,13 @@ const NAV = [
   ['/compare', 'Compare'],
   ['/trends', 'Reliability Trends'],
   ['/failures', 'Failure Analysis'],
+  ['/traces', 'Trace Explorer'],
+  ['/recovery', 'Recovery'],
+  ['/efficiency', 'Efficiency'],
   ['/methodology', 'Methodology'],
   ['/docs', 'Docs'],
+  ['/dataset', 'Dataset'],
+  ['/plugins', 'Plugins'],
   ['/contributors', 'Contributors'],
   ['/about', 'About'],
 ] as const
@@ -88,6 +97,11 @@ export default function App() {
           <Route path="/compare" element={<ComparePage />} />
           <Route path="/trends" element={<ReliabilityTrendsPage />} />
           <Route path="/failures" element={<FailureAnalysisPage />} />
+          <Route path="/traces" element={<TraceExplorerPage />} />
+          <Route path="/recovery" element={<RecoveryAnalysisPage />} />
+          <Route path="/efficiency" element={<CostEfficiencyPage />} />
+          <Route path="/dataset" element={<DatasetBrowserPage />} />
+          <Route path="/plugins" element={<PluginCatalogPage />} />
           <Route path="/methodology" element={<MethodologyPage />} />
           <Route path="/docs" element={<DocsPage />} />
           <Route path="/contributors" element={<ContributorsPage />} />
