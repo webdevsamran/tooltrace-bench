@@ -109,3 +109,52 @@ def run_benchmark(
         results=all_results,
         summary={"overall": overall, "per_task": per_task_summary},
     )
+
+
+def context_sweep(
+    tasks: list,
+    agent_name: str,
+    agent_config: dict[str, object] | None = None,
+    runs: int = 1,
+    out_dir: Path | None = None,
+) -> dict[str, object]:
+    """Long-context sweep (§10): run a scale family of long-context tasks and
+    report reliability/steps/latency per context size.
+
+    Tasks must carry ``long_context=True`` and ``metadata.context_chars``.
+    Returns ``{"sizes": [...], "per_size": {chars: summary}, "degradation": {...}}``
+    where ``degradation`` compares the largest size against the smallest.
+    """
+    family = [t for t in tasks if getattr(t, "long_context", False)]
+    missing = [t.id for t in tasks if not getattr(t, "long_context", False)]
+    if missing:
+        raise ValueError(
+            "context_sweep requires long-context tasks; not marked long_context: "
+            + ", ".join(sorted(missing))
+        )
+    by_chars: dict[int, list] = {}
+    for t in family:
+        chars = int(t.metadata.get("context_chars", 0))  # type: ignore[arg-type]
+        by_chars.setdefault(chars, []).append(t)
+
+    per_size: dict[str, dict[str, object]] = {}
+    for chars in sorted(by_chars):
+        bench = run_benchmark(by_chars[chars], agent_name, agent_config, runs=runs, out_dir=out_dir)
+        per_size[str(chars)] = {
+            "task_ids": [t.id for t in by_chars[chars]],
+            **bench.summary.get("overall", {}),  # type: ignore[arg-type]
+        }
+
+    sizes = sorted(per_size, key=int)
+    degradation: dict[str, object] = {}
+    if len(sizes) >= 2:
+        small, large = per_size[sizes[0]], per_size[sizes[-1]]
+        for metric in ("rate", "steps_mean", "wall_ms_p95"):
+            s_val, l_val = small.get(metric), large.get(metric)  # type: ignore[attr-defined]
+            if isinstance(s_val, (int, float)) and isinstance(l_val, (int, float)) and s_val:
+                degradation[metric] = {
+                    "smallest": s_val,
+                    "largest": l_val,
+                    "delta_pct": round((l_val - s_val) / s_val * 100.0, 2),
+                }
+    return {"sizes": sizes, "per_size": per_size, "degradation": degradation}

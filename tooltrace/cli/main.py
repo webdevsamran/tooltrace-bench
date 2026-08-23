@@ -44,7 +44,13 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     import tooltrace.agents
     import tooltrace.scoring
     import tooltrace.tools  # noqa: F401 - registers tools
-    from tooltrace.core.registry import agent_registry, scorer_registry, tool_registry
+    from tooltrace.core.registry import (
+        ENTRY_POINT_GROUPS,
+        agent_registry,
+        discover_plugins,
+        scorer_registry,
+        tool_registry,
+    )
     from tooltrace.tasks import load_all_tasks
 
     checks: dict[str, object] = {
@@ -53,6 +59,9 @@ def cmd_doctor(args: argparse.Namespace) -> int:
         "tools": sorted(tool_registry.names()),
         "agents": sorted(agent_registry.names()),
         "scorers": sorted(scorer_registry.names()),
+        "plugins": {
+            kind: sorted(discover_plugins(group)) for kind, group in ENTRY_POINT_GROUPS.items()
+        },
     }
     try:
         tasks = load_all_tasks()
@@ -138,6 +147,8 @@ def cmd_benchmark(args: argparse.Namespace) -> int:
     from tooltrace.tasks import load_all_tasks
 
     tasks = load_all_tasks()
+    if getattr(args, "context_sweep", False):
+        return _cmd_context_sweep(args, tasks)
     if args.task:
         wanted = set(args.task.split(","))
         tasks = [t for t in tasks if t.id in wanted]
@@ -166,6 +177,36 @@ def cmd_benchmark(args: argparse.Namespace) -> int:
     _emit(summary_only if args.summary else payload, args.json)
     rate = float(bench.summary.get("overall", {}).get("rate", 0.0))
     return EXIT_OK if rate >= args.min_success_rate else EXIT_RUN
+
+
+def _cmd_context_sweep(args: argparse.Namespace, tasks: list) -> int:
+    """`benchmark --context-sweep`: reliability vs context size (§10)."""
+    from tooltrace.runners.benchmark import context_sweep
+
+    family = [t for t in tasks if getattr(t, "long_context", False)]
+    if not family:
+        print(
+            "error: no long-context tasks found; add tasks with long_context: true",
+            file=sys.stderr,
+        )
+        return EXIT_TASK
+    try:
+        sweep = context_sweep(
+            family,
+            args.agent,
+            json.loads(args.agent_config) if args.agent_config else None,
+            runs=args.runs,
+            out_dir=Path(args.out) if args.out else None,
+        )
+    except Exception as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_RUN
+    if args.out:
+        out = Path(args.out)
+        out.mkdir(parents=True, exist_ok=True)
+        (out / "context-sweep.json").write_text(json.dumps(sweep, indent=2), encoding="utf-8")
+    _emit(sweep, args.json)
+    return EXIT_OK
 
 
 def cmd_showdown(args: argparse.Namespace) -> int:
@@ -391,6 +432,11 @@ def build_parser() -> argparse.ArgumentParser:
     b.add_argument("--out")
     b.add_argument("--summary", action="store_true")
     b.add_argument("--min-success-rate", type=float, default=0.0)
+    b.add_argument(
+        "--context-sweep",
+        action="store_true",
+        help="run the long-context scale family and report metrics per context size",
+    )
 
     s = add("showdown", cmd_showdown, "benchmark several agents and rank them")
     s.add_argument("--agents", required=True, help="comma-separated agent names")
