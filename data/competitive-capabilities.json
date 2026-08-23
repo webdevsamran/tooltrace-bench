@@ -1,0 +1,202 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-08-23T00:00:00Z",
+  "generator": "manual research pass with GitHub API verification",
+  "verification_method": "Repository metadata via GitHub API on 2026-08-23; feature claims from each project's own README/docs. 'no' only asserted after checking docs; otherwise 'unverified'.",
+  "value_semantics": {
+    "yes": "verified present",
+    "partial": "present with material limitations documented in docs/competitive-analysis.md",
+    "no": "verified absent from official docs as of refresh date",
+    "unverified": "could not verify; absence NOT claimed"
+  },
+  "competitors": [
+    {
+      "id": "swe-bench",
+      "name": "SWE-bench",
+      "repo": "https://github.com/SWE-bench/SWE-bench",
+      "license": "MIT",
+      "activity_pushed_at": "2026-08-18T23:53:40Z",
+      "stars": 5691,
+      "category": "patch-only coding benchmark"
+    },
+    {
+      "id": "swe-bench-live",
+      "name": "SWE-bench-Live (Microsoft)",
+      "repo": "https://github.com/microsoft/SWE-bench-Live",
+      "license": "MIT",
+      "activity_pushed_at": "2026-08-20T15:02:43Z",
+      "stars": 224,
+      "category": "contamination-resistant coding benchmark"
+    },
+    {
+      "id": "terminal-bench",
+      "name": "Terminal-Bench (Harbor/Laude)",
+      "repo": "https://github.com/harbor-framework/terminal-bench-1",
+      "license": "Apache-2.0",
+      "activity_pushed_at": "2026-07-11T05:19:08Z",
+      "stars": 2550,
+      "category": "terminal/OS agent benchmark"
+    },
+    {
+      "id": "tau-bench",
+      "name": "tau-bench (Sierra)",
+      "repo": "https://github.com/sierra-research/tau-bench",
+      "license": "MIT",
+      "activity_pushed_at": "2026-03-18T17:36:06Z",
+      "stars": 1399,
+      "category": "tool-agent customer-service benchmark"
+    },
+    {
+      "id": "tau2-bench",
+      "name": "tau2-bench (Sierra)",
+      "repo": "https://github.com/sierra-research/tau2-bench",
+      "license": "MIT",
+      "activity_pushed_at": "2026-08-18T17:07:54Z",
+      "stars": 1854,
+      "category": "dual-control tool-agent benchmark"
+    },
+    {
+      "id": "agentbench",
+      "name": "AgentBench (THUDM)",
+      "repo": "https://github.com/THUDM/AgentBench",
+      "license": "Apache-2.0",
+      "activity_pushed_at": "2026-02-08T17:01:05Z",
+      "stars": 3681,
+      "category": "multi-domain agent benchmark"
+    },
+    {
+      "id": "visualagentbench",
+      "name": "VisualAgentBench (THUDM)",
+      "repo": "https://github.com/THUDM/VisualAgentBench",
+      "license": "Apache-2.0",
+      "activity_pushed_at": "2025-04-24T14:59:48Z",
+      "stars": 274,
+      "category": "multimodal/GUI agent benchmark"
+    },
+    {
+      "id": "osworld",
+      "name": "OSWorld (xlang-ai)",
+      "repo": "https://github.com/xlang-ai/OSWorld",
+      "license": "Apache-2.0",
+      "activity_pushed_at": "2026-08-21T09:11:07Z",
+      "stars": 3101,
+      "category": "real-desktop OS agent benchmark"
+    },
+    {
+      "id": "webarena",
+      "name": "WebArena",
+      "repo": "https://github.com/web-arena-x/webarena",
+      "license": "Apache-2.0",
+      "activity_pushed_at": "2025-11-26T21:16:00Z",
+      "stars": 1584,
+      "category": "web-agent benchmark"
+    },
+    {
+      "id": "browser-use",
+      "name": "browser-use",
+      "repo": "https://github.com/browser-use/browser-use",
+      "license": "MIT",
+      "activity_pushed_at": "2026-08-22T23:25:03Z",
+      "stars": 110208,
+      "category": "browser automation framework"
+    },
+    {
+      "id": "inspect-ai",
+      "name": "inspect_ai (UK AISI)",
+      "repo": "https://github.com/UKGovernmentBEIS/inspect_ai",
+      "license": "MIT",
+      "activity_pushed_at": "2026-08-23T12:13:58Z",
+      "stars": 2606,
+      "category": "evaluation framework"
+    },
+    {
+      "id": "promptfoo",
+      "name": "promptfoo",
+      "repo": "https://github.com/promptfoo/promptfoo",
+      "license": "MIT",
+      "activity_pushed_at": "2026-08-23T03:11:11Z",
+      "stars": 24480,
+      "category": "LLM eval / red-teaming"
+    },
+    {
+      "id": "deepeval",
+      "name": "DeepEval (Confident AI)",
+      "repo": "https://github.com/confident-ai/deepeval",
+      "license": "Apache-2.0",
+      "activity_pushed_at": "2026-08-21T19:24:44Z",
+      "stars": 17800,
+      "category": "LLM eval framework"
+    },
+    {
+      "id": "ragas",
+      "name": "ragas (VibrantLabs)",
+      "repo": "https://github.com/vibrantlabsai/ragas",
+      "license": "Apache-2.0",
+      "activity_pushed_at": "2026-02-24T07:47:19Z",
+      "stars": 15434,
+      "category": "RAG evaluation"
+    },
+    {
+      "id": "agentops",
+      "name": "AgentOps",
+      "repo": "https://github.com/AgentOps-AI/agentops",
+      "license": "MIT",
+      "activity_pushed_at": "2026-06-25T08:25:03Z",
+      "stars": 5790,
+      "category": "agent observability SDK"
+    },
+    {
+      "id": "phoenix",
+      "name": "Arize Phoenix",
+      "repo": "https://github.com/Arize-ai/phoenix",
+      "license": "mixed (NOASSERTION in repo metadata; ELv2-style components per docs)",
+      "activity_pushed_at": "2026-08-22T21:03:47Z",
+      "stars": 11147,
+      "category": "observability/eval platform"
+    },
+    {
+      "id": "langfuse",
+      "name": "Langfuse",
+      "repo": "https://github.com/langfuse/langfuse",
+      "license": "mixed (core MIT; enterprise features commercial per docs)",
+      "activity_pushed_at": "2026-08-23T11:15:05Z",
+      "stars": 33572,
+      "category": "LLM observability platform"
+    },
+    {
+      "id": "openai-evals",
+      "name": "OpenAI Evals",
+      "repo": "https://github.com/openai/evals",
+      "license": "custom (NOASSERTION)",
+      "activity_pushed_at": "2026-04-14T15:29:57Z",
+      "stars": 19233,
+      "category": "vendor eval harness"
+    }
+  ],
+  "capabilities": [
+    {"capability": "deterministic outcome scoring", "values": {"swe-bench": "yes", "swe-bench-live": "yes", "terminal-bench": "yes", "tau-bench": "partial", "tau2-bench": "partial", "agentbench": "yes", "visualagentbench": "yes", "osworld": "partial", "webarena": "yes", "browser-use": "no", "inspect-ai": "yes", "promptfoo": "partial", "deepeval": "partial", "ragas": "partial", "agentops": "unverified", "phoenix": "partial", "langfuse": "partial", "openai-evals": "yes"}, "tooltrace_bench": "yes"},
+    {"capability": "full-trajectory evaluation (tool calls, steps)", "values": {"swe-bench": "no", "swe-bench-live": "no", "terminal-bench": "partial", "tau-bench": "yes", "tau2-bench": "yes", "agentbench": "partial", "visualagentbench": "partial", "osworld": "partial", "webarena": "partial", "browser-use": "unverified", "inspect-ai": "yes", "promptfoo": "no", "deepeval": "no", "ragas": "no", "agentops": "yes", "phoenix": "yes", "langfuse": "yes", "openai-evals": "no"}, "tooltrace_bench": "yes"},
+    {"capability": "failure taxonomy classification", "values": {"swe-bench": "no", "swe-bench-live": "no", "terminal-bench": "unverified", "tau-bench": "unverified", "tau2-bench": "unverified", "agentbench": "unverified", "visualagentbench": "unverified", "osworld": "unverified", "webarena": "unverified", "browser-use": "unverified", "inspect-ai": "partial", "promptfoo": "unverified", "deepeval": "unverified", "ragas": "unverified", "agentops": "unverified", "phoenix": "unverified", "langfuse": "unverified", "openai-evals": "no"}, "tooltrace_bench": "yes"},
+    {"capability": "fault injection / recovery measurement", "values": {"swe-bench": "no", "swe-bench-live": "no", "terminal-bench": "unverified", "tau-bench": "no", "tau2-bench": "no", "agentbench": "unverified", "visualagentbench": "unverified", "osworld": "unverified", "webarena": "unverified", "browser-use": "unverified", "inspect-ai": "unverified", "promptfoo": "unverified", "deepeval": "unverified", "ragas": "unverified", "agentops": "unverified", "phoenix": "unverified", "langfuse": "unverified", "openai-evals": "no"}, "tooltrace_bench": "yes"},
+    {"capability": "pass@k reliability metrics", "values": {"swe-bench": "unverified", "swe-bench-live": "unverified", "terminal-bench": "unverified", "tau-bench": "unverified", "tau2-bench": "unverified", "agentbench": "unverified", "visualagentbench": "unverified", "osworld": "unverified", "webarena": "unverified", "browser-use": "unverified", "inspect-ai": "yes", "promptfoo": "unverified", "deepeval": "unverified", "ragas": "unverified", "agentops": "unverified", "phoenix": "unverified", "langfuse": "unverified", "openai-evals": "unverified"}, "tooltrace_bench": "yes"},
+    {"capability": "pass^k reliability metrics", "values": {"swe-bench": "unverified", "swe-bench-live": "unverified", "terminal-bench": "unverified", "tau-bench": "unverified", "tau2-bench": "unverified", "agentbench": "unverified", "visualagentbench": "unverified", "osworld": "unverified", "webarena": "unverified", "browser-use": "unverified", "inspect-ai": "yes", "promptfoo": "unverified", "deepeval": "unverified", "ragas": "unverified", "agentops": "unverified", "phoenix": "unverified", "langfuse": "unverified", "openai-evals": "unverified"}, "tooltrace_bench": "yes"},
+    {"capability": "CI regression gating against baselines", "values": {"swe-bench": "no", "swe-bench-live": "no", "terminal-bench": "unverified", "tau-bench": "no", "tau2-bench": "no", "agentbench": "no", "visualagentbench": "no", "osworld": "no", "webarena": "no", "browser-use": "unverified", "inspect-ai": "unverified", "promptfoo": "yes", "deepeval": "yes", "ragas": "unverified", "agentops": "unverified", "phoenix": "unverified", "langfuse": "unverified", "openai-evals": "no"}, "tooltrace_bench": "yes"},
+    {"capability": "reproducible result bundles with checksums", "values": {"swe-bench": "partial", "swe-bench-live": "partial", "terminal-bench": "partial", "tau-bench": "unverified", "tau2-bench": "unverified", "agentbench": "unverified", "visualagentbench": "unverified", "osworld": "unverified", "webarena": "unverified", "browser-use": "unverified", "inspect-ai": "partial", "promptfoo": "unverified", "deepeval": "unverified", "ragas": "unverified", "agentops": "unverified", "phoenix": "unverified", "langfuse": "unverified", "openai-evals": "unverified"}, "tooltrace_bench": "yes"},
+    {"capability": "dual-control (user simulator mutates state)", "values": {"swe-bench": "no", "swe-bench-live": "no", "terminal-bench": "no", "tau-bench": "no", "tau2-bench": "yes", "agentbench": "unverified", "visualagentbench": "unverified", "osworld": "unverified", "webarena": "unverified", "browser-use": "unverified", "inspect-ai": "unverified", "promptfoo": "no", "deepeval": "no", "ragas": "no", "agentops": "unverified", "phoenix": "unverified", "langfuse": "unverified", "openai-evals": "no"}, "tooltrace_bench": "yes"},
+    {"capability": "human-in-the-loop task states", "values": {"swe-bench": "no", "swe-bench-live": "no", "terminal-bench": "unverified", "tau-bench": "unverified", "tau2-bench": "unverified", "agentbench": "unverified", "visualagentbench": "unverified", "osworld": "unverified", "webarena": "unverified", "browser-use": "unverified", "inspect-ai": "unverified", "promptfoo": "unverified", "deepeval": "unverified", "ragas": "unverified", "agentops": "unverified", "phoenix": "unverified", "langfuse": "unverified", "openai-evals": "unverified"}, "tooltrace_bench": "yes"},
+    {"capability": "contamination-aware task metadata", "values": {"swe-bench": "no", "swe-bench-live": "yes", "terminal-bench": "unverified", "tau-bench": "unverified", "tau2-bench": "unverified", "agentbench": "unverified", "visualagentbench": "unverified", "osworld": "unverified", "webarena": "unverified", "browser-use": "unverified", "inspect-ai": "unverified", "promptfoo": "unverified", "deepeval": "unverified", "ragas": "unverified", "agentops": "unverified", "phoenix": "unverified", "langfuse": "unverified", "openai-evals": "unverified"}, "tooltrace_bench": "yes"},
+    {"capability": "task provenance manifests with integrity hashes", "values": {"swe-bench": "unverified", "swe-bench-live": "unverified", "terminal-bench": "unverified", "tau-bench": "unverified", "tau2-bench": "unverified", "agentbench": "unverified", "visualagentbench": "unverified", "osworld": "unverified", "webarena": "unverified", "browser-use": "unverified", "inspect-ai": "unverified", "promptfoo": "unverified", "deepeval": "unverified", "ragas": "unverified", "agentops": "unverified", "phoenix": "unverified", "langfuse": "unverified", "openai-evals": "unverified"}, "tooltrace_bench": "yes"},
+    {"capability": "multi-domain task packs (code, OS, DB, API, web, data, git)", "values": {"swe-bench": "no", "swe-bench-live": "no", "terminal-bench": "partial", "tau-bench": "no", "tau2-bench": "no", "agentbench": "yes", "visualagentbench": "partial", "osworld": "partial", "webarena": "no", "browser-use": "no", "inspect-ai": "yes", "promptfoo": "no", "deepeval": "no", "ragas": "no", "agentops": "unverified", "phoenix": "unverified", "langfuse": "unverified", "openai-evals": "partial"}, "tooltrace_bench": "yes"},
+    {"capability": "local-first offline execution without cloud services", "values": {"swe-bench": "yes", "swe-bench-live": "yes", "terminal-bench": "yes", "tau-bench": "partial", "tau2-bench": "partial", "agentbench": "partial", "visualagentbench": "partial", "osworld": "partial", "webarena": "yes", "browser-use": "yes", "inspect-ai": "yes", "promptfoo": "yes", "deepeval": "yes", "ragas": "yes", "agentops": "partial", "phoenix": "yes", "langfuse": "yes", "openai-evals": "yes"}, "tooltrace_bench": "yes"},
+    {"capability": "bundled product frontend console", "values": {"swe-bench": "partial", "swe-bench-live": "partial", "terminal-bench": "unverified", "tau-bench": "partial", "tau2-bench": "partial", "agentbench": "no", "visualagentbench": "no", "osworld": "unverified", "webarena": "unverified", "browser-use": "unverified", "inspect-ai": "no", "promptfoo": "yes", "deepeval": "yes", "ragas": "no", "agentops": "yes", "phoenix": "yes", "langfuse": "yes", "openai-evals": "no"}, "tooltrace_bench": "yes"},
+    {"capability": "self-hosted team server with RBAC and audit", "values": {"swe-bench": "no", "swe-bench-live": "no", "terminal-bench": "no", "tau-bench": "no", "tau2-bench": "no", "agentbench": "no", "visualagentbench": "no", "osworld": "no", "webarena": "no", "browser-use": "no", "inspect-ai": "no", "promptfoo": "partial", "deepeval": "partial", "ragas": "no", "agentops": "partial", "phoenix": "partial", "langfuse": "partial", "openai-evals": "no"}, "tooltrace_bench": "yes"},
+    {"capability": "policy-as-code for allowed providers/tools/network", "values": {"swe-bench": "no", "swe-bench-live": "no", "terminal-bench": "unverified", "tau-bench": "unverified", "tau2-bench": "unverified", "agentbench": "unverified", "visualagentbench": "unverified", "osworld": "unverified", "webarena": "unverified", "browser-use": "unverified", "inspect-ai": "unverified", "promptfoo": "unverified", "deepeval": "unverified", "ragas": "unverified", "agentops": "unverified", "phoenix": "unverified", "langfuse": "unverified", "openai-evals": "unverified"}, "tooltrace_bench": "yes"},
+    {"capability": "sandbox network-policy profiles (offline/local/allowlist)", "values": {"swe-bench": "unverified", "swe-bench-live": "unverified", "terminal-bench": "partial", "tau-bench": "unverified", "tau2-bench": "unverified", "agentbench": "unverified", "visualagentbench": "unverified", "osworld": "unverified", "webarena": "unverified", "browser-use": "unverified", "inspect-ai": "yes", "promptfoo": "unverified", "deepeval": "unverified", "ragas": "unverified", "agentops": "unverified", "phoenix": "unverified", "langfuse": "unverified", "openai-evals": "unverified"}, "tooltrace_bench": "yes"},
+    {"capability": "vendor-neutral model adapters incl. local models", "values": {"swe-bench": "partial", "swe-bench-live": "partial", "terminal-bench": "partial", "tau-bench": "partial", "tau2-bench": "partial", "agentbench": "partial", "visualagentbench": "partial", "osworld": "partial", "webarena": "partial", "browser-use": "yes", "inspect-ai": "yes", "promptfoo": "yes", "deepeval": "yes", "ragas": "yes", "agentops": "yes", "phoenix": "yes", "langfuse": "yes", "openai-evals": "no"}, "tooltrace_bench": "yes"},
+    {"capability": "MCP client support for benchmarking MCP agents", "values": {"swe-bench": "unverified", "swe-bench-live": "unverified", "terminal-bench": "unverified", "tau-bench": "unverified", "tau2-bench": "unverified", "agentbench": "unverified", "visualagentbench": "unverified", "osworld": "unverified", "webarena": "unverified", "browser-use": "unverified", "inspect-ai": "unverified", "promptfoo": "unverified", "deepeval": "unverified", "ragas": "unverified", "agentops": "unverified", "phoenix": "unverified", "langfuse": "unverified", "openai-evals": "unverified"}, "tooltrace_bench": "yes"},
+    {"capability": "cost accounting from explicit price tables", "values": {"swe-bench": "no", "swe-bench-live": "no", "terminal-bench": "unverified", "tau-bench": "unverified", "tau2-bench": "unverified", "agentbench": "unverified", "visualagentbench": "unverified", "osworld": "unverified", "webarena": "unverified", "browser-use": "unverified", "inspect-ai": "unverified", "promptfoo": "yes", "deepeval": "unverified", "ragas": "unverified", "agentops": "unverified", "phoenix": "unverified", "langfuse": "yes", "openai-evals": "no"}, "tooltrace_bench": "yes"},
+    {"capability": "distributed coordinator + worker fleet (self-hosted)", "values": {"swe-bench": "unverified", "swe-bench-live": "unverified", "terminal-bench": "unverified", "tau-bench": "no", "tau2-bench": "no", "agentbench": "unverified", "visualagentbench": "unverified", "osworld": "unverified", "webarena": "unverified", "browser-use": "unverified", "inspect-ai": "unverified", "promptfoo": "unverified", "deepeval": "unverified", "ragas": "unverified", "agentops": "unverified", "phoenix": "unverified", "langfuse": "unverified", "openai-evals": "unverified"}, "tooltrace_bench": "yes"},
+    {"capability": "signed result bundles / tamper-evident artifacts", "values": {"swe-bench": "unverified", "swe-bench-live": "unverified", "terminal-bench": "unverified", "tau-bench": "unverified", "tau2-bench": "unverified", "agentbench": "unverified", "visualagentbench": "unverified", "osworld": "unverified", "webarena": "unverified", "browser-use": "unverified", "inspect-ai": "unverified", "promptfoo": "unverified", "deepeval": "unverified", "ragas": "unverified", "agentops": "unverified", "phoenix": "unverified", "langfuse": "unverified", "openai-evals": "unverified"}, "tooltrace_bench": "yes"},
+    {"capability": "cohort-safe leaderboards (version-gated)", "values": {"swe-bench": "partial", "swe-bench-live": "partial", "terminal-bench": "partial", "tau-bench": "partial", "tau2-bench": "partial", "agentbench": "partial", "visualagentbench": "partial", "osworld": "partial", "webarena": "partial", "browser-use": "no", "inspect-ai": "unverified", "promptfoo": "unverified", "deepeval": "unverified", "ragas": "unverified", "agentops": "unverified", "phoenix": "unverified", "langfuse": "unverified", "openai-evals": "partial"}, "tooltrace_bench": "yes"}
+  ]
+}
