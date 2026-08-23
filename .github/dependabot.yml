@@ -8,6 +8,8 @@ updates:
     groups:
       python-dev:
         dependency-type: "development"
+      python-runtime:
+        dependency-type: "production"
 
   - package-ecosystem: "npm"
     directory: "/web"
@@ -18,8 +20,12 @@ updates:
       frontend:
         patterns: ["*"]
 
+  # Grouped so all action bumps land in ONE branch/PR instead of one per action.
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "monthly"
     labels: ["dependencies", "ci"]
+    groups:
+      github-actions:
+        patterns: ["*"]
