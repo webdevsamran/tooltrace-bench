@@ -302,3 +302,134 @@ class PriceTable(BaseModel):
             "input_tokens": input_tokens,
             "output_tokens": output_tokens,
         }
+
+# ---------------------------------------------------------------------------
+# Generic provider-compatible protocol layers (feature 49)
+# ---------------------------------------------------------------------------
+# Vendor-neutral HTTP protocol specs so any OpenAI-, Anthropic- or
+# Gemini-compatible endpoint can be driven without vendor SDKs and without
+# hard-coding a preferred provider. These are pure request/response mappers;
+# transport is injected by the caller (testable offline).
+
+
+@dataclass(frozen=True)
+class ProviderProtocolSpec:
+    name: str
+    chat_path: str
+    auth_header: str  # format template, e.g. "Bearer {api_key}"
+    extra_headers: tuple[tuple[str, str], ...] = ()
+    tool_call_style: str = "openai"  # openai | anthropic_content_blocks | gemini_function_calls
+
+
+OPENAI_COMPAT_SPEC = ProviderProtocolSpec(
+    name="openai-compat", chat_path="/v1/chat/completions", auth_header="Bearer {api_key}"
+)
+ANTHROPIC_COMPAT_SPEC = ProviderProtocolSpec(
+    name="anthropic-compat",
+    chat_path="/v1/messages",
+    auth_header="{api_key}",
+    extra_headers=(("anthropic-version", "2023-06-01"),),
+    tool_call_style="anthropic_content_blocks",
+)
+GEMINI_COMPAT_SPEC = ProviderProtocolSpec(
+    name="gemini-compat",
+    chat_path="/v1beta/models/{model}:generateContent",
+    auth_header="{api_key}",
+    extra_headers=(("x-goog-api-key", "{api_key}"),),
+    tool_call_style="gemini_function_calls",
+)
+
+PROTOCOL_SPECS = {
+    s.name: s for s in (OPENAI_COMPAT_SPEC, ANTHROPIC_COMPAT_SPEC, GEMINI_COMPAT_SPEC)
+}
+
+
+def build_provider_request(
+    spec: ProviderProtocolSpec,
+    *,
+    model: str,
+    system: str,
+    user: str,
+    tools: list[dict[str, Any]] | None = None,
+    api_key_ref: str = "",
+) -> dict[str, Any]:
+    """Build a normalized request payload + headers for *spec*.
+
+    Returns {"path": str, "headers": {...}, "body": {...}}. The API key is
+    referenced by env-var name only; its value is resolved by CredentialResolver
+    at send time and never appears here.
+    """
+    headers: dict[str, str] = {}
+    for k, v in spec.extra_headers:
+        headers[k] = v.replace("{api_key}", api_key_ref)
+    if spec.name == "anthropic-compat":
+        body: dict[str, Any] = {
+            "model": model,
+            "max_tokens": 4096,
+            "system": system,
+            "messages": [{"role": "user", "content": user}],
+        }
+        if tools:
+            body["tools"] = [
+                {"name": t.get("name", ""), "description": t.get("description", ""),
+                 "input_schema": t.get("parameters", {})}
+                for t in tools
+            ]
+        path = spec.chat_path
+    elif spec.name == "gemini-compat":
+        body = {
+            "contents": [{"role": "user", "parts": [{"text": user}]}],
+            "systemInstruction": {"parts": [{"text": system}]},
+        }
+        if tools:
+            body["tools"] = [{"functionDeclarations": [
+                {"name": t.get("name", ""), "description": t.get("description", ""),
+                 "parameters": t.get("parameters", {})}
+                for t in tools
+            ]}]
+        path = spec.chat_path.replace("{model}", model)
+    else:  # openai-compat default
+        body = {
+            "model": model,
+            "messages": [{"role": "system", "content": system},
+                         {"role": "user", "content": user}],
+        }
+        if tools:
+            body["tools"] = [{"type": "function", "function": {
+                "name": t.get("name", ""), "description": t.get("description", ""),
+                "parameters": t.get("parameters", {}),
+            }} for t in tools]
+        path = spec.chat_path
+    auth = spec.auth_header.replace("{api_key}", api_key_ref)
+    if auth:
+        headers["Authorization"] = auth
+    return {"path": path, "headers": headers, "body": body}
+
+
+def parse_provider_tool_call(
+    spec: ProviderProtocolSpec, response: Mapping[str, Any]
+) -> dict[str, Any] | None:
+    """Extract the first tool call from a provider response, normalized to
+    {"name": ..., "arguments": {...}} across all three wire styles."""
+    try:
+        if spec.tool_call_style == "anthropic_content_blocks":
+            for block in response["content"]:
+                if block.get("type") == "tool_use":
+                    return {"name": block["name"], "arguments": dict(block.get("input", {}))}
+        elif spec.tool_call_style == "gemini_function_calls":
+            parts = response["candidates"][0]["content"]["parts"]
+            for part in parts:
+                if "functionCall" in part:
+                    fc = part["functionCall"]
+                    return {"name": fc["name"], "arguments": dict(fc.get("args", {}))}
+        else:
+            msg = response["choices"][0]["message"]
+            calls = msg.get("tool_calls") or []
+            if calls:
+                fn = calls[0]["function"]
+                args = fn.get("arguments", "{}")
+                parsed = json.loads(args) if isinstance(args, str) else dict(args)
+                return {"name": fn["name"], "arguments": parsed}
+    except (KeyError, IndexError, TypeError, ValueError):
+        return None
+    return None

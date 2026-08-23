@@ -93,3 +93,27 @@ def replay_trace(
                         f"seq {seq}: {tool} expected {expected_status}, got {actual_status}"
                     )
     return report
+
+def replay_from_checkpoint(
+    task: TaskDefinition,
+    events: list[TraceEvent],
+    checkpoint_seq: int,
+    *,
+    compare_status_only: bool = True,
+) -> ReplayReport:
+    """Partial replay (feature 80): re-execute only tool interactions at or
+    after *checkpoint_seq*, skipping the verified prefix. Useful for debugging
+    long trajectories without re-running expensive early steps. The skipped
+    prefix is reported as an informational note so callers never mistake a
+    partial replay for a full one.
+    """
+    prefix = [e for e in events if e.seq is not None and e.seq < checkpoint_seq]
+    suffix = [e for e in events if e.seq is None or e.seq >= checkpoint_seq]
+    report = replay_trace(task, suffix, compare_status_only=compare_status_only)
+    skipped_tools = sum(1 for e in prefix if e.type == "tool_request")
+    report.errors.insert(
+        0,
+        f"partial-replay: skipped {len(prefix)} events "
+        f"({skipped_tools} tool requests) before checkpoint seq={checkpoint_seq}",
+    )
+    return report
