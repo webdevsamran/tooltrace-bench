@@ -11,7 +11,7 @@ for deterministic tests.
 from __future__ import annotations
 
 import json
-import subprocess  # noqa: S404 - controlled argv lists only, never shell=True
+import subprocess
 import sys
 from typing import Any
 
@@ -37,7 +37,7 @@ class MCPClient:
     def start(self) -> dict[str, Any]:
         """Spawn the server process and perform the initialize handshake."""
         try:
-            self._proc = subprocess.Popen(  # noqa: S603
+            self._proc = subprocess.Popen(
                 self._command,
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
@@ -62,12 +62,12 @@ class MCPClient:
                 if self._proc.stdin:
                     self._proc.stdin.close()
                 self._proc.wait(timeout=5)
-            except Exception:  # noqa: BLE001,S110
+            except Exception:
                 self._proc.kill()
             finally:
                 self._proc = None
 
-    def __enter__(self) -> "MCPClient":
+    def __enter__(self) -> MCPClient:
         self.start()
         return self
 
@@ -127,7 +127,7 @@ class MCPClient:
 # ---------------------------------------------------------------------------
 
 
-FAKE_SERVER_SCRIPT = r'''
+FAKE_SERVER_SCRIPT = r"""
 import json, sys
 TOOLS = {
     "echo": {"name": "echo", "description": "echo text back",
@@ -163,7 +163,7 @@ for line in sys.stdin:
     else:
         send({"jsonrpc": "2.0", "id": msg["id"], "error":
               {"code": -32601, "message": f"unknown method {method}"}})
-'''
+"""
 
 
 def fake_server_command() -> list[str]:
@@ -200,7 +200,7 @@ def conformance_check(command: list[str]) -> dict[str, Any]:
             problems.append("fixture tool 'echo' missing from inventory")
         unknown = client.call_tool("no_such_tool", {})
         checks["unknown_tool_errors"] = unknown.get("status") == "error"
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         problems.append(f"conformance exception: {exc}")
         checks.setdefault("initialize", False)
     finally:

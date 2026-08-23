@@ -14,15 +14,14 @@ from __future__ import annotations
 import json
 import os
 import uuid
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 from pydantic import BaseModel, Field
-
 from tooltrace.core.versions import compatibility_key
 from tooltrace.tasks.governance import canonical_json, sha256_text, utc_now_iso
-
 
 # ---------------------------------------------------------------------------
 # Experiment manifests (feature 60)
@@ -50,7 +49,7 @@ class ExperimentManifest(BaseModel):
         payload.pop("manifest_sha256", None)
         return sha256_text(canonical_json(payload))
 
-    def finalize(self) -> "ExperimentManifest":
+    def finalize(self) -> ExperimentManifest:
         self.manifest_sha256 = self.compute_checksum()
         return self
 
@@ -67,8 +66,8 @@ class RunState(BaseModel):
     failures: dict[str, str] = Field(default_factory=dict)
 
     @classmethod
-    def load(cls, path: Path) -> "RunState":
-        if path.exists():  # noqa: PTH110
+    def load(cls, path: Path) -> RunState:
+        if path.exists():
             return cls.model_validate(json.loads(path.read_text(encoding="utf-8")))
         raise FileNotFoundError(path)
 
@@ -99,7 +98,7 @@ def execute_experiment(
     """
     state = (
         RunState.load(state_path)
-        if state_path.exists()  # noqa: PTH110
+        if state_path.exists()
         else RunState(experiment_id=manifest.experiment_id)
     )
     pending = [
@@ -119,7 +118,7 @@ def execute_experiment(
             key, tid, rep = futures[future]
             try:
                 state.completed[key] = future.result()
-            except Exception as exc:  # noqa: BLE001 - failure isolation
+            except Exception as exc:
                 state.failures[key] = str(exc)[:300]
             state.save(state_path)
     if cancelled is not None and cancelled():
@@ -137,9 +136,7 @@ def execute_experiment(
 # ---------------------------------------------------------------------------
 
 
-def shard_work_items(
-    work_items: list[tuple[str, int]], shards: int
-) -> list[list[tuple[str, int]]]:
+def shard_work_items(work_items: list[tuple[str, int]], shards: int) -> list[list[tuple[str, int]]]:
     """Deterministic round-robin sharding."""
     if shards <= 0:
         raise ValueError("shards must be >= 1")
@@ -160,7 +157,9 @@ def merge_run_states(paths: list[Path], experiment_id: str) -> RunState:
             merged.completed[key] = value
         merged.failures.update(part.failures)
     total = len(merged.completed) + len(merged.failures)
-    merged.status = "completed" if merged.failures == {} and total > 0 else "completed_with_failures"
+    merged.status = (
+        "completed" if merged.failures == {} and total > 0 else "completed_with_failures"
+    )
     return merged
 
 
@@ -234,13 +233,13 @@ def default_worker_inventory(worker_id: str = "local") -> WorkerInventory:
     runtime = None
     for candidate in ("docker", "podman"):
         try:
-            proc = __import__("subprocess").run(  # noqa: S603
+            proc = __import__("subprocess").run(
                 [candidate, "--version"], capture_output=True, timeout=10
             )
             if proc.returncode == 0:
                 runtime = candidate
                 break
-        except Exception:  # noqa: BLE001,S110
+        except Exception:
             continue
     return WorkerInventory(
         worker_id=worker_id,

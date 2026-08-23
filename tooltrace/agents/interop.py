@@ -18,11 +18,10 @@ import json
 import os
 import time
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 from pydantic import BaseModel, Field
-
 
 # ---------------------------------------------------------------------------
 # Capability negotiation (feature 54)
@@ -156,9 +155,15 @@ def run_with_retries(
         started = time.perf_counter()
         try:
             value = operation()
-            attempts.append({"attempt": attempt, "ok": True, "duration_s": round(time.perf_counter() - started, 6)})
+            attempts.append(
+                {
+                    "attempt": attempt,
+                    "ok": True,
+                    "duration_s": round(time.perf_counter() - started, 6),
+                }
+            )
             return {"result": value, "attempts": attempts, "benchmark_waited_s": round(waited_s, 6)}
-        except Exception as exc:  # noqa: BLE001 - classified by caller
+        except Exception as exc:
             kind = classify_error(exc)
             attempts.append(
                 {
@@ -193,7 +198,7 @@ def adapter_health_check(
     for probe_name, probe in probes.items():
         try:
             ok = bool(probe())
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             ok = False
             report["checks"][f"{probe_name}_error"] = str(exc)[:200]
         report["checks"][probe_name] = ok
@@ -213,9 +218,9 @@ class CredentialResolver:
     def __init__(self, env: Mapping[str, str] | None = None, keyfile: str | None = None) -> None:
         self._env = dict(env if env is not None else os.environ)
         self._keyfile_values: dict[str, str] = {}
-        if keyfile and os.path.exists(keyfile):  # noqa: PTH110
+        if keyfile and os.path.exists(keyfile):
             try:
-                with open(keyfile, encoding="utf-8") as fh:  # noqa: PTH123
+                with open(keyfile, encoding="utf-8") as fh:
                     for line in fh:
                         line = line.strip()
                         if line and "=" in line and not line.startswith("#"):
@@ -255,11 +260,11 @@ class PriceTable(BaseModel):
     prices: dict[str, list[PriceEntry]] = Field(default_factory=dict)
 
     @classmethod
-    def load(cls, path_or_json: str) -> "PriceTable":
+    def load(cls, path_or_json: str) -> PriceTable:
         try:
             data = json.loads(path_or_json)
         except json.JSONDecodeError:
-            with open(path_or_json, encoding="utf-8") as fh:  # noqa: PTH123
+            with open(path_or_json, encoding="utf-8") as fh:
                 data = json.load(fh)
         return cls.model_validate(data)
 
@@ -285,7 +290,9 @@ class PriceTable(BaseModel):
                 f"no price configured for model {model!r} effective {at_date}; "
                 "add it to your price table instead of guessing"
             )
-        cost = (input_tokens / 1000.0) * entry.input_per_1k + (output_tokens / 1000.0) * entry.output_per_1k
+        cost = (input_tokens / 1000.0) * entry.input_per_1k + (
+            output_tokens / 1000.0
+        ) * entry.output_per_1k
         return {
             "model": model,
             "cost": round(cost, 6),
