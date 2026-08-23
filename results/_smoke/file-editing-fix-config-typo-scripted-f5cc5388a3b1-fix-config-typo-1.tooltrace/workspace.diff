@@ -1,8 +1,0 @@
---- config.ini
-+++ config.ini
-@@ -1,4 +1,4 @@
- [server]
- host = localhost
- port = 8080
--timout = 30
-+timeout = 30

@@ -75,6 +75,43 @@ scripted = "tooltrace.agents.scripted:ScriptedAgent"
 local = "tooltrace.sandbox.local:TempWorkspaceSandbox"
 docker = "tooltrace.sandbox.docker_sandbox:DockerSandbox"
 
+[project.entry-points."tooltrace.tools"]
+read_file = "tooltrace.tools.files:ReadFileTool"
+write_file = "tooltrace.tools.files:WriteFileTool"
+patch_file = "tooltrace.tools.files:PatchFileTool"
+list_directory = "tooltrace.tools.files:ListDirectoryTool"
+search_text = "tooltrace.tools.files:SearchTextTool"
+shell = "tooltrace.tools.process:ShellTool"
+git = "tooltrace.tools.process:GitTool"
+calculator = "tooltrace.tools.compute:CalculatorTool"
+test_runner = "tooltrace.tools.process:TestRunnerTool"
+http = "tooltrace.tools.net:HttpTool"
+
+[project.entry-points."tooltrace.task_packs"]
+builtin = "tooltrace.tasks._packs_entry:builtin"
+
+[project.entry-points."tooltrace.scorers"]
+file_exists = "tooltrace.scoring.builtin:_file_exists"
+file_not_exists = "tooltrace.scoring.builtin:_file_not_exists"
+file_contains = "tooltrace.scoring.builtin:_file_contains"
+file_not_contains = "tooltrace.scoring.builtin:_file_not_contains"
+json_schema = "tooltrace.scoring.builtin:_json_schema"
+json_equals = "tooltrace.scoring.builtin:_json_equals"
+csv_equals = "tooltrace.scoring.builtin:_csv_equals"
+command_exit = "tooltrace.scoring.builtin:_command_exit"
+tests_pass = "tooltrace.scoring.builtin:_tests_pass"
+git_diff = "tooltrace.scoring.builtin:_git_diff"
+ast_check = "tooltrace.scoring.builtin:_ast_check"
+data_equals = "tooltrace.scoring.builtin:_data_equals"
+api_state = "tooltrace.scoring.builtin:_api_state"
+
+[project.entry-points."tooltrace.reporters"]
+json_report = "tooltrace.exporters:json_report"
+csv_report = "tooltrace.exporters:csv_report"
+markdown_report = "tooltrace.exporters:markdown_report"
+junit_report = "tooltrace.exporters:junit_report"
+html_report = "tooltrace.exporters:html_report"
+
 [tool.hatch.build.targets.wheel]
 packages = ["tooltrace"]
 

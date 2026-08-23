@@ -9,15 +9,15 @@ th{background:#1e293b}.ok{color:#4ade80}.bad{color:#f87171}
 pre{background:#1e293b;padding:1rem;border-radius:6px;overflow:auto}
 </style></head><body>
 <h1>ToolTrace Bench Report</h1>
-<p>Generated 2026-08-22T16:41:59.486876+00:00. Run: <code>-</code></p>
+<p>Generated 2026-08-23T08:31:29.572662+00:00. Run: <code>-</code></p>
 <table><tr><th>Task</th><th>Agent</th><th>Success</th><th>Score</th>
 <th>Steps</th><th>Tool calls</th><th>Failed</th><th>Wall ms</th><th>Failure reason</th></tr>
-<tr><td>failure-recovery/retry-after-tool-failure</td><td>scripted</td><td class="ok">PASS</td><td>1.0</td><td>4</td><td>3</td><td>1</td><td>22.175</td><td>execution</td></tr>
-<tr><td>failure-recovery/retry-after-tool-failure</td><td>scripted</td><td class="ok">PASS</td><td>1.0</td><td>4</td><td>3</td><td>1</td><td>2.471</td><td>execution</td></tr>
-<tr><td>file-editing/fix-config-typo</td><td>scripted</td><td class="ok">PASS</td><td>1.0</td><td>3</td><td>2</td><td>0</td><td>2.259</td><td>none</td></tr>
-<tr><td>file-editing/fix-config-typo</td><td>scripted</td><td class="ok">PASS</td><td>1.0</td><td>3</td><td>2</td><td>0</td><td>2.372</td><td>none</td></tr>
-<tr><td>json-csv-transform/users-to-csv</td><td>scripted</td><td class="ok">PASS</td><td>1.0</td><td>2</td><td>1</td><td>0</td><td>2.256</td><td>none</td></tr>
-<tr><td>json-csv-transform/users-to-csv</td><td>scripted</td><td class="ok">PASS</td><td>1.0</td><td>2</td><td>1</td><td>0</td><td>1.908</td><td>none</td></tr></table>
+<tr><td>failure-recovery/retry-after-tool-failure</td><td>scripted</td><td class="ok">PASS</td><td>1.0</td><td>4</td><td>3</td><td>1</td><td>16.764</td><td>execution</td></tr>
+<tr><td>failure-recovery/retry-after-tool-failure</td><td>scripted</td><td class="ok">PASS</td><td>1.0</td><td>4</td><td>3</td><td>1</td><td>1.922</td><td>execution</td></tr>
+<tr><td>file-editing/fix-config-typo</td><td>scripted</td><td class="ok">PASS</td><td>1.0</td><td>3</td><td>2</td><td>0</td><td>2.014</td><td>none</td></tr>
+<tr><td>file-editing/fix-config-typo</td><td>scripted</td><td class="ok">PASS</td><td>1.0</td><td>3</td><td>2</td><td>0</td><td>2.938</td><td>none</td></tr>
+<tr><td>json-csv-transform/users-to-csv</td><td>scripted</td><td class="ok">PASS</td><td>1.0</td><td>2</td><td>1</td><td>0</td><td>1.437</td><td>none</td></tr>
+<tr><td>json-csv-transform/users-to-csv</td><td>scripted</td><td class="ok">PASS</td><td>1.0</td><td>2</td><td>1</td><td>0</td><td>1.595</td><td>none</td></tr></table>
 <h2>Summary</h2><pre>{}</pre>
 <h2>Detail — failure-recovery/retry-after-tool-failure [scripted]</h2><h3>Trace timeline</h3><ol><li>#1 task_start</li><li>#2 tool_request: read_file</li><li>#3 tool_result: read_file: error</li><li>#2 retry_recovery: read_file</li><li>#4 tool_request: read_file</li><li>#5 tool_result: read_file: ok</li><li>#6 tool_request: patch_file</li><li>#7 tool_result: patch_file: ok</li><li>#3 agent_message</li><li>#4 workspace_diff</li><li>#5 validation</li><li>#6 task_end</li></ol><h3>Workspace diff</h3><pre>--- notes.txt
 +++ notes.txt

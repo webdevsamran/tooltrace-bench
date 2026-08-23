@@ -1,0 +1,60 @@
+id: long-context/context-scale-1k
+name: Long-context scale 1k
+version: 1.0.0
+category: long-context
+difficulty: medium
+tags:
+- long-context
+- scale
+- 1k
+objective: Fix the typo in target.txt (replace 'reday' with 'ready'). Ignore the large irrelevant filler
+  files.
+description: Long-context robustness probe at ~1000 chars of distractor workspace content. Identical objective
+  across the scale family; only context size varies.
+starting_workspace:
+  target.txt: 'status: reday
+
+    '
+  filler_0.txt: 'lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem
+    ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet
+    lorem ipsum dolor sit amet  (file 0 line 0)
+
+    lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor
+    sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum dolor sit amet lorem ipsum
+    dolor sit amet  (file 0 line 1)
+
+    '
+allowed_tools:
+- read_file
+- patch_file
+- search_text
+- list_directory
+assertions:
+- type: file_not_contains
+  params:
+    path: target.txt
+    text: reday
+  weight: 1.0
+  description: typo fixed
+- type: file_contains
+  params:
+    path: target.txt
+    text: ready
+  weight: 1.0
+  description: correct word
+expected_artifacts: []
+timeout_seconds: 60
+max_steps: 12
+network_policy: disabled
+long_context: true
+metadata:
+  context_chars: 1000
+  scripted_script:
+  - tool: search_text
+    args:
+      pattern: reday
+  - tool: patch_file
+    args:
+      path: target.txt
+      search: reday
+      replace: ready
