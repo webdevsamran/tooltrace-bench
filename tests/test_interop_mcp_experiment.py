@@ -6,11 +6,9 @@ import json
 from pathlib import Path
 
 import pytest
-
 from tooltrace.agents.interop import (
     AdapterCapabilities,
     CredentialResolver,
-    ModelMetadata,
     PriceTable,
     RetryPolicy,
     adapter_health_check,
@@ -30,8 +28,8 @@ from tooltrace.executors.experiment import (
     shard_work_items,
 )
 
-
 # --- capability negotiation ---------------------------------------------------
+
 
 def test_negotiate_ok_and_missing() -> None:
     good = negotiate(AdapterCapabilities())
@@ -41,6 +39,7 @@ def test_negotiate_ok_and_missing() -> None:
 
 
 # --- model metadata -----------------------------------------------------------
+
 
 def test_normalize_model_metadata_strips_urls() -> None:
     meta = normalize_model_metadata(
@@ -59,6 +58,7 @@ def test_normalize_model_metadata_strips_urls() -> None:
 
 
 # --- retries --------------------------------------------------------------------
+
 
 def test_retries_transient_then_success_records_attempts() -> None:
     calls = {"n": 0}
@@ -90,11 +90,14 @@ def test_no_retry_for_permanent_errors() -> None:
         raise ValueError("permanent")
 
     with pytest.raises(ValueError):
-        run_with_retries(boom, lambda e: "permanent", RetryPolicy(max_attempts=3), sleeper=lambda s: None)
+        run_with_retries(
+            boom, lambda e: "permanent", RetryPolicy(max_attempts=3), sleeper=lambda s: None
+        )
     assert attempts["n"] == 1
 
 
 # --- health checks ----------------------------------------------------------------
+
 
 def test_health_check_aggregates_probes() -> None:
     report = adapter_health_check("local", {"config": lambda: True, "endpoint": lambda: False})
@@ -103,6 +106,7 @@ def test_health_check_aggregates_probes() -> None:
 
 
 # --- credentials ---------------------------------------------------------------------
+
 
 def test_credential_resolver_never_leaks_value_in_ref(tmp_path: Path) -> None:
     kf = tmp_path / "secrets.env"
@@ -143,6 +147,7 @@ def test_cost_uses_newest_effective_price_or_fails_closed() -> None:
 
 # --- MCP ------------------------------------------------------------------------------
 
+
 def test_mcp_conformance_against_fake_server() -> None:
     report = conformance_check(fake_server_command())
     assert report["ok"], report
@@ -153,6 +158,7 @@ def test_mcp_conformance_against_fake_server() -> None:
 
 
 # --- experiment engine -------------------------------------------------------------------
+
 
 def _runner(task_id: str, repetition: int) -> dict[str, object]:
     if task_id == "boom-task":
@@ -196,7 +202,9 @@ def test_sharding_roundtrip_merge(tmp_path: Path) -> None:
     paths = []
     for i, shard in enumerate(shards):
         sp = tmp_path / f"shard{i}.json"
-        RunState(experiment_id="exp", completed={item[0]: {"task": item[0]} for item in shard}).save(sp)
+        RunState(
+            experiment_id="exp", completed={item[0]: {"task": item[0]} for item in shard}
+        ).save(sp)
         paths.append(sp)
     merged = merge_run_states(paths, "exp")
     assert len(merged.completed) == 7
