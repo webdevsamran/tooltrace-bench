@@ -16,6 +16,7 @@ import argparse
 import contextlib
 import json
 import sys
+import time
 from pathlib import Path
 
 EXIT_OK = 0
@@ -378,6 +379,100 @@ def cmd_serve(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def cmd_lint(args: argparse.Namespace) -> int:
+    """Task-lint: ambiguous scoring, unreachable assertions, unsafe network,
+    non-deterministic fixtures."""
+    from tooltrace.tasks import load_all_tasks
+    from tooltrace.tasks.linting import lint_pack
+
+    tasks = load_all_tasks()
+    if args.path:
+        from tooltrace.tasks.sdk import validate_task_dir
+
+        tasks, _ = validate_task_dir(Path(args.path))
+    report = lint_pack(tasks)
+    total = sum(len(v) for v in report.values())
+    payload = {
+        "tasks": len(report),
+        "issues": total,
+        "detail": {
+            k: [i.model_dump() if hasattr(i, "model_dump") else str(i) for i in v]
+            for k, v in report.items()
+        },
+    }
+    _emit(payload, args.json)
+    return EXIT_OK if total == 0 else EXIT_TASK
+
+
+def cmd_dry_run(args: argparse.Namespace) -> int:
+    """Validate fixtures/assertions/sandbox lifecycle without invoking a model."""
+    from tooltrace.tasks import find_task
+    from tooltrace.tasks.linting import dry_run_task
+
+    try:
+        task = find_task(args.task)
+    except Exception as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_TASK
+    report = dry_run_task(task)
+    data = (
+        report.model_dump(mode="json") if hasattr(report, "model_dump") else {"report": str(report)}
+    )
+    _emit(data, args.json)
+    ok = bool(data.get("ok", True)) if isinstance(data, dict) else True
+    return EXIT_OK if ok else EXIT_TASK
+
+
+def cmd_self_test(args: argparse.Namespace) -> int:
+    """Harness self-test: sandbox cleanup, scoring determinism, timers,
+    fixture integrity, trace integrity - no model required."""
+    from tooltrace.sandbox.infra import harness_self_test
+
+    def sandbox_factory() -> object:
+        from tooltrace.sandbox.infra import WindowsNativeSandbox
+
+        return WindowsNativeSandbox()
+
+    def scorer(value: str) -> float:
+        return float(len(value))
+
+    try:
+        report = harness_self_test(sandbox_factory, scorer)
+    except Exception as exc:
+        print(f"error: self-test could not construct a local sandbox: {exc}", file=sys.stderr)
+        return EXIT_RUN
+    _emit(report, args.json)
+    return EXIT_OK if report["ok"] else EXIT_RUN
+
+
+def cmd_snapshot(args: argparse.Namespace) -> int:
+    """Generate or verify a reproducible dataset snapshot with hashes."""
+    from tooltrace.analysis import generate_snapshot, verify_snapshot
+
+    out = Path(args.output)
+    if args.verify:
+        problems = verify_snapshot(out, Path(args.source))
+        _emit({"verified": not problems, "problems": problems}, args.json)
+        return EXIT_OK if not problems else EXIT_TASK
+    snap = generate_snapshot(Path(args.source), out, args.changelog)
+    _emit({"snapshot_sha256": snap["snapshot_sha256"], "file_count": snap["file_count"]}, args.json)
+    return EXIT_OK
+
+
+def cmd_server(args: argparse.Namespace) -> int:
+    """Run the self-hosted team/enterprise API server."""
+    from tooltrace.server.core import serve
+
+    httpd = serve(host=args.host, port=args.port)
+    print(f"tooltrace server listening on http://{args.host}:{args.port} (Ctrl+C to stop)")
+    try:
+        while True:
+            time.sleep(3600)
+    except KeyboardInterrupt:
+        httpd.shutdown()
+    return EXIT_OK
+
+
 def cmd_task_group(args: argparse.Namespace) -> int:
     from tooltrace.tasks.sdk import scaffold_task, test_pack, validate_task_dir
 
@@ -491,6 +586,24 @@ def build_parser() -> argparse.ArgumentParser:
     te = tksub.add_parser("test")
     te.add_argument("--path", required=True)
     tk.set_defaults(func=cmd_task_group)
+
+    ln = add("lint", cmd_lint, "lint task packs for scoring/safety/determinism issues")
+    ln.add_argument("--path", help="lint a specific pack directory instead of all packs")
+
+    dr = add("dry-run", cmd_dry_run, "validate a task without invoking any model")
+    dr.add_argument("--task", required=True)
+
+    add("self-test", cmd_self_test, "verify harness: cleanup, determinism, timers, integrity")
+    add("snapshot", cmd_snapshot, "generate/verify a hashed dataset snapshot")
+    snap = sub.choices["snapshot"]  # type: ignore[union-attr]
+    snap.add_argument("--source", required=True)
+    snap.add_argument("--output", required=True)
+    snap.add_argument("--changelog", default="")
+    snap.add_argument("--verify", action="store_true")
+
+    srv2 = add("server", cmd_server, "run the self-hosted API server (RBAC/policy/audit)")
+    srv2.add_argument("--host", default="127.0.0.1")
+    srv2.add_argument("--port", type=int, default=8737)
 
     return p
 
