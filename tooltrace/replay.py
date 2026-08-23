@@ -94,6 +94,7 @@ def replay_trace(
                     )
     return report
 
+
 def replay_from_checkpoint(
     task: TaskDefinition,
     events: list[TraceEvent],

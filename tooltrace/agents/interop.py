@@ -303,6 +303,7 @@ class PriceTable(BaseModel):
             "output_tokens": output_tokens,
         }
 
+
 # ---------------------------------------------------------------------------
 # Generic provider-compatible protocol layers (feature 49)
 # ---------------------------------------------------------------------------
@@ -371,8 +372,11 @@ def build_provider_request(
         }
         if tools:
             body["tools"] = [
-                {"name": t.get("name", ""), "description": t.get("description", ""),
-                 "input_schema": t.get("parameters", {})}
+                {
+                    "name": t.get("name", ""),
+                    "description": t.get("description", ""),
+                    "input_schema": t.get("parameters", {}),
+                }
                 for t in tools
             ]
         path = spec.chat_path
@@ -382,23 +386,36 @@ def build_provider_request(
             "systemInstruction": {"parts": [{"text": system}]},
         }
         if tools:
-            body["tools"] = [{"functionDeclarations": [
-                {"name": t.get("name", ""), "description": t.get("description", ""),
-                 "parameters": t.get("parameters", {})}
-                for t in tools
-            ]}]
+            body["tools"] = [
+                {
+                    "functionDeclarations": [
+                        {
+                            "name": t.get("name", ""),
+                            "description": t.get("description", ""),
+                            "parameters": t.get("parameters", {}),
+                        }
+                        for t in tools
+                    ]
+                }
+            ]
         path = spec.chat_path.replace("{model}", model)
     else:  # openai-compat default
         body = {
             "model": model,
-            "messages": [{"role": "system", "content": system},
-                         {"role": "user", "content": user}],
+            "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
         }
         if tools:
-            body["tools"] = [{"type": "function", "function": {
-                "name": t.get("name", ""), "description": t.get("description", ""),
-                "parameters": t.get("parameters", {}),
-            }} for t in tools]
+            body["tools"] = [
+                {
+                    "type": "function",
+                    "function": {
+                        "name": t.get("name", ""),
+                        "description": t.get("description", ""),
+                        "parameters": t.get("parameters", {}),
+                    },
+                }
+                for t in tools
+            ]
         path = spec.chat_path
     auth = spec.auth_header.replace("{api_key}", api_key_ref)
     if auth:
