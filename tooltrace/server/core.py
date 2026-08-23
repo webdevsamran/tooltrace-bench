@@ -43,10 +43,21 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
     "viewer": frozenset({"read_public", "read_results"}),
     "runner": frozenset({"read_public", "read_results", "run_experiments"}),
     "task_author": frozenset({"read_public", "read_results", "run_experiments", "author_tasks"}),
-    "reviewer": frozenset({"read_public", "read_results", "run_experiments", "author_tasks", "review_publication"}),
+    "reviewer": frozenset(
+        {"read_public", "read_results", "run_experiments", "author_tasks", "review_publication"}
+    ),
     "admin": frozenset(
-        {"read_public", "read_results", "run_experiments", "author_tasks", "review_publication",
-         "manage_members", "manage_policies", "manage_budgets", "approve_privileged"}
+        {
+            "read_public",
+            "read_results",
+            "run_experiments",
+            "author_tasks",
+            "review_publication",
+            "manage_members",
+            "manage_policies",
+            "manage_budgets",
+            "approve_privileged",
+        }
     ),
     "service_account": frozenset({"read_results", "run_experiments"}),
 }
@@ -81,7 +92,9 @@ class TokenStore:
         }
         return raw
 
-    def rotate(self, raw_token: str, owner: str, workspace_id: str, scopes: list[str]) -> str | None:
+    def rotate(
+        self, raw_token: str, owner: str, workspace_id: str, scopes: list[str]
+    ) -> str | None:
         old = hashlib.sha256(raw_token.encode()).hexdigest()
         if old not in self._hashes:
             return None
@@ -145,10 +158,15 @@ class WorkspacePolicy(BaseModel):
     publication_requires_approval: bool = True
 
 
-def evaluate_policy(action: str, payload: dict[str, Any], policy: WorkspacePolicy) -> dict[str, Any]:
+def evaluate_policy(
+    action: str, payload: dict[str, Any], policy: WorkspacePolicy
+) -> dict[str, Any]:
     violations: list[str] = []
     if action == "run_experiment":
-        if payload.get("provider") not in policy.allowed_providers and "*" not in policy.allowed_providers:
+        if (
+            payload.get("provider") not in policy.allowed_providers
+            and "*" not in policy.allowed_providers
+        ):
             violations.append("provider not allowed by policy")
         if payload.get("model") not in policy.allowed_models and "*" not in policy.allowed_models:
             violations.append("model not allowed by policy")
@@ -182,8 +200,21 @@ class ApprovalWorkflow:
     def __init__(self) -> None:
         self.requests: dict[str, ApprovalRequest] = {}
 
-    def request(self, request_id: str, workspace_id: str, action: str, payload: dict[str, Any], requester: User) -> ApprovalRequest:
-        req = ApprovalRequest(request_id=request_id, workspace_id=workspace_id, action=action, payload=payload, requested_by=requester.user_id)
+    def request(
+        self,
+        request_id: str,
+        workspace_id: str,
+        action: str,
+        payload: dict[str, Any],
+        requester: User,
+    ) -> ApprovalRequest:
+        req = ApprovalRequest(
+            request_id=request_id,
+            workspace_id=workspace_id,
+            action=action,
+            payload=payload,
+            requested_by=requester.user_id,
+        )
         self.requests[request_id] = req
         return req
 
@@ -207,7 +238,9 @@ class AuditLog:
         self._entries: list[dict[str, Any]] = []
         self._prev_hash = "genesis"
 
-    def append(self, actor: str, action: str, target: str, details: dict[str, Any] | None = None) -> dict[str, Any]:
+    def append(
+        self, actor: str, action: str, target: str, details: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
         entry: dict[str, Any] = {
             "seq": len(self._entries),
             "timestamp": utc_now_iso(),
@@ -230,7 +263,11 @@ class AuditLog:
         prev = "genesis"
         for e in self._entries:
             payload = {k: v for k, v in e.items() if k != "entry_hash"}
-            if e["prev_hash"] != prev or e["entry_hash"] != hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest():
+            if (
+                e["prev_hash"] != prev
+                or e["entry_hash"]
+                != hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()
+            ):
                 return False
             prev = e["entry_hash"]
         return True
@@ -286,7 +323,12 @@ class WebhookDispatcher:
                 last_status = self._poster(sub["url"], body, headers)
                 if 200 <= last_status < 300:
                     break
-        return {"event": event, "delivered": 200 <= last_status < 300, "attempts": attempts, "last_status": last_status}
+        return {
+            "event": event,
+            "delivered": 200 <= last_status < 300,
+            "attempts": attempts,
+            "last_status": last_status,
+        }
 
 
 # ---------------------------------------------------------------------------
@@ -294,7 +336,12 @@ class WebhookDispatcher:
 # ---------------------------------------------------------------------------
 
 
-def apply_retention(records: list[dict[str, Any]], max_age_days: int, now_epoch: float, legal_hold_ids: set[str] | None = None) -> tuple[list[dict[str, Any]], list[str]]:
+def apply_retention(
+    records: list[dict[str, Any]],
+    max_age_days: int,
+    now_epoch: float,
+    legal_hold_ids: set[str] | None = None,
+) -> tuple[list[dict[str, Any]], list[str]]:
     """Delete records older than retention unless under legal-hold-style hold."""
     hold = legal_hold_ids or set()
     cutoff = now_epoch - max_age_days * 86400
@@ -325,7 +372,11 @@ class ServerState:
         self.quotas: dict[str, QuotaTracker] = {}
         self.experiments: dict[str, dict[str, Any]] = {}
         self.events: list[dict[str, Any]] = []  # for SSE
-        self.metrics_counters: dict[str, int] = {"runs_started": 0, "runs_completed": 0, "runs_failed": 0}
+        self.metrics_counters: dict[str, int] = {
+            "runs_started": 0,
+            "runs_completed": 0,
+            "runs_failed": 0,
+        }
         self.started_at = time.time()
 
 
@@ -339,11 +390,15 @@ def _token_user(raw_token: str) -> User | None:
     return STATE.users.get(info["owner"])
 
 
-ROUTES: dict[tuple[str, str], Callable[[dict[str, Any], User | None], tuple[int, dict[str, Any]]]] = {}
+ROUTES: dict[
+    tuple[str, str], Callable[[dict[str, Any], User | None], tuple[int, dict[str, Any]]]
+] = {}
 
 
 def route(method: str, path: str) -> Callable[..., Any]:
-    def register(fn: Callable[[dict[str, Any], User | None], tuple[int, dict[str, Any]]]) -> Callable[..., Any]:
+    def register(
+        fn: Callable[[dict[str, Any], User | None], tuple[int, dict[str, Any]]],
+    ) -> Callable[..., Any]:
         ROUTES[(method, path)] = fn
         return fn
 
@@ -364,11 +419,12 @@ def _readyz(body: dict[str, Any], user: User | None) -> tuple[int, dict[str, Any
 @route("GET", "/metrics")
 def _metrics(body: dict[str, Any], user: User | None) -> tuple[int, dict[str, Any]]:
     uptime = round(time.time() - STATE.started_at, 1)
-    lines = [f'tooltrace_uptime_seconds {uptime}']
+    lines = [f"tooltrace_uptime_seconds {uptime}"]
     for name, value in STATE.metrics_counters.items():
         lines.append(f"tooltrace_{name} {value}")
     lines.append(f"tooltrace_queue_depth {len(STATE.experiments)}")
     return 200, {"_text": chr(10).join(lines) + chr(10)}
+
 
 @route("POST", "/api/v1/experiments")
 def _create_experiment(body: dict[str, Any], user: User | None) -> tuple[int, dict[str, Any]]:
@@ -418,7 +474,12 @@ def _decide_approval(body: dict[str, Any], user: User | None) -> tuple[int, dict
         return 403, {"error": "forbidden"}
     except KeyError:
         return 404, {"error": "not found"}
-    STATE.audit.append(actor=user.user_id, action="approval.decide", target=req.request_id, details={"approved": body.get("approve")})
+    STATE.audit.append(
+        actor=user.user_id,
+        action="approval.decide",
+        target=req.request_id,
+        details={"approved": body.get("approve")},
+    )
     return 200, req.model_dump(mode="json")
 
 
@@ -457,7 +518,11 @@ def make_handler() -> type[BaseHTTPRequestHandler]:
                 return
             path = self.path.split("?")[0]
             auth = self.headers.get("Authorization", "")
-            user = _token_user(auth.removeprefix("Bearer ").strip()) if auth.startswith("Bearer ") else None
+            user = (
+                _token_user(auth.removeprefix("Bearer ").strip())
+                if auth.startswith("Bearer ")
+                else None
+            )
             # dynamic segment: /api/v1/approvals/{id}/decide
             key = (method, path)
             if key not in ROUTES and path.endswith("/decide"):

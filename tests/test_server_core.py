@@ -33,6 +33,7 @@ def make_user(role: str = "admin", ws: str = "ws1", uid: str = "alice") -> User:
 
 # --- RBAC ------------------------------------------------------------------------
 
+
 def test_rbac_roles_and_tenant_scoping() -> None:
     admin = make_user("admin")
     viewer = make_user("viewer")
@@ -43,6 +44,7 @@ def test_rbac_roles_and_tenant_scoping() -> None:
 
 
 # --- tokens -------------------------------------------------------------------------
+
 
 def test_tokens_hashed_rotatable_and_verifiable() -> None:
     store = TokenStore()
@@ -57,6 +59,7 @@ def test_tokens_hashed_rotatable_and_verifiable() -> None:
 
 # --- auth providers ---------------------------------------------------------------------
 
+
 def test_local_dev_auth_and_oidc_hook() -> None:
     provider = LocalDevAuthProvider([make_user()])
     assert provider.authenticate("alice") is not None
@@ -69,9 +72,12 @@ def test_local_dev_auth_and_oidc_hook() -> None:
 
 # --- policy -------------------------------------------------------------------------------
 
+
 def test_policy_as_code_blocks_disallowed_and_publication() -> None:
     policy = WorkspacePolicy(allowed_providers=["local"], network_modes=["offline"])
-    out = evaluate_policy("run_experiment", {"provider": "openai", "network_mode": "offline"}, policy)
+    out = evaluate_policy(
+        "run_experiment", {"provider": "openai", "network_mode": "offline"}, policy
+    )
     assert not out["allowed"] and any("provider" in v for v in out["violations"])
     ok = evaluate_policy("run_experiment", {"provider": "local", "network_mode": "offline"}, policy)
     assert ok["allowed"]
@@ -80,6 +86,7 @@ def test_policy_as_code_blocks_disallowed_and_publication() -> None:
 
 
 # --- approvals --------------------------------------------------------------------------------
+
 
 def test_approval_workflow_requires_admin_decision() -> None:
     wf = ApprovalWorkflow()
@@ -94,6 +101,7 @@ def test_approval_workflow_requires_admin_decision() -> None:
 
 # --- audit chain ---------------------------------------------------------------------------------
 
+
 def test_audit_log_hash_chain_detects_tampering(tmp_path: Path) -> None:
     log = AuditLog(path=tmp_path / "audit.jsonl")
     log.append("alice", "experiment.create", "e1")
@@ -106,6 +114,7 @@ def test_audit_log_hash_chain_detects_tampering(tmp_path: Path) -> None:
 
 # --- quotas ------------------------------------------------------------------------------------------
 
+
 def test_quota_tracker_enforces_limits() -> None:
     quota = QuotaTracker({"runs": 2})
     assert quota.consume("runs") and quota.consume("runs")
@@ -114,6 +123,7 @@ def test_quota_tracker_enforces_limits() -> None:
 
 
 # --- webhooks -------------------------------------------------------------------------------------------
+
 
 def test_webhooks_signed_with_retries() -> None:
     calls: list[tuple[str, bytes, dict[str, str]]] = []
@@ -135,6 +145,7 @@ def test_webhooks_signed_with_retries() -> None:
 
 # --- retention ----------------------------------------------------------------------------------------------
 
+
 def test_retention_respects_legal_hold() -> None:
     now = time.time()
     records = [
@@ -142,12 +153,15 @@ def test_retention_respects_legal_hold() -> None:
         {"id": "held", "created_at_epoch": now - 100 * 86400},
         {"id": "new", "created_at_epoch": now},
     ]
-    keep, deleted = apply_retention(records, max_age_days=90, now_epoch=now, legal_hold_ids={"held"})
+    keep, deleted = apply_retention(
+        records, max_age_days=90, now_epoch=now, legal_hold_ids={"held"}
+    )
     assert deleted == ["old"]
     assert {r["id"] for r in keep} == {"held", "new"}
 
 
 # --- HTTP API ----------------------------------------------------------------------------------------------------
+
 
 @pytest.fixture()
 def server() -> object:
@@ -166,7 +180,9 @@ def server() -> object:
     srv.shutdown()
 
 
-def _post(base: str, path: str, token: str | None, payload: dict[str, object]) -> tuple[int, dict[str, object]]:
+def _post(
+    base: str, path: str, token: str | None, payload: dict[str, object]
+) -> tuple[int, dict[str, object]]:
     data = json.dumps(payload).encode()
     req = urllib.request.Request(base + path, data=data, method="POST")
     if token:
@@ -206,7 +222,9 @@ def test_http_experiment_rbac_quota_audit(server: object) -> None:
     status, _ = _post(base, "/api/v1/experiments", None, {"workspace_id": "ws1"})
     assert status == 403
     # authorized create
-    status, body = _post(base, "/api/v1/experiments", token, {"workspace_id": "ws1", "suite": "smoke"})
+    status, body = _post(
+        base, "/api/v1/experiments", token, {"workspace_id": "ws1", "suite": "smoke"}
+    )
     assert status == 201 and body["status"] == "queued"
     exp_id = str(body["id"])
     assert STATE.audit.verify_chain()
@@ -221,7 +239,9 @@ def test_http_experiment_rbac_quota_audit(server: object) -> None:
 
 def test_http_approval_flow(server: object) -> None:
     base, token = server
-    status, body = _post(base, "/api/v1/approvals", token, {"workspace_id": "ws1", "action": "publish_results"})
+    status, body = _post(
+        base, "/api/v1/approvals", token, {"workspace_id": "ws1", "action": "publish_results"}
+    )
     assert status == 201
     apr_id = body["request_id"]
     status, body = _post(base, f"/api/v1/approvals/{apr_id}/decide", token, {"approve": True})
