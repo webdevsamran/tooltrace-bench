@@ -292,3 +292,71 @@ def _compat_key() -> str:
     from tooltrace.core.versions import compatibility_key
 
     return compatibility_key()
+
+# ---------------------------------------------------------------------------
+# Contamination-aware metadata (feature 4)
+# ---------------------------------------------------------------------------
+
+
+class ContaminationFlag(BaseModel):
+    """Author-declared public training-exposure risk for a task.
+
+    This is an honest risk signal, not proof: benchmark authors flag tasks whose
+    objectives/fixtures may appear in public training corpora. Levels:
+    none | low | medium | high. Verification state is always 'declared'.
+    """
+
+    task_id: str
+    level: str = "none"  # none | low | medium | high
+    reason: str = ""
+    public_sources: list[str] = Field(default_factory=list)
+    declared_at: str = Field(default_factory=utc_now_iso)
+    verification_state: str = "declared"
+
+
+def assess_contamination(
+    task_id: str,
+    *,
+    objective_text: str = "",
+    fixture_names: list[str] | None = None,
+    derived_from_public_repo: bool = False,
+    known_leak_reports: list[str] | None = None,
+) -> ContaminationFlag:
+    """Heuristic contamination-risk assessment from declared evidence.
+
+    Combines author declarations (derived-from-public, leak reports) with simple
+    textual signals (generic phrasing, well-known filenames). Never claims a
+    task is clean; absence of evidence yields level 'none' only when no signals
+    exist in the supplied evidence.
+    """
+    score = 0
+    reasons: list[str] = []
+    sources: list[str] = list(known_leak_reports or [])
+    if derived_from_public_repo:
+        score += 3
+        reasons.append("fixtures/objectives derived from a public repository")
+    if known_leak_reports:
+        score += 4
+        reasons.append("public leak reports exist for this content")
+    text = (objective_text or "").lower()
+    generic_markers = (
+        "fizzbuzz", "two sum", "reverse a string", "fibonacci", "palindrome",
+        "todo app", "hello world",
+    )
+    if any(m in text for m in generic_markers):
+        score += 2
+        reasons.append("objective uses widely duplicated textbook phrasing")
+    common_files = {"readme.md", "main.py", "index.js", "app.py", "utils.py"}
+    overlap = common_files.intersection({f.lower() for f in (fixture_names or [])})
+    if overlap:
+        score += 1
+        reasons.append(f"generic fixture filenames: {sorted(overlap)}")
+    if not reasons:
+        return ContaminationFlag(
+            task_id=task_id, level="none",
+            reason="no public-exposure signals in declared evidence",
+        )
+    level = ("low", "medium", "high")[min(score // 3, 2)]
+    return ContaminationFlag(
+        task_id=task_id, level=level, reason="; ".join(reasons), public_sources=sources
+    )
