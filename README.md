@@ -121,6 +121,15 @@ Agents implement a small, stable interface: `initialize`, `run`, an **event stre
 
 A production-quality React + TypeScript + Vite app lives in [`web/`](web/): leaderboard, agents, models, task packs, result detail with trace timeline / tool-call viewer / workspace diff viewer, compare, reliability trends, failure analysis, methodology, docs, contributors and about. It renders **only validated repository data** — static JSON indexes are generated from real result bundles and deployed via GitHub Pages, so no backend is required. Dark/light mode, accessibility, global search, shareable filters, sortable/paginated tables, and raw-data downloads are built in.
 
+## Documentation
+
+Full docs hierarchy in [`docs/`](docs/index.md): [getting started](docs/getting-started.md),
+[CLI reference](docs/cli-reference.md) (incl. `lint`, `dry-run`, `self-test`, `snapshot`,
+`server`), [architecture pipeline](docs/architecture-pipeline.md),
+[self-hosting & teams](docs/self-hosting.md) (RBAC, policy-as-code, audit, quotas,
+signed webhooks), [security threat model](docs/THREAT_MODEL.md),
+[competitive analysis](docs/competitive-analysis.md), [troubleshooting/FAQ](docs/troubleshooting-faq.md).
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md). Good first issues are labeled `good first issue` in the tracker; meaningful contribution areas include task packs, adapters, deterministic scorers, sandbox providers, frontend and analysis algorithms.
