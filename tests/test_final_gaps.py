@@ -17,6 +17,7 @@ from tooltrace.tasks.governance import assess_contamination
 
 # --- feature 4: contamination-aware metadata -------------------------------
 
+
 def test_contamination_clean_when_no_signals():
     flag = assess_contamination("t/x", objective_text="rotate log rotation policy")
     assert flag.level == "none"
@@ -44,9 +45,13 @@ def test_contamination_medium_from_public_repo_and_generic_files():
 
 # --- feature 49: provider-compatible protocol layers -----------------------
 
+
 def test_openai_request_shape():
     req = build_provider_request(
-        OPENAI_COMPAT_SPEC, model="m1", system="s", user="u",
+        OPENAI_COMPAT_SPEC,
+        model="m1",
+        system="s",
+        user="u",
         tools=[{"name": "read_file", "description": "d", "parameters": {}}],
         api_key_ref="MY_KEY_ENV",
     )
@@ -72,9 +77,11 @@ def test_gemini_request_and_parse():
     )
     assert req["path"] == "/v1beta/models/gemini-x:generateContent"
     assert req["headers"]["x-goog-api-key"] == "K"
-    resp = {"candidates": [{"content": {"parts": [
-        {"functionCall": {"name": "run_cmd", "args": {"cmd": "ls"}}}
-    ]}}]}
+    resp = {
+        "candidates": [
+            {"content": {"parts": [{"functionCall": {"name": "run_cmd", "args": {"cmd": "ls"}}}]}}
+        ]
+    }
     call = parse_provider_tool_call(GEMINI_COMPAT_SPEC, resp)
     assert call == {"name": "run_cmd", "arguments": {"cmd": "ls"}}
 
@@ -85,13 +92,28 @@ def test_parse_malformed_response_returns_none():
 
 # --- feature 80: partial replay from checkpoint ----------------------------
 
+
 def _events():
     ts = "2026-08-23T00:00:00+00:00"
     return [
-        TraceEvent(seq=0, timestamp=ts, type="tool_request", payload={"tool": "write_file", "args": {"path": "a.txt", "content": "x"}}),
-        TraceEvent(seq=1, timestamp=ts, type="tool_result", payload={"tool": "write_file", "status": "ok"}),
-        TraceEvent(seq=2, timestamp=ts, type="tool_request", payload={"tool": "read_file", "args": {"path": "a.txt"}}),
-        TraceEvent(seq=3, timestamp=ts, type="tool_result", payload={"tool": "read_file", "status": "ok"}),
+        TraceEvent(
+            seq=0,
+            timestamp=ts,
+            type="tool_request",
+            payload={"tool": "write_file", "args": {"path": "a.txt", "content": "x"}},
+        ),
+        TraceEvent(
+            seq=1, timestamp=ts, type="tool_result", payload={"tool": "write_file", "status": "ok"}
+        ),
+        TraceEvent(
+            seq=2,
+            timestamp=ts,
+            type="tool_request",
+            payload={"tool": "read_file", "args": {"path": "a.txt"}},
+        ),
+        TraceEvent(
+            seq=3, timestamp=ts, type="tool_result", payload={"tool": "read_file", "status": "ok"}
+        ),
     ]
 
 

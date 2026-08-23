@@ -293,6 +293,7 @@ def _compat_key() -> str:
 
     return compatibility_key()
 
+
 # ---------------------------------------------------------------------------
 # Contamination-aware metadata (feature 4)
 # ---------------------------------------------------------------------------
@@ -340,8 +341,13 @@ def assess_contamination(
         reasons.append("public leak reports exist for this content")
     text = (objective_text or "").lower()
     generic_markers = (
-        "fizzbuzz", "two sum", "reverse a string", "fibonacci", "palindrome",
-        "todo app", "hello world",
+        "fizzbuzz",
+        "two sum",
+        "reverse a string",
+        "fibonacci",
+        "palindrome",
+        "todo app",
+        "hello world",
     )
     if any(m in text for m in generic_markers):
         score += 2
@@ -353,7 +359,8 @@ def assess_contamination(
         reasons.append(f"generic fixture filenames: {sorted(overlap)}")
     if not reasons:
         return ContaminationFlag(
-            task_id=task_id, level="none",
+            task_id=task_id,
+            level="none",
             reason="no public-exposure signals in declared evidence",
         )
     level = ("low", "medium", "high")[min(score // 3, 2)]
