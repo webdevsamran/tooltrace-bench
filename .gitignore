@@ -18,6 +18,8 @@ htmlcov/
 runs/
 *.tooltrace/
 !results/**/*.tooltrace/
+results/_smoke/
+results/_*.txt
 .tooltrace-baselines.json
 
 # Node / frontend
