@@ -37,6 +37,9 @@ completed this pass.
 | 25 | Long-horizon checkpointed tasks + partial credit | I | `CheckpointStage` |
 | 26 | Prerequisites + resource budgets | I | `Prerequisites`, `ResourceLimits` |
 | 27 | `tooltrace lint` quality/safety linter | I | `cmd_lint`, `tasks/linting.py` |
+| 28 | Dry-run mode (no model) | I | `cmd_dry_run` |
+| 29 | Suite manifests | I | `tasks/suites.py` |
+| 30 | Fixed/stratified/seeded sampling w/ recorded manifests | I | suites sampling policies |
 | 31 | pass@k / pass^k with correct denominators + CIs | I | `tooltrace/stats.py`; UI `estimatePassAtK` |
 | 32 | Trajectory-efficiency metrics (per call/step/token/time) | I | `tooltrace/metrics/trajectory.py` |
 | 33 | Recovery vs agent-caused failure metrics | I | `metrics/reliability.py`, benchmark recovery |
@@ -113,8 +116,6 @@ completed this pass.
 | 104 | Contribution quality checks (multi-run deterministic reference agents) | I | CI sample evaluations + smoke |
 | 105 | Organization/workspace support w/ strict tenant scoping | I | server workspaces + tenant tests |
 | 106 | RBAC roles incl. service accounts | I | ROLES matrix, authorization tests |
-
-
 | 107 | OIDC/SAML abstraction + local-dev auth provider | E | hooks + local provider tested; real IdP round-trip blocked |
 | 108 | API tokens/service accounts: scoped, rotatable, hashed | I | TokenStore, hashed storage tests |
 | 109 | Policy-as-code (providers/models/tools/packs/network/budgets/publication) | I | `WorkspacePolicy` |
@@ -146,7 +147,3 @@ Nothing is claimed as implemented that lacks working code and tests. Where
 infrastructure or credentials were unavailable, the production interface plus
 deterministic local tests ship and the external validation gap is recorded
 here rather than faked.
-
-| 28 | Dry-run mode (no model) | I | `cmd_dry_run` |
-| 29 | Suite manifests | I | `tasks/suites.py` |
-| 30 | Fixed/stratified/seeded sampling w/ recorded manifests | I | suites sampling policies |

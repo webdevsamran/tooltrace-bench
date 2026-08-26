@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { getResults, useAsync } from '../api'
 import { LineChart } from '../charts'
+import { estimatePassAtK } from '../lib/passAtK'
 import {
   BarChart, DataTable, DiffViewer, EmptyState, ErrorState,
   LineChart as LineChartOld, Loading, SuccessBadge, TraceTimeline,
@@ -177,20 +178,6 @@ function SuccessCurve({ agent, outcomes }: { agent: string; outcomes: number[] }
       yMax={1}
     />
   )
-}
-
-/** Unbiased pass@k estimator over the recorded attempts:
- * pass@k = E[1 − C(n−c, k)/C(n, k)] with n attempts and c successes.
- * Small samples produce wide uncertainty — treat as indicative only. */
-export function estimatePassAtK(outcomes: number[], maxK = 10): { x: number; y: number }[] {
-  const n = outcomes.length
-  const c = outcomes.reduce((a, b) => a + b, 0)
-  const ks = Array.from({ length: Math.min(maxK, n) }, (_, i) => i + 1)
-  return ks.map((k) => {
-    let probAllFailWithinK = 1
-    for (let i = 0; i < k; i++) probAllFailWithinK *= (n - c - i) / (n - i)
-    return { x: k, y: 1 - probAllFailWithinK }
-  })
 }
 
 function PassAtKCurve({ outcomes }: { outcomes: number[] }) {

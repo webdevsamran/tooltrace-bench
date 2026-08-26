@@ -12,11 +12,11 @@
 | [Migration: protocol v1 → v2](migration-v1-to-v2.md) | Field mapping and reader compatibility |
 | [Feature status matrix](feature-status.md) | Verified implementation status of all 122 capability targets |
 | [Recipes](recipes.md) | Copy-paste workflows for common evaluation goals |
-| [Security & privacy](THREAT_MODEL.md) | Threat model and defenses |
+| [Security & privacy](threat-model.md) | Threat model and defenses |
 | [Competitive analysis](competitive-analysis.md) | Verified competitor capability matrix |
 | [Troubleshooting & FAQ / glossary](troubleshooting-faq.md) | Common problems, answers, glossary |
 
 Root documents: `README.md` (landing), `ARCHITECTURE.md`, `ROADMAP.md`,
-`CONTRIBUTING.md`, `SECURITY.md`, `PRODUCT_GAPS.md`, `DIFFERENTIATORS.md`.
+`CONTRIBUTING.md`, `SECURITY.md`, `product-gaps.md`, `differentiators.md`.
 
 Schemas live in `schemas/`; generated dataset indexes in `web/public/data/`.

@@ -29,8 +29,9 @@ class TestContextSweep:
         assert set(sweep["degradation"]) >= {"rate", "steps_mean"}
 
     def test_context_sweep_rejects_non_longcontext(self) -> None:
-        from tests.conftest import make_task
         from tooltrace.runners.benchmark import context_sweep
+
+        from tests.conftest import make_task
 
         with pytest.raises(ValueError):
             context_sweep([make_task()], "scripted")

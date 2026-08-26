@@ -76,7 +76,7 @@ and container providers work without any cluster.
 
 ## Security posture
 
-See [THREAT_MODEL.md](THREAT_MODEL.md). Highlights: hashed rotatable API
+See [threat-model.md](threat-model.md). Highlights: hashed rotatable API
 tokens, hash-chained immutable audit log, HMAC-signed webhooks with retry,
 request body size limits, quota enforcement (HTTP 429), strict tenant scoping
 verified by multi-tenant authorization tests.

@@ -11,11 +11,11 @@ import uuid
 from datetime import UTC, datetime
 from pathlib import Path
 
-from tooltrace.bundles import write_bundle
+from tooltrace.analysis.stats import summarize_reliability
+from tooltrace.artifacts.bundles import write_bundle
 from tooltrace.core.models import BenchmarkRun, EvalResult
 from tooltrace.core.versions import compatibility_key
 from tooltrace.runners.runner import TaskRunner
-from tooltrace.stats import summarize_reliability
 
 
 def run_benchmark(

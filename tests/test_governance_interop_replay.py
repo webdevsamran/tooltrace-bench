@@ -3,7 +3,6 @@ and checkpoint-based partial replay (f80)."""
 
 from __future__ import annotations
 
-from tests.conftest import make_task
 from tooltrace.agents.interop import (
     ANTHROPIC_COMPAT_SPEC,
     GEMINI_COMPAT_SPEC,
@@ -14,6 +13,8 @@ from tooltrace.agents.interop import (
 from tooltrace.core.models import TraceEvent
 from tooltrace.replay import replay_from_checkpoint
 from tooltrace.tasks.governance import assess_contamination
+
+from tests.conftest import make_task
 
 # --- feature 4: contamination-aware metadata -------------------------------
 

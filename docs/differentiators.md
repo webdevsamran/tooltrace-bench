@@ -1,4 +1,4 @@
-# DIFFERENTIATORS
+# Differentiators
 
 Why ToolTrace Bench exists and what makes it different. These are commitments,
 not marketing: each item names the code that delivers it.

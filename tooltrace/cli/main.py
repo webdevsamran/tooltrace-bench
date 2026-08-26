@@ -115,7 +115,7 @@ def cmd_tasks(args: argparse.Namespace) -> int:
 
 
 def cmd_run(args: argparse.Namespace) -> int:
-    from tooltrace.bundles import write_bundle
+    from tooltrace.artifacts.bundles import write_bundle
     from tooltrace.runners.runner import TaskRunner
     from tooltrace.tasks import find_task
 
@@ -244,7 +244,7 @@ def cmd_showdown(args: argparse.Namespace) -> int:
 
 
 def cmd_compare(args: argparse.Namespace) -> int:
-    from tooltrace.compare import compare_bundles
+    from tooltrace.analysis.compare import compare_bundles
 
     try:
         comps = compare_bundles(
@@ -272,7 +272,7 @@ def cmd_baseline(args: argparse.Namespace) -> int:
 
 
 def cmd_regression(args: argparse.Namespace) -> int:
-    from tooltrace.compare import check_regression
+    from tooltrace.analysis.compare import check_regression
 
     thresholds = json.loads(args.thresholds)
     try:
@@ -299,7 +299,7 @@ def cmd_validate(args: argparse.Namespace) -> int:
 
 
 def cmd_reproduce(args: argparse.Namespace) -> int:
-    from tooltrace.bundles_repro import reproduce_bundle
+    from tooltrace.artifacts.bundles_repro import reproduce_bundle
 
     report = reproduce_bundle(
         Path(args.bundle),
@@ -320,7 +320,7 @@ def cmd_report(args: argparse.Namespace) -> int:
     results = []
     for pattern_dir in [Path(p) for p in args.bundles]:
         for bundle in sorted(pattern_dir.rglob("*.tooltrace")):
-            from tooltrace.bundles import load_bundle_result
+            from tooltrace.artifacts.bundles import load_bundle_result
 
             row = load_bundle_result(bundle).model_dump(mode="json")
             # attach trace timeline + workspace diff so HTML/MD reports can embed them
@@ -500,7 +500,7 @@ def cmd_perturb(args: argparse.Namespace) -> int:
                 if e.type == "validation" and isinstance(e.payload.get("details"), dict):
                     details = {str(k): str(v) for k, v in e.payload["details"].items()}
                     break
-            from tooltrace.bundles import write_bundle
+            from tooltrace.artifacts.bundles import write_bundle
 
             bundle = write_bundle(Path(args.out), result, events, task, diff_text, details)
             runs[-1]["bundle"] = bundle.name
@@ -528,7 +528,7 @@ def cmd_perturb(args: argparse.Namespace) -> int:
 
 def cmd_trace(args: argparse.Namespace) -> int:
     """Inspect a .tooltrace bundle's trace without leaving the terminal."""
-    from tooltrace.bundles import (
+    from tooltrace.artifacts.bundles import (
         load_bundle_result,
         load_bundle_trace,
         verify_bundle,

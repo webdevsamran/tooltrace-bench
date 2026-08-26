@@ -123,7 +123,7 @@ tooltrace regression --baseline <b> --current <c> \\
   --thresholds '{"score":{"min_delta":-0.05},"wall_ms":{"max_increase_pct":20}}'`}</pre>
       <p>
         Full documentation lives in the repository: README.md, ARCHITECTURE.md,
-        docs/THREAT_MODEL.md and schemas/.
+        docs/threat-model.md and schemas/.
       </p>
     </article>
   )

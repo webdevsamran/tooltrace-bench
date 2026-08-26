@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import pytest
-from tests.conftest import make_task
 from tooltrace.core.exceptions import TaskValidationError
 from tooltrace.core.models import FailureReason, TaskDefinition, TrustState
 from tooltrace.tasks.loader import load_all_tasks, validate_task_document
+
+from tests.conftest import make_task
 
 
 def test_task_roundtrip(task: TaskDefinition) -> None:
