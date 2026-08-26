@@ -67,7 +67,7 @@ jobs:
             web/public/data/
 
   frontend:
-    name: Frontend lint · typecheck · test · build
+    name: Frontend lint · typecheck · test · build · e2e · a11y
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -82,11 +82,41 @@ jobs:
           cache: npm
           cache-dependency-path: web/package-lock.json
       - run: npm ci
+      - run: npm run lint
       - run: npm run build
       - run: npm test
+      - name: Generate validated static data for e2e
+        working-directory: .
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+          python scripts/make_sample_results.py
+          python scripts/generate_web_data.py
+      - name: E2E + accessibility smoke (installed Chrome)
+        run: npm run test:e2e
+
+  python-matrix:
+    name: Tests (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+    steps:
+      # actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      # actions/setup-python@v5
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: "3.12"
+      - run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+      - name: Test suite (cross-platform)
+        run: pytest -q -m "not slow"
 
   audit:
-    name: Dependency audit
+    name: Dependency audit (blocking)
     runs-on: ubuntu-latest
     steps:
       # actions/checkout@v7
@@ -95,8 +125,8 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
         with:
           python-version: "3.12"
-      - run: pip install pip-audit
-      - run: pip-audit --version || true
-      - name: Audit Python deps (non-blocking advisory listing)
-        run: pip-audit -r <(pip freeze) || echo "::warning::pip-audit findings above"
-        shell: bash
+      - run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]" pip-audit
+      - name: Audit Python dependencies (gate)
+        run: pip-audit --skip-editable
