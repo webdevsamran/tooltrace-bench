@@ -2,12 +2,13 @@
   --bg: #f8fafc;
   --surface: #ffffff;
   --text: #0f172a;
-  --muted: #64748b;
+  --muted: #475569;
   --border: #e2e8f0;
-  --accent: #0284c7;
+  --accent: #0369a1;
   --ok: #16a34a;
   --bad: #dc2626;
-  --warn: #d97706;
+  --warn: #b45309;
+  --warn-text: #92400e;
 }
 [data-theme='dark'] {
   --bg: #0b1220;
@@ -19,6 +20,7 @@
   --ok: #4ade80;
   --bad: #f87171;
   --warn: #fbbf24;
+  --warn-text: #fbbf24;
 }
 * { box-sizing: border-box; }
 body {
@@ -105,7 +107,7 @@ th.num, td.num { text-align: right; font-variant-numeric: tabular-nums; }
 }
 .badge-ok { background: color-mix(in srgb, var(--ok) 18%, transparent); color: var(--ok); }
 .badge-bad { background: color-mix(in srgb, var(--bad) 18%, transparent); color: var(--bad); }
-.badge-warn { background: color-mix(in srgb, var(--warn) 20%, transparent); color: var(--warn); }
+.badge-warn { background: color-mix(in srgb, var(--warn) 20%, transparent); color: var(--warn-text); }
 .badge-info { background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent); }
 .state {
   padding: 1.2rem; border: 1px dashed var(--border); border-radius: 10px;
