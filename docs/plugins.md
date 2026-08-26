@@ -15,6 +15,7 @@ user action.
 | `tooltrace.scorers` | deterministic scorer functions | 13 built-in scorers |
 | `tooltrace.reporters` | report exporters (JSON/CSV/MD/JUnit/HTML) | 5 exporters |
 | `tooltrace.sandboxes` | sandbox providers | local temp workspace, Docker (+Podman-compatible interface) |
+| `pytest11` | pytest fixtures (`tooltrace_runner`, `run_tooltrace`, `assert_tooltrace_pass`) + `tooltrace` marker | bundled pytest plugin (auto-enabled on install) |
 
 Example registration in your package metadata:
 

@@ -123,6 +123,21 @@ Agents implement a small, stable interface: `initialize`, `run`, an **event stre
 - `openai_compat` — an agentic loop against any OpenAI-compatible HTTP endpoint (e.g. a local server). Provider SDKs are **not** required; provider-specific integrations stay optional extras.
 - `scripted` — deterministic tool-call scripts for CI, tests and reproducible examples.
 
+## pytest integration & trace ingestion
+
+Install once and ToolTrace tasks run as ordinary pytest tests:
+
+```python
+def test_agent_edits_file(run_tooltrace, assert_tooltrace_pass):
+    result, events, diff = run_tooltrace(task, "scripted", {"script": [...]})
+    assert_tooltrace_pass(result)   # failure taxonomy reason + score in the message
+```
+
+Traces produced *outside* the harness can be scored too: `tooltrace ingest`
+converts OpenTelemetry GenAI spans or plain OpenAI assistant-step logs into
+ToolTrace trace events, which then flow through classification, replay and
+scoring unchanged. See [docs/cli-reference.md](docs/cli-reference.md).
+
 ## Frontend
 
 A production-quality React + TypeScript + Vite app lives in [`web/`](web/): leaderboard with domain heatmaps, agents, models, task packs, result detail with trace timeline / tool-call viewer / workspace diff viewer, compare, reliability trends with running pass-rate curves, failure analysis, cost·latency·efficiency charts, virtualized Trace Explorer with raw JSONL download, recovery analysis, dataset browser, plugin catalog, methodology, docs, contributors and about. It renders **only validated repository data** — static JSON indexes are generated from real result bundles and deployed via GitHub Pages.
