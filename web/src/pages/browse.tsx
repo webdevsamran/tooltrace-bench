@@ -4,6 +4,7 @@ import { getAgents, getResults, getTasks, useAsync } from '../api'
 import type { ResultRow } from '../api'
 import { BarChart, DataTable, ErrorState, Loading } from '../components'
 import type { Column } from '../components'
+import { Heatmap } from '../charts'
 
 // ---------- shared filter hook (shareable via URL query params) ----------
 
@@ -14,15 +15,36 @@ function useFilter(initial: string) {
 
 export function LeaderboardPage() {
   const agents = useAsync(getAgents)
+  const results = useAsync(getResults)
+  const tasks = useAsync(getTasks)
+
   if (agents.loading) return <Loading />
   if (agents.error) return <ErrorState message={agents.error} />
   const rows = [...(agents.data ?? [])].sort((a, b) => b.success_rate - a.success_rate)
+
+  // Domain × agent success-rate heatmap (cohort-safe: same protocol version only).
+  const taskCategory = new Map((tasks.data ?? []).map((t) => [t.id, t.category]))
+  const domains = [...new Set([...taskCategory.values()])].sort()
+  const heatAgents = rows.map((r) => r.name)
+  const cells: number[] = []
+  for (const d of domains) {
+    for (const an of heatAgents) {
+      const inDomain = (results.data ?? []).filter(
+        (r) => r.agent === an && taskCategory.get(r.task_id) === d,
+      )
+      const rate =
+        inDomain.length === 0 ? 0 : inDomain.filter((r) => r.success).length / inDomain.length
+      cells.push(rate)
+    }
+  }
+
   return (
     <div>
       <h1>Leaderboard</h1>
       <p className="muted">
         Ranked by measured success rate across validated bundles. Only real
-        repository data is shown — never synthetic entries.
+        repository data is shown — never synthetic entries. Agents are never
+        ranked across incompatible task/protocol cohorts.
       </p>
       <DataTable
         rows={rows}
@@ -37,6 +59,13 @@ export function LeaderboardPage() {
           { key: 'wall_ms_p95', header: 'p95 wall ms', value: (r) => r.wall_ms_p95, numeric: true },
         ] as Column<(typeof rows)[number]>[]}
       />
+      {domains.length > 0 && heatAgents.length > 0 && (
+        <>
+          <h2>Domain coverage</h2>
+          <p className="muted">Success rate per task domain — blank cells mean no runs recorded.</p>
+          <Heatmap rows={domains} cols={heatAgents} cells={cells} rowLabel="domain success" />
+        </>
+      )}
     </div>
   )
 }
