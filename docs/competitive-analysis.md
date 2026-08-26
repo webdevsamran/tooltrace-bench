@@ -3,7 +3,7 @@
 Last refreshed: 2026-08-23. Every row below was verified against the official
 GitHub repository / documentation at refresh time (evidence links inline).
 This file is the human-readable companion to `data/competitive-capabilities.json`
-(the machine-readable capability matrix) and `../PRODUCT_GAPS.md` (the gap list
+(the machine-readable capability matrix) and `product-gaps.md` (the gap list
 derived from it).
 
 Method: repository metadata fetched via the GitHub API on the refresh date;

@@ -1,6 +1,6 @@
 """Default sandbox: temporary-workspace isolation.
 
-Guarantees (see docs/THREAT_MODEL.md for honest limits):
+Guarantees (see docs/threat-model.md for honest limits):
 
 - every task runs in a fresh temporary directory that is removed afterwards;
 - all tool file access is enforced against the workspace boundary;

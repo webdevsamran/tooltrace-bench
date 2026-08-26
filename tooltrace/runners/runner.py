@@ -15,6 +15,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from tooltrace.agents.base import AgentAdapter
+from tooltrace.analysis.failures import classify
 from tooltrace.core.models import (
     AgentContext,
     AgentOutcome,
@@ -24,7 +25,6 @@ from tooltrace.core.models import (
     TrustState,
     UsageMetadata,
 )
-from tooltrace.failures import classify
 from tooltrace.perturbations import PerturbationEngine
 from tooltrace.sandbox.diff import changed_paths, snapshot, workspace_diff
 from tooltrace.sandbox.local import TempWorkspaceSandbox

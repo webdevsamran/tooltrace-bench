@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "tooltrace-bench"
-version = "0.1.0"
+version = "0.2.1"
 description = "Vendor-neutral, reproducible benchmarking of AI agents across coding, tool use, file operations, multi-step workflows, failure recovery, latency, cost and reliability."
 readme = "README.md"
 license = { text = "Apache-2.0" }
@@ -26,6 +26,7 @@ classifiers = [
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
   "Topic :: Scientific/Engineering :: Artificial Intelligence",
   "Topic :: Software Development :: Testing",
   "Typing :: Typed",
@@ -153,6 +154,7 @@ branch = true
 
 [tool.coverage.report]
 show_missing = true
+fail_under = 80
 exclude_lines = [
   "pragma: no cover",
   "if TYPE_CHECKING:",

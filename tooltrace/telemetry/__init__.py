@@ -8,8 +8,7 @@ in :mod:`tooltrace.stats` (aggregation) and :mod:`tooltrace.core.models`
 
 from __future__ import annotations
 
-from tooltrace.core.models import UsageMetadata
-from tooltrace.stats import (
+from tooltrace.analysis.stats import (
     consistency,
     mean,
     p50,
@@ -20,6 +19,7 @@ from tooltrace.stats import (
     summarize_reliability,
     wilson_interval,
 )
+from tooltrace.core.models import UsageMetadata
 
 __all__ = [
     "UsageMetadata",

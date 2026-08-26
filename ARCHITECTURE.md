@@ -8,7 +8,7 @@ This document describes how ToolTrace Bench is designed, why, and where each res
 2. **Determinism first.** Tasks, fixtures, scorers and the scripted agent are deterministic. Model-in-the-loop runs are supported but never required.
 3. **Everything is a trace.** Every tool request/result, diff, validation and retry is recorded in a versioned JSONL trace. Traces are first-class artifacts, not logs.
 4. **Deterministic scoring.** Scores come from executable checks (tests, file/AST/JSON-schema checks, exit codes, git constraints, API state, data equality). Optional model judges are recorded separately and never mixed into the deterministic score.
-5. **Honest isolation.** The default sandbox isolates the workspace filesystem and disables network access at the tool layer. Stronger guarantees (network namespaces, cgroups) require Docker and are documented honestly in `docs/THREAT_MODEL.md`.
+5. **Honest isolation.** The default sandbox isolates the workspace filesystem and disables network access at the tool layer. Stronger guarantees (network namespaces, cgroups) require Docker and are documented honestly in `docs/threat-model.md`.
 6. **Separate versioning.** Framework version, result-schema version, task-protocol version and per-task-definition versions evolve independently. Comparisons refuse mismatched protocol versions.
 
 ## Module map
@@ -18,32 +18,52 @@ tooltrace/
 ├── core/          Data models (TaskDefinition, ToolCall, TraceEvent, EvalResult,
 │                  Score, FailureReason, BenchmarkRun, RegressionReport),
 │                  registries and plugin discovery.
-├── cli/           Typer application: doctor, agents, tasks, run, benchmark,
-│                  showdown, compare, baseline, regression, validate,
-│                  reproduce, report, export, serve.
+├── cli/           Command-line application: doctor, agents, tasks, run, benchmark,
+│                  showdown, compare, baseline, regression, validate, lint,
+│                  dry-run, self-test, snapshot, perturb, trace, reproduce,
+│                  report, export, serve.
 ├── tasks/         YAML loading + JSON-Schema validation, task SDK
-│                  (scaffold / validate / test), bundled packs under packs/.
-├── agents/        AgentAdapter ABC + subprocess, openai_compat, scripted agents.
+│                  (scaffold / validate / test), protocol v2, governance,
+│                  linting, suites, bundled packs under packs/.
+├── agents/        AgentAdapter ABC + subprocess, openai_compat, scripted,
+│                  provider-interop layers (OpenAI/Anthropic/Gemini-compatible)
+│                  and MCP client.
 ├── tools/         Typed tools: read_file, write_file, patch_file, list_directory,
 │                  search_text, shell, git, calculator, test_runner, http.
 │                  Every call emits a sanitized ToolEvent.
-├── sandbox/       TempWorkspaceSandbox (default) and DockerSandbox (optional).
-│                  Workspace boundary enforcement, env allowlist, timeouts, cleanup.
+├── sandbox/       TempWorkspaceSandbox (default), DockerSandbox (optional),
+│                  infra providers (Podman / Windows-native / k8s job runner),
+│                  workspace boundary enforcement, env allowlist, network
+│                  policy profiles, timeouts, cleanup.
 ├── scoring/       Deterministic scorer registry + weighted composite scoring.
-├── runners/       Single-run runner, repeated-run benchmark runner, perturbation
-│                  harness, long-context workloads.
+├── runners/       Single-run runner and repeated-run benchmark runner
+│                  (incl. long-context sweeps).
+├── executors/     Experiment manifests, bounded concurrency, resumable runs,
+│                  sharding/merge, worker inventory, coordinator queue.
 ├── perturbations/ Controlled fault injection: transient tool failure, non-zero
 │                  command exit, moved file, mock-API error, delay, ambiguous
 │                  error, irrelevant files.
+├── artifacts/     `.tooltrace` bundles: SHA-256 checksum manifests, signed
+│                  bundles, deterministic reproduction, partial replay.
+├── analysis/      Cohort-safe comparisons (`compare`), regression checks,
+│                  baselines/trends/snapshots (`core`), failure classification
+│                  (`failures`) and reliability statistics incl. pass@k/pass^k
+│                  and Wilson intervals (`stats`).
+├── metrics/       Trajectory efficiency, policy compliance, side-effect and
+│                  recovery/reliability metrics.
 ├── telemetry/     Wall/model/tool timers, token usage (when available), cost
-│                  (only when a provider reports it).
-├── replay/        Deterministic replay of non-model tool interactions from traces.
-├── reports/       JSON, CSV, Markdown, JUnit and standalone HTML report generation.
-├── exporters/     Exporter plugin API.
+│                  (only when a provider reports it), OTel/Prometheus exporters.
+├── reports/       JSON, CSV, Markdown, JUnit and standalone HTML report
+│                  generation; exporters/ holds the reporter plugin API.
 ├── security/      Secret sanitization, publication checks, trust states.
-└── stats.py       Success/partial rates, recovery rate, consistency, p50/p95,
-                   Wilson confidence intervals.
+└── server/        Self-hosted team server: workspaces/RBAC/tokens/policy-as-code/
+                   approvals/audit chain/quotas/signed webhooks/retention,
+                   REST+SSE+Prometheus/OpenAPI.
 ```
+
+Deprecated import shims (`tooltrace/bundles.py`, `bundles_repro.py`, `stats.py`,
+`compare.py`, `failures.py`) keep pre-0.2 plugin imports working; they re-export
+from `artifacts.*` / `analysis.*` and will be removed no earlier than v0.4.
 
 ## Run lifecycle
 

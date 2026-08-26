@@ -1,46 +1,10 @@
-// Self-hosted team/enterprise console (part 2): baselines/regressions,
-// Task Authoring Studio, publication review queue, users & service accounts.
+// Task Authoring Studio: YAML draft editor with client-side lint pre-checks
+// mirroring `tooltrace lint`. The authoritative check remains the CLI/server
+// linter; this gives instant feedback while authoring.
 
 import { useMemo, useState } from 'react'
-import { isServerMode, type ApprovalRow } from '../api'
-import { DataTable, DemoBadge, EmptyState, type Column } from '../components'
-import { ServerGate, ServerStatus } from './workspace'
-import { DEMO_APPROVALS, DEMO_BASELINES, DEMO_USERS, type DemoBaseline, type DemoUser } from './demoData'
-
-// ---------- baselines / regressions ----------
-
-const BASELINE_COLS: Column<DemoBaseline>[] = [
-  { key: 'scope', header: 'Scope', value: (b) => b.scope },
-  { key: 'metric', header: 'Metric', value: (b) => b.metric },
-  { key: 'value', header: 'Baseline', value: (b) => (b.value > 10 ? String(b.value) : b.value.toFixed(3)), numeric: true },
-  {
-    key: 'tolerance',
-    header: 'Tolerance ±',
-    value: (b) => (b.tolerance > 10 ? String(b.tolerance) : b.tolerance.toFixed(3)),
-    numeric: true,
-  },
-  { key: 'updated', header: 'Last updated', value: (b) => b.last_updated },
-]
-
-export function BaselinesPage() {
-  return (
-    <ServerGate>
-      <section>
-        <h1>Baselines & regressions</h1>
-        <p>
-          <ServerStatus /> <span className="muted">
-            Suite-, domain-, task- and metric-level baselines with tolerances; CI gates exit non-zero on
-            regression beyond tolerance (<code>tooltrace regression</code>).
-          </span>
-        </p>
-        {!isServerMode() && <DemoBadge />}
-        <DataTable rows={DEMO_BASELINES} columns={BASELINE_COLS} emptyHint="No shared baselines yet." />
-      </section>
-    </ServerGate>
-  )
-}
-
-// ---------- task authoring studio ----------
+import { EmptyState } from '../../components'
+import { ServerGate, ServerStatus } from './shared'
 
 export interface StudioIssue {
   level: 'error' | 'warn'
@@ -146,59 +110,3 @@ export function TaskStudioPage() {
     </ServerGate>
   )
 }
-
-// ---------- publication review queue ----------
-
-const APPROVAL_COLS: Column<ApprovalRow>[] = [
-  { key: 'id', header: 'Request', value: (a) => a.request_id },
-  { key: 'action', header: 'Action', value: (a) => a.action },
-  { key: 'ws', header: 'Workspace', value: (a) => a.workspace_id },
-  { key: 'state', header: 'State', value: (a) => a.state },
-  { key: 'by', header: 'Requested by', value: (a) => String(a.requested_by ?? '') },
-]
-
-export function ReviewQueuePage() {
-  return (
-    <ServerGate>
-      <section>
-        <h1>Publication review queue</h1>
-        <p>
-          <ServerStatus /> <span className="muted">
-            Privileged actions — publishing results, enabling networked tasks, changing shared baselines,
-            costly runs — require reviewer/admin approval before execution.
-          </span>
-        </p>
-        {!isServerMode() && <DemoBadge />}
-        <DataTable rows={DEMO_APPROVALS} columns={APPROVAL_COLS} emptyHint="No approval requests pending." />
-      </section>
-    </ServerGate>
-  )
-}
-
-// ---------- users & service accounts ----------
-
-const USER_COLS: Column<DemoUser>[] = [
-  { key: 'id', header: 'ID', value: (u) => u.user_id },
-  { key: 'name', header: 'Name', value: (u) => u.display_name },
-  { key: 'role', header: 'RBAC role', value: (u) => u.role },
-  { key: 'kind', header: 'Kind', value: (u) => u.kind },
-]
-
-export function UsersPage() {
-  return (
-    <ServerGate>
-      <section>
-        <h1>Users, teams & service accounts</h1>
-        <p>
-          <ServerStatus /> <span className="muted">
-            RBAC roles: viewer, runner, task_author, reviewer, admin, service_account. API tokens are stored
-            hashed with rotation metadata and scoped permissions.
-          </span>
-        </p>
-        {!isServerMode() && <DemoBadge />}
-        <DataTable rows={DEMO_USERS} columns={USER_COLS} emptyHint="No members yet." />
-      </section>
-    </ServerGate>
-  )
-}
-

@@ -1,6 +1,6 @@
 {
   "generated_at": "2026-08-26T11:05:26.821853+00:00",
-  "framework_version": "0.1.0",
+  "framework_version": "0.2.1",
   "compatibility_key": "protocol=1;trace=1;result=1",
   "counts": {
     "tasks": 3,

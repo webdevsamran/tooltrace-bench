@@ -39,7 +39,7 @@ Out of scope:
 
 - The default sandbox isolates the **workspace filesystem** and disables network
   access at the tool layer. It does **not** claim OS-level isolation; see
-  [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md) for honest boundaries.
+  [docs/threat-model.md](docs/threat-model.md) for honest boundaries.
 - All tool events are sanitized before persistence; known secret patterns
   (API keys, bearer tokens, credentials) are redacted.
 - Publication checks fail on likely secrets before anything is exported.
