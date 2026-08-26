@@ -4,6 +4,28 @@ All notable changes to ToolTrace Bench are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versioning follows [Semantic Versioning](https://semver.org/).
 
+## [Unreleased] — Ecosystem & adoption pass
+
+### Added
+- **External trace ingestion** (`tooltrace ingest`, `tooltrace.ingest`): convert
+  traces produced outside the harness into ToolTrace trace events so they can be
+  classified with the failure taxonomy, replayed and scored by the standard
+  pipeline. Formats: OTel GenAI semantic-convention spans (`otel-spans`) and
+  plain assistant-step records (`openai-steps`). Observability platforms become
+  data sources instead of competitors.
+- **pytest integration** (`pytest11` entry point, auto-enabled on install):
+  `tooltrace_runner`, `run_tooltrace(...)` and `assert_tooltrace_pass(...)`
+  fixtures plus a `tooltrace` marker — run agent tasks as native pytest tests
+  with taxonomy-aware diagnostics.
+- **Assertion-builder DSL** (`tooltrace.dsl`): typed Python builders mirroring
+  every built-in deterministic scorer (`file_exists`, `file_contains`,
+  `json_schema`, `command_exit`, …) with authoring-time validation via pydantic;
+  includes a `custom()` escape hatch for third-party scorers.
+- 17 new tests covering DSL end-to-end scoring, both ingestion formats
+  (event-shape, seq monotonicity, JSON-argument decoding), the CLI `ingest`
+  command (happy path + usage errors) and real subprocess-level pytest-plugin
+  behavior.
+
 ## [0.2.1] — Reliability platform, final pass (2026-08-26)
 
 ### Changed

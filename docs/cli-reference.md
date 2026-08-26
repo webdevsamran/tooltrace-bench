@@ -38,6 +38,17 @@ Exit codes: `0` ok · `2` usage · `3` task/validation · `4` agent · `5` run f
 | `snapshot --source DIR --output F [--changelog S] [--verify]` | Generate/verify hashed dataset snapshots |
 | `validate --path PACK` · `task validate/test/scaffold` | Schema validation, pack tests, scaffolding |
 
+## Ingestion (external traces)
+
+| Command | Purpose |
+|---|---|
+| `ingest --format otel-spans\\|--format openai-steps --in FILE [--out JSONL] [--task-id] [--agent]` | Convert external traces into ToolTrace trace events; prints event counts and the classified failure reason. OTel GenAI spans come from any OpenTelemetry-instrumented agent framework; OpenAI steps are plain assistant-message/tool-call logs |
+
+Ingested traces flow through `tooltrace trace`, replay and scoring unchanged — see
+[`tooltrace.ingest`](../tooltrace/ingest/__init__.py). The pytest plugin (`pytest11`
+entry point) exposes `run_tooltrace` / `assert_tooltrace_pass` fixtures so tasks run
+as native pytest tests; see [Plugins](plugins.md).
+
 ## Server mode
 
 | Command | Purpose |
