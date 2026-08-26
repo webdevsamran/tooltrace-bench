@@ -4,6 +4,53 @@ All notable changes to ToolTrace Bench are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versioning follows [Semantic Versioning](https://semver.org/).
 
+## [Unreleased] — Final reliability & product pass (2026-08-26)
+
+### Fixed
+- **Hermetic test imports:** `tests` is now a regular package, so conftest
+  imports can never resolve against a foreign `tests` namespace package on
+  `sys.path` (previously broke 6 test modules on machines with other
+  checkouts).
+- **Real hook-order bug** in Reliability Trends (conditional `useMemo`
+  after early returns), caught by the newly enforced react-hooks rules.
+
+### Added
+- **CLI signature workflows:** `tooltrace perturb` (safe fault injection with
+  recovery-rate measurement and a `--min-recovery-rate` CI gate) and
+  `tooltrace trace` (checksum-verified terminal trace inspection with
+  filtering and assertions-only view). Both were promised by the README but
+  had no implementation; they now exist with tests and smoke coverage (190
+  Python tests total).
+- **Team console frontend:** 14 self-hosted routes — workspace dashboard,
+  experiments + builder + live SSE monitor, workers/capacity, baselines &
+  regressions, Task Authoring Studio (client-side lint pre-checks mirroring
+  `tooltrace lint`, assertion workflow graph), publication review queue,
+  users & service accounts, policies & budgets, audit log, webhooks,
+  retention/settings and system health. Backed by the same dual-mode data
+  layer: static validated JSON on Pages or the self-hosted REST/SSE server;
+  DEMO-labeled fixtures for offline preview only.
+- **Charts:** dependency-free accessible SVG charts — multi-series line,
+  histogram, scatter, domain×agent heatmap, utilization rings; wired into
+  leaderboard, trends, efficiency pages and workers.
+- **Frontend resilience:** route-level code splitting, error boundary,
+  offline banner, virtualized Trace Explorer for large traces.
+- **E2E & accessibility:** 23 Playwright tests (route smoke with zero-console-
+  error assertions, axe wcag2a/2aa serious-violation gate, keyboard nav) plus
+  18 vitest unit/component tests; ESLint actually installed and enforced.
+- **Docs:** migration guide (protocol v1→v2), enterprise deployment,
+  plugins & extensions, schemas & protocols, recipes; docs map updated.
+
+### Changed
+- CI: dependency audit is now a blocking gate (`pip-audit --skip-editable`,
+  no more `|| echo` escapes); Windows/macOS test matrix added; frontend job
+  runs lint + unit + e2e/a11y against the production build.
+- Release: new tag-triggered pipeline (validate → test → build sdist/wheel →
+  build frontend → CycloneDX SBOM → SHA256SUMS → SLSA provenance attestation
+  → GitHub Release); PyPI publishing only via an explicit Trusted Publishing
+  environment flag. All action pins verified against the GitHub API.
+- WCAG AA color tokens: light muted/accent/warn darkened to pass contrast
+  (failures found by the new axe scans).
+
 ## [Unreleased] — Second transformation pass (2026-08-23)
 
 ### Added

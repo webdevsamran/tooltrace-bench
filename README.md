@@ -38,10 +38,16 @@ tooltrace tasks
 # 4. Run a single task with the deterministic scripted agent
 tooltrace run --task fileops/copy-and-rename --agent scripted
 
-# 5. Run a repeated benchmark (reliability across N runs)
+# 5. Inject safe faults and measure recovery
+tooltrace perturb --task failure-recovery/retry-after-tool-failure --agent scripted --runs 3
+
+# 6. Inspect exactly why a run passed or failed
+tooltrace trace runs/<bundle>.tooltrace --assertions
+
+# 7. Run a repeated benchmark (reliability across N runs)
 tooltrace benchmark --pack fileops --agent scripted --runs 3
 
-# 6. Compare two runs (only identical task/protocol versions compare)
+# 8. Compare two runs (only identical task/protocol versions compare)
 tooltrace compare runs/run-A.tooltrace runs/run-B.tooltrace
 ```
 
@@ -119,7 +125,9 @@ Agents implement a small, stable interface: `initialize`, `run`, an **event stre
 
 ## Frontend
 
-A production-quality React + TypeScript + Vite app lives in [`web/`](web/): leaderboard, agents, models, task packs, result detail with trace timeline / tool-call viewer / workspace diff viewer, compare, reliability trends, failure analysis, methodology, docs, contributors and about. It renders **only validated repository data** — static JSON indexes are generated from real result bundles and deployed via GitHub Pages, so no backend is required. Dark/light mode, accessibility, global search, shareable filters, sortable/paginated tables, and raw-data downloads are built in.
+A production-quality React + TypeScript + Vite app lives in [`web/`](web/): leaderboard with domain heatmaps, agents, models, task packs, result detail with trace timeline / tool-call viewer / workspace diff viewer, compare, reliability trends with running pass-rate curves, failure analysis, cost·latency·efficiency charts, virtualized Trace Explorer with raw JSONL download, recovery analysis, dataset browser, plugin catalog, methodology, docs, contributors and about. It renders **only validated repository data** — static JSON indexes are generated from real result bundles and deployed via GitHub Pages.
+
+The same component model also powers the **self-hosted team console** (`/workspace`): experiments + builder with live SSE progress, workers/capacity, baselines & regressions, Task Authoring Studio, publication review queue, users & service accounts, policies & budgets, audit log, webhooks, retention/settings and system health. Point it at your own `tooltrace server` for live REST/SSE data; without a server it offers an explicitly labeled DEMO preview and never mixes demo rows into public pages. Dark/light mode, accessibility (axe-gated), global search, shareable filters, sortable/paginated tables, route-level code splitting, error boundaries and raw-data downloads are built in.
 
 ## Documentation
 
