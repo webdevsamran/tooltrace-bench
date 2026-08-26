@@ -10,6 +10,7 @@
 | [Plugins & extensions](plugins.md) | Entry-point groups, versioning, conformance testing |
 | [Schemas & protocols](schemas-and-protocols.md) | Artifact versions, migration v1→v2, compatibility keys |
 | [Migration: protocol v1 → v2](migration-v1-to-v2.md) | Field mapping and reader compatibility |
+| [Feature status matrix](feature-status.md) | Verified implementation status of all 122 capability targets |
 | [Recipes](recipes.md) | Copy-paste workflows for common evaluation goals |
 | [Security & privacy](THREAT_MODEL.md) | Threat model and defenses |
 | [Competitive analysis](competitive-analysis.md) | Verified competitor capability matrix |

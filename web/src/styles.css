@@ -169,6 +169,7 @@ th.num, td.num { text-align: right; font-variant-numeric: tabular-nums; }
   border-bottom: 1px solid var(--border); font-family: inherit;
 }
 .trace-row:hover, .trace-row.active { background: var(--bg); }
+.trace-toolbar { display: flex; gap: .8rem; flex-wrap: wrap; align-items: center; margin: .4rem 0; }
 .tag {
   display: inline-block; padding: 0 .45rem; border-radius: 999px;
   font-size: .72rem; background: var(--bg); color: var(--muted);

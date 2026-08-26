@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { getIndex, getResults, useAsync, type IndexData, type ResultRow } from '../api'
-import { DataTable, ErrorState, Loading, VirtualList, type Column } from '../components'
+import { DataTable, DiffViewer, ErrorState, Loading, VirtualList, type Column } from '../components'
 import { Histogram, Scatter } from '../charts'
 
 /** Bucket wall times into 5 roughly-even bins for the latency histogram. */
@@ -39,9 +39,12 @@ function Stat({ label, value }: { label: string; value: string }) {
   )
 }
 
-/** Trace Explorer: filterable timeline with expandable sanitized payloads.
- * Large traces are windowed via VirtualList so multi-thousand-event runs
- * scroll smoothly instead of freezing the browser tab. */
+type TraceView = 'all' | 'tools' | 'assertions'
+
+/** Trace Explorer: filterable timeline with expandable sanitized payloads,
+ * jump-to-assertion and workspace-diff views. Large traces are windowed via
+ * VirtualList so multi-thousand-event runs scroll smoothly instead of
+ * freezing the browser tab. */
 export function TraceExplorerPage() {
   const results = useAsync(getResults)
   const [selected, setSelected] = useState<string | null>(null)
@@ -49,12 +52,15 @@ export function TraceExplorerPage() {
   const [traceError, setTraceError] = useState<string | null>(null)
   const [filter, setFilter] = useState('')
   const [openEvent, setOpenEvent] = useState<number | null>(null)
+  const [view, setView] = useState<TraceView>('all')
+  const [diffText, setDiffText] = useState<string | null>(null)
 
   useEffect(() => {
     if (!selected) return
     setOpenEvent(null)
     setEvents(null)
     setTraceError(null)
+    setDiffText(null)
     fetch(`bundles/${selected}/trace.jsonl`)
       .then((r) => (r.ok ? r.text() : Promise.reject(new Error(`HTTP ${r.status}`))))
       .then((text) =>
@@ -66,15 +72,22 @@ export function TraceExplorerPage() {
         ),
       )
       .catch((e) => setTraceError(String(e)))
+    // Workspace diff is optional bundle content; absence is not an error.
+    fetch(`bundles/${selected}/workspace.diff`)
+      .then((r) => (r.ok ? r.text() : ''))
+      .then((text) => setDiffText(text || null))
+      .catch(() => setDiffText(null))
   }, [selected])
 
   const filtered = useMemo(
     () =>
       (events ?? []).filter((e) => {
+        if (view === 'tools' && e.type !== 'tool_call' && e.type !== 'tool_result') return false
+        if (view === 'assertions' && e.type !== 'validation') return false
         if (!filter) return true
         return JSON.stringify(e).toLowerCase().includes(filter.toLowerCase())
       }),
-    [events, filter],
+    [events, filter, view],
   )
 
   if (results.loading) return <Loading />
@@ -102,14 +115,24 @@ export function TraceExplorerPage() {
       </label>
       {selected && (
         <>
-          <input
-            className="search"
-            type="search"
-            placeholder="Filter events by type, tool or status…"
-            aria-label="Filter trace events"
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-          />
+          <div className="trace-toolbar" role="toolbar" aria-label="Trace view mode">
+            <label className="field">
+              View{' '}
+              <select value={view} onChange={(e) => setView(e.target.value as TraceView)}>
+                <option value="all">All events</option>
+                <option value="tools">Tool calls</option>
+                <option value="assertions">Assertions only (jump-to-assertion)</option>
+              </select>
+            </label>
+            <input
+              className="search"
+              type="search"
+              placeholder="Filter events by type, tool or status…"
+              aria-label="Filter trace events"
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+            />
+          </div>
           {traceError && <ErrorState message={traceError} />}
           {!events && !traceError && <Loading />}
           {events && (
@@ -146,6 +169,12 @@ export function TraceExplorerPage() {
                   <strong>Event #{filtered[openEvent].seq ?? openEvent} — {filtered[openEvent].type}</strong>
                   <pre>{JSON.stringify(filtered[openEvent].payload ?? {}, null, 2)}</pre>
                 </div>
+              )}
+              {view === 'all' && diffText !== null && (
+                <details className="card" open={Boolean(diffText)}>
+                  <summary>Workspace diff {diffText ? '' : '(none recorded)'}</summary>
+                  <DiffViewer diff={diffText} />
+                </details>
               )}
               <p>
                 <a href={`bundles/${selected}/trace.jsonl`} download>
