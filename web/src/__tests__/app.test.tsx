@@ -58,7 +58,8 @@ describe('App routes', () => {
   it('renders the leaderboard from agent data', async () => {
     renderAt('/leaderboard')
     expect(await screen.findByRole('heading', { name: /leaderboard/i })).toBeInTheDocument()
-    expect(await screen.findByText('scripted')).toBeInTheDocument()
+    // 'scripted' appears in the table and possibly the domain heatmap.
+    expect((await screen.findAllByText('scripted')).length).toBeGreaterThan(0)
     expect(screen.getByText('100.0%')).toBeInTheDocument()
   })
 
@@ -74,8 +75,30 @@ describe('App routes', () => {
     ).toBeInTheDocument()
   })
 
-  it('renders methodology content', () => {
+  it('renders methodology content (lazy-loaded)', async () => {
     renderAt('/methodology')
-    expect(screen.getByRole('heading', { name: /methodology/i })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: /methodology/i })).toBeInTheDocument()
+  })
+
+  it('workspace dashboard renders section cards', async () => {
+    renderAt('/workspace')
+    expect(await screen.findByRole('heading', { name: /^workspace$/i })).toBeInTheDocument()
+    // 'Experiments' appears both as a dashboard card and a subbar link.
+    expect(screen.getAllByText('Experiments').length).toBeGreaterThan(0)
+    expect(screen.getByText('Task Authoring Studio')).toBeInTheDocument()
+  })
+
+  it('workspace pages show the server gate with DEMO preview in static mode', async () => {
+    renderAt('/workspace/experiments')
+    expect(await screen.findByTestId('server-gate')).toBeInTheDocument()
+  })
+
+  it('task authoring studio validates a draft after demo preview', async () => {
+    const user = (await import('@testing-library/user-event')).default.setup()
+    renderAt('/workspace/studio')
+    await user.click(await screen.findByRole('button', { name: /preview with demo data/i }))
+    expect(screen.getByLabelText(/task draft/i)).toBeInTheDocument()
+    // Sample draft declares id/version/objective/assertions → no errors.
+    expect(screen.queryByText(/missing required field/i)).not.toBeInTheDocument()
   })
 })

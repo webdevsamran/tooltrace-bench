@@ -145,6 +145,39 @@ th.num, td.num { text-align: right; font-variant-numeric: tabular-nums; }
 .filter select, .compare-pickers label { margin-right: .8rem; }
 .compare-table td:first-child { font-weight: 600; }
 .answers li { margin: .3rem 0; }
+.subbar {
+  display: flex; gap: .15rem; flex-wrap: wrap; align-items: center;
+  padding: .3rem 1.2rem; background: var(--surface); border-bottom: 1px solid var(--border);
+}
+.subbar a { color: var(--muted); text-decoration: none; padding: .2rem .55rem; border-radius: 6px; font-size: .84rem; }
+.subbar a:hover { background: var(--bg); color: var(--text); }
+.subbar a.active { background: var(--bg); color: var(--accent); font-weight: 600; }
+.subbar-label { font-size: .78rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin-right: .4rem; }
+.offline-banner {
+  background: color-mix(in srgb, var(--warn) 22%, var(--surface)); color: var(--text);
+  padding: .45rem 1.2rem; font-size: .88rem; border-bottom: 1px solid var(--warn);
+}
+.legend { display: flex; gap: .9rem; flex-wrap: wrap; font-size: .82rem; color: var(--muted); margin: .2rem 0; }
+.legend .swatch { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: .3rem; vertical-align: baseline; }
+.chart { margin: .6rem 0; }
+.trace-row {
+  display: flex; gap: .5rem; align-items: center; width: 100%;
+  border: 0; background: transparent; color: var(--text); cursor: pointer;
+  padding: .4rem .6rem; text-align: left; font-size: .88rem;
+  border-bottom: 1px solid var(--border); font-family: inherit;
+}
+.trace-row:hover, .trace-row.active { background: var(--bg); }
+.tag {
+  display: inline-block; padding: 0 .45rem; border-radius: 999px;
+  font-size: .72rem; background: var(--bg); color: var(--muted);
+  border: 1px solid var(--border);
+}
+.tag.ok { color: var(--ok); border-color: var(--ok); }
+.tag.bad { color: var(--bad); border-color: var(--bad); }
+@media (prefers-reduced-motion: reduce) {
+  .spinner { animation-duration: 2.4s; }
+  * { scroll-behavior: auto !important; }
+}
 @media (max-width: 760px) {
   .topbar { position: static; }
   .search { width: 100%; order: 10; }
