@@ -1,0 +1,146 @@
+name: Release
+
+# Professional release pipeline:
+# tag -> validate -> test -> build -> frontend -> packages -> SBOM ->
+# checksums -> provenance -> GitHub Release.
+# Registry publication happens only when Trusted Publishing credentials are
+# genuinely configured (guarded by an environment + secret check).
+
+on:
+  push:
+    tags: ["v*.*.*"]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate · test · coverage
+    runs-on: ubuntu-latest
+    steps:
+      # actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      # actions/setup-python@v5
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+      - run: ruff check tooltrace scripts tests
+      - run: ruff format --check tooltrace scripts tests
+      - run: mypy tooltrace
+      - run: pytest --cov=tooltrace --cov-fail-under=80 -q
+      - name: Secret scan (publication gate)
+        run: python scripts/secret_scan.py
+      - name: CLI smoke test
+        run: python scripts/cli_smoke.py
+
+  build-sdist-wheel:
+    name: Build distributions
+    needs: validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: "3.12"
+      - run: |
+          python -m pip install --upgrade pip build
+          python -m build
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: dist
+          path: dist/
+
+  build-frontend:
+    name: Build frontend
+    needs: validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: "3.12"
+      - run: pip install -e .
+      - name: Generate validated static data
+        run: |
+          python scripts/make_sample_results.py
+          python scripts/generate_web_data.py
+      # actions/setup-node@v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+        working-directory: web
+      - run: npm run lint && npm run build && npm test
+        working-directory: web
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: web-dist
+          path: web/dist/
+
+  sbom-checksums-provenance:
+    name: SBOM · checksums · provenance · GitHub Release
+    needs: [build-sdist-wheel, build-frontend]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write           # required to create the Release
+      id-token: write           # required for SLSA provenance attestation
+      attestations: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          pattern: "*"
+          merge-multiple: true
+          path: release-assets
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: "3.12"
+      - name: Generate SBOM (CycloneDX)
+        run: |
+          python -m pip install --upgrade pip cyclonedx-bom
+          cd release-assets && cyclonedx-py requirements -o sbom.json --no-validate
+      - name: SHA-256 checksums
+        run: |
+          cd release-assets
+          sha256sum * > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+      # actions/attest-build-provenance@v2 — SLSA build provenance for artifacts
+      - uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be
+        with:
+          subject-path: "release-assets/*"
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          gh release create "$TAG" \
+            --title "ToolTrace Bench ${TAG}" \
+            --generate-notes \
+            release-assets/*
+
+  publish-pypi:
+    name: Publish to PyPI (only if Trusted Publishing configured)
+    needs: sbom-checksums-provenance
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi-publish   # create this environment with a Trusted Publisher to enable
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: dist
+          path: dist/
+      - name: Check Trusted Publishing availability
+        id: guard
+        env:
+          PUBLISH_ENABLED: ${{ vars.PUBLISH_ENABLED }}
+        run: echo "enabled=${{ vars.PUBLISH_ENABLED == 'true' }}" >> "$GITHUB_OUTPUT"
+      - name: Publish
+        if: steps.guard.outputs.enabled == 'true'
+        # pypa/gh-action-pypi-publish pinned to the release/v1 branch head (verified 2026-08-26)
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33
