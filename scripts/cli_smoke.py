@@ -70,6 +70,29 @@ def main() -> int:
         0,
     )
     run("validate packs", ["validate", "--path", "tooltrace/tasks/packs"], 0)
+    run(
+        "perturb",
+        [
+            "perturb",
+            "--task",
+            "failure-recovery/retry-after-tool-failure",
+            "--agent",
+            "scripted",
+            "--runs",
+            "1",
+            "--out",
+            str(OUT),
+            "--summary",
+            "--json",
+        ],
+        0,
+    )
+    perturbed = sorted(p for p in OUT.glob("*.tooltrace") if "retry-after" in p.name)
+    assert perturbed, "expected a perturbation bundle"
+    run("trace inspect", ["trace", str(perturbed[-1]), "--limit", "5"], 0)
+    run("trace assertions json", ["trace", str(perturbed[-1]), "--assertions", "--json"], 0)
+    run("dry-run scripted task", ["dry-run", "--task", "file-editing/fix-config-typo"], 0)
+    run("self-test harness", ["self-test"], 0)
     run("reproduce no-rerun", ["reproduce", b1, "--no-rerun"], 0)
     run("report md", ["report", "--bundles", str(OUT), "--format", "md"], 0)
     run(
