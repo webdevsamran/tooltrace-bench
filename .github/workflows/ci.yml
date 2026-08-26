@@ -47,6 +47,8 @@ jobs:
         run: python scripts/sandbox_check.py
       - name: Secret scan (publication gate)
         run: python scripts/secret_scan.py
+      - name: Docs link check
+        run: python scripts/check_docs_links.py
       - name: Generate static web data
         run: python scripts/generate_web_data.py
       - name: Generate SBOM (CycloneDX)

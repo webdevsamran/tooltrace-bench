@@ -1,8 +1,33 @@
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
+import { estimatePassAtK } from '../pages/results'
 import { Heatmap, Histogram, LineChart, Ring, Scatter } from '../charts'
 import { VirtualList } from '../components'
 import { validateTaskDraft } from '../pages/workspace2'
+
+describe('estimatePassAtK (unbiased estimator)', () => {
+  it('returns 1.0 for all-success runs at every k', () => {
+    const pts = estimatePassAtK([1, 1, 1, 1])
+    expect(pts).toHaveLength(4)
+    expect(pts.every((p) => p.y === 1)).toBe(true)
+  })
+
+  it('returns 0.0 for k > n−c when no successes exist', () => {
+    const pts = estimatePassAtK([0, 0, 0])
+    expect(pts.every((p) => p.y === 0)).toBe(true)
+  })
+
+  it('is monotonically non-decreasing in k', () => {
+    const outcomes = [1, 0, 1, 0, 0]
+    const pts = estimatePassAtK(outcomes)
+    for (let i = 1; i < pts.length; i++) expect(pts[i].y).toBeGreaterThanOrEqual(pts[i - 1].y)
+  })
+
+  it('caps k at the number of recorded attempts', () => {
+    expect(estimatePassAtK([1, 0], 10)).toHaveLength(2)
+  })
+})
+
 
 describe('charts', () => {
   it('LineChart exposes an accessible label and series legend', () => {

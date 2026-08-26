@@ -147,6 +147,12 @@ export function ReliabilityTrendsPage() {
           <LineChartOld series={[{ label: 'success (1/0)', points: pts }]} />
           <h3>Running success probability</h3>
           <SuccessCurve agent={agent} outcomes={pts} />
+          {pts.length >= 3 && (
+            <>
+              <h3>pass@k estimate</h3>
+              <PassAtKCurve outcomes={pts} />
+            </>
+          )}
         </section>
       ))}
       {byAgent.size === 0 && <EmptyState hint="No runs recorded yet." />}
@@ -168,6 +174,33 @@ function SuccessCurve({ agent, outcomes }: { agent: string; outcomes: number[] }
       series={[{ name: `${agent} running pass rate`, points }]}
       xLabel="attempt"
       yLabel="pass rate"
+      yMax={1}
+    />
+  )
+}
+
+/** Unbiased pass@k estimator over the recorded attempts:
+ * pass@k = E[1 − C(n−c, k)/C(n, k)] with n attempts and c successes.
+ * Small samples produce wide uncertainty — treat as indicative only. */
+export function estimatePassAtK(outcomes: number[], maxK = 10): { x: number; y: number }[] {
+  const n = outcomes.length
+  const c = outcomes.reduce((a, b) => a + b, 0)
+  const ks = Array.from({ length: Math.min(maxK, n) }, (_, i) => i + 1)
+  return ks.map((k) => {
+    let probAllFailWithinK = 1
+    for (let i = 0; i < k; i++) probAllFailWithinK *= (n - c - i) / (n - i)
+    return { x: k, y: 1 - probAllFailWithinK }
+  })
+}
+
+function PassAtKCurve({ outcomes }: { outcomes: number[] }) {
+  const points = estimatePassAtK(outcomes)
+  if (points.length < 2) return null
+  return (
+    <LineChart
+      series={[{ name: 'unbiased pass@k', points }]}
+      xLabel="k (attempts drawn)"
+      yLabel="pass@k"
       yMax={1}
     />
   )
