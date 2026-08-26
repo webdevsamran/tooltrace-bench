@@ -621,6 +621,69 @@ def cmd_snapshot(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def cmd_ingest(args: argparse.Namespace) -> int:
+    """Convert external traces (OTel GenAI spans / OpenAI steps) into a
+    ToolTrace trace event stream, classify it and optionally write JSONL."""
+    from tooltrace.analysis.failures import classify
+    from tooltrace.ingest import format_counts, from_openai_steps, from_otel_spans
+
+    src = Path(args.infile)
+    if not src.is_file():
+        print(f"input file not found: {src}", file=sys.stderr)
+        return EXIT_USAGE
+    try:
+        data: Any = json.loads(src.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        # Fall back to JSONL (one record per line) — the common export format.
+        data = []
+        try:
+            for line in src.read_text(encoding="utf-8").splitlines():
+                if line.strip():
+                    data.append(json.loads(line))
+        except json.JSONDecodeError as exc:
+            print(f"invalid input JSON/JSONL: {exc}", file=sys.stderr)
+            return EXIT_USAGE
+
+    records = (
+        data.get("spans" if args.format == "otel-spans" else "steps")
+        if isinstance(data, dict)
+        else data
+    )
+    if not isinstance(records, list):
+        expected = '"spans"' if args.format == "otel-spans" else '"steps"'
+        print(f"input must be a list or an object with key {expected}", file=sys.stderr)
+        return EXIT_USAGE
+
+    if args.format == "otel-spans":
+        events = from_otel_spans(records, task_id=args.task_id, agent=args.agent)
+        agent_name = args.agent or "unknown"
+    else:
+        agent_name = args.agent or "openai-compat"
+        events = from_openai_steps(records, task_id=args.task_id, agent=agent_name)
+
+    if args.out:
+        out = Path(args.out)
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text("\n".join(e.model_dump_json() for e in events) + "\n", encoding="utf-8")
+
+    reason = classify(events)
+    summary_reason = getattr(reason, "reason", reason)  # Classification → FailureReason
+    _emit(
+        {
+            "task_id": args.task_id,
+            "format": args.format,
+            "agent": agent_name,
+            "events": len(events),
+            "counts": format_counts(events),
+            "failure_rule": str(getattr(reason, "rule", "")),
+            "failure_reason": str(getattr(summary_reason, "value", summary_reason)),
+            "out": str(args.out) if args.out else None,
+        },
+        args.json,
+    )
+    return EXIT_OK
+
+
 def cmd_server(args: argparse.Namespace) -> int:
     """Run the self-hosted team/enterprise API server."""
     from tooltrace.server.core import serve
@@ -748,6 +811,17 @@ def build_parser() -> argparse.ArgumentParser:
     te = tksub.add_parser("test")
     te.add_argument("--path", required=True)
     tk.set_defaults(func=cmd_task_group)
+
+    ing = add(
+        "ingest",
+        cmd_ingest,
+        "convert external traces (OTel GenAI / OpenAI steps) into ToolTrace trace events",
+    )
+    ing.add_argument("--format", required=True, choices=["otel-spans", "openai-steps"])
+    ing.add_argument("--in", dest="infile", required=True, help="input JSON file")
+    ing.add_argument("--out", help="write the JSONL trace to this path")
+    ing.add_argument("--task-id", default="ingested/external")
+    ing.add_argument("--agent", help="override the agent name recorded in the trace")
 
     ln = add("lint", cmd_lint, "lint task packs for scoring/safety/determinism issues")
     ln.add_argument("--path", help="lint a specific pack directory instead of all packs")

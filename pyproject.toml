@@ -113,6 +113,10 @@ markdown_report = "tooltrace.exporters:markdown_report"
 junit_report = "tooltrace.exporters:junit_report"
 html_report = "tooltrace.exporters:html_report"
 
+# pytest integration: auto-registered when tooltrace-bench is installed.
+[project.entry-points.pytest11]
+tooltrace = "tooltrace.pytest_plugin"
+
 [tool.hatch.build.targets.wheel]
 packages = ["tooltrace"]
 

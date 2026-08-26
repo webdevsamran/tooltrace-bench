@@ -56,6 +56,10 @@ tooltrace/
 ├── reports/       JSON, CSV, Markdown, JUnit and standalone HTML report
 │                  generation; exporters/ holds the reporter plugin API.
 ├── security/      Secret sanitization, publication checks, trust states.
+├── ingest/        External trace ingestion: OTel GenAI spans and OpenAI
+│                  assistant-step records → versioned TraceEvent streams that
+│                  flow through classification/replay/scoring unchanged.
+├── dsl.py         Typed assertion-builder DSL mirroring built-in scorers.
 └── server/        Self-hosted team server: workspaces/RBAC/tokens/policy-as-code/
                    approvals/audit chain/quotas/signed webhooks/retention,
                    REST+SSE+Prometheus/OpenAPI.
@@ -95,7 +99,7 @@ Computed over repeated runs (`benchmark --runs N`): success rate, partial-succes
 
 ## Extension points
 
-Entry-point groups (see `pyproject.toml`): `tooltrace.agents`, `tooltrace.tools`, `tooltrace.task_packs`, `tooltrace.scorers`, `tooltrace.reporters`, `tooltrace.sandboxes`. Contributors add task packs, adapters, scorers or sandbox providers without touching core internals.
+Entry-point groups (see `pyproject.toml`): `tooltrace.agents`, `tooltrace.tools`, `tooltrace.task_packs`, `tooltrace.scorers`, `tooltrace.reporters`, `tooltrace.sandboxes`, and `pytest11` (the pytest integration fixtures). Contributors add task packs, adapters, scorers or sandbox providers without touching core internals.
 
 ## Frontend data flow
 
