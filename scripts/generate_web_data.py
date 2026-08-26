@@ -20,7 +20,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from tooltrace.bundles import load_bundle_result, read_manifest, verify_bundle
+from tooltrace.artifacts.bundles import load_bundle_result, read_manifest, verify_bundle
 from tooltrace.core.versions import FRAMEWORK_VERSION
 
 ROOT = Path(__file__).resolve().parents[1]

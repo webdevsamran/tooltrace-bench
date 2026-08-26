@@ -11,8 +11,7 @@ import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-SCAN_FILES = ["README.md", "ARCHITECTURE.md", "ROADMAP.md", "CONTRIBUTING.md",
-              "SECURITY.md", "PRODUCT_GAPS.md", "DIFFERENTIATORS.md"]
+SCAN_FILES = ["README.md", "ARCHITECTURE.md", "ROADMAP.md", "CONTRIBUTING.md", "SECURITY.md"]
 LINK_RE = re.compile(r"\[[^\]]*\]\(([^)\s]+)\)")
 
 

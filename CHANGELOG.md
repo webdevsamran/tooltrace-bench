@@ -4,7 +4,28 @@ All notable changes to ToolTrace Bench are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versioning follows [Semantic Versioning](https://semver.org/).
 
-## [Unreleased] — Final reliability & product pass (2026-08-26)
+## [0.2.1] — Reliability platform, final pass (2026-08-26)
+
+### Changed
+- **Repository structure pass:** flat modules organized into cohesive packages —
+  `tooltrace/artifacts/` (bundles, reproduction) and `tooltrace/analysis/`
+  (comparisons, baselines/trends/snapshots, failure classification, statistics);
+  `perturbations`, `replay` and `reports` are now packages. Deprecated shims
+  keep every pre-0.2 import path working (`tooltrace.bundles`, `.stats`,
+  `.compare`, `.failures`, `.bundles_repro`).
+- **Frontend restructure:** numbered continuation modules removed — the team
+  console now lives in semantic per-page modules under
+  `web/src/pages/workspace/`; the pure pass@k estimator moved to
+  `web/src/lib/passAtK.ts`.
+- **Tests renamed by domain** (formerly pass-named "gaps" files): failure
+  classification, perturbation/SDK, repro/security, scorers/tools, agent
+  adapters, CLI commands, docker-sandbox guard.
+- Version alignment across `pyproject.toml`, `FRAMEWORK_VERSION`, classifiers
+  (Python 3.11–3.14) and this changelog (0.2.0/0.2.1 released); coverage
+  `fail_under = 80` enforced from configuration.
+- Docs consolidated under `docs/`: product gaps, differentiators and threat
+  model (renamed lowercase); broken tables in `feature-status.md` repaired;
+  module map synchronized with reality (including the argparse CLI correction).
 
 ### Fixed
 - **Hermetic test imports:** `tests` is now a regular package, so conftest
@@ -51,7 +72,7 @@ versioning follows [Semantic Versioning](https://semver.org/).
 - WCAG AA color tokens: light muted/accent/warn darkened to pass contrast
   (failures found by the new axe scans).
 
-## [Unreleased] — Second transformation pass (2026-08-23)
+## [0.2.0] — Second transformation pass (2026-08-23)
 
 ### Added
 - **Protocol & data governance:** task protocol v2 (domain, difficulty, deterministic

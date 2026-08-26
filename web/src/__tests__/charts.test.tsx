@@ -1,9 +1,9 @@
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
-import { estimatePassAtK } from '../pages/results'
+import { estimatePassAtK } from '../lib/passAtK'
 import { Heatmap, Histogram, LineChart, Ring, Scatter } from '../charts'
 import { VirtualList } from '../components'
-import { validateTaskDraft } from '../pages/workspace2'
+import { validateTaskDraft } from '../pages/workspace/studio'
 
 describe('estimatePassAtK (unbiased estimator)', () => {
   it('returns 1.0 for all-success runs at every k', () => {

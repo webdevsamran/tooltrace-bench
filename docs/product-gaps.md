@@ -1,4 +1,4 @@
-# PRODUCT_GAPS
+# Product Gaps
 
 Generated from `docs/competitive-analysis.md` + `data/competitive-capabilities.json`
 (refreshed 2026-08-23). This file lists gaps worth closing, gaps deliberately

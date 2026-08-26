@@ -4,7 +4,7 @@
 
 - **Creator / Founder / Lead Maintainer:** [@webdevsamran](https://github.com/webdevsamran)
 - **License:** Apache-2.0
-- **Status:** Beta (v0.1.0)
+- **Status:** Beta (v0.2.1)
 
 ---
 
@@ -96,7 +96,7 @@ task pack (YAML) ──► TaskDefinition (schema-validated)
         EvalResult ──► .tooltrace bundle ──► reports / compare / regression
 ```
 
-Details in [ARCHITECTURE.md](ARCHITECTURE.md). The sandbox threat model is in [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md).
+Details in [ARCHITECTURE.md](ARCHITECTURE.md). The sandbox threat model is in [docs/threat-model.md](docs/threat-model.md).
 
 ## Task types shipped
 
@@ -135,7 +135,7 @@ Full docs hierarchy in [`docs/`](docs/index.md): [getting started](docs/getting-
 [CLI reference](docs/cli-reference.md) (incl. `lint`, `dry-run`, `self-test`, `snapshot`,
 `server`), [architecture pipeline](docs/architecture-pipeline.md),
 [self-hosting & teams](docs/self-hosting.md) (RBAC, policy-as-code, audit, quotas,
-signed webhooks), [security threat model](docs/THREAT_MODEL.md),
+signed webhooks), [security threat model](docs/threat-model.md),
 [competitive analysis](docs/competitive-analysis.md), [troubleshooting/FAQ](docs/troubleshooting-faq.md).
 
 ## Contributing

@@ -68,7 +68,7 @@ ContaminationLevel = Literal["none", "low", "medium", "high"]
 
 
 class ContaminationRisk(BaseModel):
-    """Honest, non-provable contamination flagging (see PRODUCT_GAPS #1)."""
+    """Honest, non-provable contamination flagging (see docs/product-gaps.md gap #1)."""
 
     level: ContaminationLevel = "none"
     rationale: str = ""

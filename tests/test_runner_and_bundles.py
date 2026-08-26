@@ -5,11 +5,12 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from tests.conftest import make_task
 from tooltrace.bundles import load_bundle_result, verify_bundle, write_bundle
 from tooltrace.compare import check_regression, compare_bundles
 from tooltrace.core.models import Score
 from tooltrace.runners.runner import TaskRunner
+
+from tests.conftest import make_task
 
 
 def test_runner_scripted_success(task) -> None:
