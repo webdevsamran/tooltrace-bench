@@ -2,7 +2,7 @@
 
 Statuses: ✅ shipped · 🚧 in progress · 📋 planned. This file is synchronized with reality; items are only marked ✅ when the code and tests exist.
 
-## v0.1 — Foundation (current)
+## v0.1 — Foundation (shipped)
 
 - ✅ Versioned task spec (YAML/JSON) with formal JSON-Schema validation
 - ✅ Agent adapter API with plugin discovery (`tooltrace.agents`)
@@ -24,25 +24,45 @@ Statuses: ✅ shipped · 🚧 in progress · 📋 planned. This file is synchron
 - ✅ Reports: JSON, CSV, Markdown, JUnit, standalone HTML
 - ✅ React + TypeScript + Vite frontend with static JSON indexes (GitHub Pages)
 - ✅ CI: lint, format, type check, pytest + coverage, build, schema/task validation,
-      deterministic sample evaluations, security checks, frontend pipeline
+      deterministic sample evaluations, security checks, docs link check, frontend pipeline
 
-## v0.2 — Breadth
+## v0.2 — Reliability platform (shipped 2026-08)
 
-- 📋 More task packs: concurrency, streaming, long-horizon refactors
-- 📋 Additional sandbox providers (e.g. Firecracker/microVM) behind extras
-- 📋 Statistical significance helpers for A/B agent comparisons
-- 📋 Trace diffing UI improvements (side-by-side run comparison)
-- 📋 Windows/macOS CI matrix hardening
+- ✅ Task protocol v2: domains, seeds, side effects, scoring contracts, HITL /
+  dual-control / multi-agent / checkpoint stages, contamination metadata,
+  provenance manifests, pack indexes, fingerprint dedup, migration from v1
+- ✅ Metrics: pass@k / pass^k + confidence intervals; trajectory efficiency;
+  recovery vs agent-caused failures; policy compliance; side-effect correctness;
+  change minimality; verification quality; loop detection; hallucinated-resource
+  metrics; context retention; abstention calibration; dual outcome/trajectory scoring
+- ✅ Adapters: capability negotiation, provider metadata normalization,
+  OpenAI-/Anthropic-/Gemini-compatible layers, MCP client + server conformance
+  fixtures, recorded retries/backoff, doctor checks, price-table cost accounting
+- ✅ Execution: experiment manifests, bounded concurrency, resumable runs,
+  failure isolation, sharding/merge, worker inventory, coordinator queue
+- ✅ Analysis: cohort-safe comparisons, baselines at four levels, trends with
+  composition warnings, paired-run analysis, effect sizes, bootstrap/Bayesian
+  extras, failure clustering, root-cause drill-down, anti-gaming checks
+- ✅ Infra: Podman + Windows-native sandbox interfaces, k8s job runner backend,
+  network policy profiles, deterministic clock, fault injection, harness self-test
+- ✅ CLI additions: `lint`, `dry-run`, `self-test`, `snapshot`, `server`,
+      `perturb`, `trace`, `benchmark --context-sweep`
+- ✅ Self-hosted server: workspaces/RBAC/tokens/policy-as-code/approvals/
+  audit chain/quotas/signed webhooks/retention/REST+SSE/Prometheus/OpenAPI
+- ✅ Frontend: public analysis console + full team console (experiments,
+  workers, studio, review queue, users, policies, audit, webhooks, health),
+  charts, virtualized Trace Explorer, e2e + axe accessibility gates
 
-## v0.3 — Ecosystem
+## v0.3 — Ecosystem (planned)
 
 - 📋 Community task-pack registry conventions (no central hosting required)
 - 📋 Reproduction service conventions for third-party verifiers
-- 📋 Optional model-judge harness with recorded judge configuration
+- 📋 Judge calibration dataset publishing workflow
+- 📋 Additional domain packs: concurrency, streaming, browser fixtures expansion
 
 ## Future (optional, non-OSS-blocking)
 
-Enterprise concepts — private result storage, organization dashboards, worker
-fleets, SSO/RBAC, audit logs, support — are documented as *future optional*
-concepts only. The community/core edition remains fully useful and open; nothing
-above is crippled to sell these.
+Managed/cloud deployment remains documented-but-unbuilt by design. Enterprise
+concepts ship as open code in the self-hosted server; nothing in the community
+edition is crippled. Compliance certifications are organizational processes and
+are never claimed.
