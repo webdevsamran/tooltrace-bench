@@ -106,6 +106,7 @@ def test_cli_validate_bad_path(capsys) -> None:
 def test_cli_run_exit_codes(tmp_path, capsys) -> None:
     # success path via a temp pack dir
     import yaml
+
     from tests.conftest import make_task
 
     pack = tmp_path / "pack"
@@ -152,3 +153,83 @@ def test_cli_regression_exit_code_8(tmp_path, capsys, task) -> None:
         )
         == 0
     )
+
+
+def test_cli_perturb_recovery(tmp_path, capsys) -> None:
+    """`perturb` injects faults and reports recovery rate (signature workflow)."""
+    code = cli_main(
+        [
+            "perturb",
+            "--task",
+            "failure-recovery/retry-after-tool-failure",
+            "--agent",
+            "scripted",
+            "--runs",
+            "2",
+            "--json",
+            "--out",
+            str(tmp_path / "bundles"),
+        ]
+    )
+    assert code == 0
+    data = json.loads(capsys.readouterr().out)
+    assert data["runs"] == 2
+    assert data["recovered_runs"] == 2
+    assert data["recovery_rate"] == 1.0
+    assert data["failed_tool_calls_total"] >= 2  # the injected fault fired each run
+    # Bundles written for post-hoc trace inspection.
+    bundles = list((tmp_path / "bundles").iterdir())
+    assert len(bundles) == 2
+
+
+def test_cli_perturb_unknown_kind(capsys) -> None:
+    assert (
+        cli_main(
+            [
+                "perturb",
+                "--task",
+                "failure-recovery/retry-after-tool-failure",
+                "--perturbation",
+                "not_a_kind",
+            ]
+        )
+        == 2
+    )
+
+
+def test_cli_perturb_requires_faults(capsys) -> None:
+    # A task with no declared perturbations and no --perturbation flag.
+    assert cli_main(["perturb", "--task", "file-editing/fix-config-typo"]) == 3
+
+
+def test_cli_trace_inspect_bundle(tmp_path, capsys, task) -> None:
+    from tooltrace.bundles import write_bundle
+
+    runner = __import__("tooltrace.runners.runner", fromlist=["TaskRunner"]).TaskRunner()
+    r, e, d = runner.run(
+        task,
+        "scripted",
+        {"script": [{"tool": "write_file", "args": {"path": "notes.txt", "content": "BAR"}}]},
+        run_id="tracecli",
+    )
+    bundle = write_bundle(tmp_path / "b", r, e, task, d, {})
+    code = cli_main(["trace", str(bundle), "--limit", "5"])
+    assert code == 0
+    out = capsys.readouterr().out
+    assert "PASS" in out or "FAIL" in out
+    assert "#1" in out
+
+    code_json = cli_main(["trace", str(bundle), "--assertions", "--json"])
+    assert code_json == 0
+    data = json.loads(capsys.readouterr().out)
+    assert data["checksums_ok"] is True
+    assert all(ev["type"] == "validation" for ev in data["events"])
+    assert data["events_total"] == len(data["events"])
+
+    # Tampered bundles must be refused (integrity gate).
+    (bundle / "result.json").write_text('{"tampered": true}', encoding="utf-8")
+    assert cli_main(["trace", str(bundle)]) != 0
+
+
+def test_cli_trace_missing_bundle(capsys) -> None:
+    assert cli_main(["trace", "does/not/exist"]) == 2

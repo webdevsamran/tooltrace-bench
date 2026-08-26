@@ -1,8 +1,8 @@
 """ToolTrace Bench CLI.
 
 Commands: doctor, agents, tasks, run, benchmark, showdown, compare, baseline,
-regression, validate, reproduce, report, export, serve, task (scaffold/
-validate/test).
+regression, validate, reproduce, report, export, serve, lint, dry-run,
+self-test, snapshot, server, perturb, trace, task (scaffold/validate/test).
 
 Every command supports ``--json`` for structured output and fails with
 actionable messages and stable exit codes:
@@ -18,6 +18,7 @@ import json
 import sys
 import time
 from pathlib import Path
+from typing import Any
 
 EXIT_OK = 0
 EXIT_USAGE = 2
@@ -423,6 +424,167 @@ def cmd_dry_run(args: argparse.Namespace) -> int:
     return EXIT_OK if ok else EXIT_TASK
 
 
+PERTURBATION_KINDS = (
+    "tool_failure",
+    "command_exit",
+    "moved_file",
+    "api_error",
+    "delay",
+    "ambiguous_error",
+    "irrelevant_files",
+)
+
+
+def cmd_perturb(args: argparse.Namespace) -> int:
+    """Run a task with injected faults and quantify recovery (§4)."""
+    from tooltrace.core.models import PerturbationSpec
+    from tooltrace.runners.runner import TaskRunner
+    from tooltrace.tasks import find_task
+
+    try:
+        task = find_task(args.task)
+    except Exception as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_TASK
+
+    specs = list(task.perturbations)
+    if args.perturbation:
+        kind, _, tool = args.perturbation.partition(":")
+        if kind not in PERTURBATION_KINDS:
+            print(
+                f"error: unknown perturbation kind {kind!r}; choose from "
+                f"{', '.join(PERTURBATION_KINDS)} (optionally 'kind:tool')",
+                file=sys.stderr,
+            )
+            return EXIT_USAGE
+        params: dict[str, object] = {"tool": tool} if tool else {}
+        specs = [*specs, PerturbationSpec(kind=kind, params=params)]  # type: ignore[arg-type]
+    if not specs:
+        print(
+            "error: task declares no perturbations; pass --perturbation kind[:tool]",
+            file=sys.stderr,
+        )
+        return EXIT_TASK
+
+    if args.runs < 1:
+        print("error: --runs must be >= 1", file=sys.stderr)
+        return EXIT_USAGE
+
+    # Fresh runner per run: the engine is per-run state; extra CLI-requested
+    # faults are folded into a copy of the task so the runner path is unchanged.
+    effective_task = task.model_copy(update={"perturbations": specs})
+    agent_config: dict[str, object] | None = None
+    if args.agent == "scripted":
+        script = task.metadata.get("scripted_script")
+        if isinstance(script, list):
+            agent_config = {"script": script}
+    runner = TaskRunner(output_dir=Path(args.out) if args.out else None)
+    runs: list[dict[str, Any]] = []
+    for _ in range(args.runs):
+        result, events, diff_text = runner.run(effective_task, args.agent, agent_config)
+        failed_calls = result.failed_tool_calls
+        recovered = bool(result.success and failed_calls > 0) or (result.success and bool(specs))
+        runs.append(
+            {
+                "success": bool(result.success),
+                "score": float(result.score.total),
+                "failed_tool_calls": int(failed_calls),
+                "recovered": recovered,
+                "wall_ms": float(result.wall_ms),
+                "bundle": getattr(result, "bundle_name", None),
+            }
+        )
+        if args.out:
+            details = {}
+            for e in events:
+                if e.type == "validation" and isinstance(e.payload.get("details"), dict):
+                    details = {str(k): str(v) for k, v in e.payload["details"].items()}
+                    break
+            from tooltrace.bundles import write_bundle
+
+            bundle = write_bundle(Path(args.out), result, events, task, diff_text, details)
+            runs[-1]["bundle"] = bundle.name
+
+    successes = sum(1 for r in runs if r["recovered"])
+    recovery_rate = successes / len(runs)
+    payload = {
+        "task": task.id,
+        "agent": args.agent,
+        "perturbations": [
+            {"kind": s.kind, **({"tool": s.params["tool"]} if "tool" in s.params else {})}
+            for s in specs
+        ],
+        "runs": len(runs),
+        "recovered_runs": successes,
+        "recovery_rate": recovery_rate,
+        "failed_tool_calls_total": sum(r["failed_tool_calls"] for r in runs),
+        "results": runs if not args.summary else None,
+    }
+    if args.summary:
+        payload.pop("results")
+    _emit(payload, args.json)
+    return EXIT_OK if recovery_rate >= args.min_recovery_rate else EXIT_RUN
+
+
+def cmd_trace(args: argparse.Namespace) -> int:
+    """Inspect a .tooltrace bundle's trace without leaving the terminal."""
+    from tooltrace.bundles import (
+        load_bundle_result,
+        load_bundle_trace,
+        verify_bundle,
+    )
+
+    bundle_dir = Path(args.bundle)
+    if not bundle_dir.is_dir():
+        print(f"error: bundle directory not found: {bundle_dir}", file=sys.stderr)
+        return EXIT_USAGE
+    problems = verify_bundle(bundle_dir)
+    if problems:
+        print(f"error: bundle integrity check failed: {'; '.join(problems)}", file=sys.stderr)
+        return EXIT_RUN
+    result = load_bundle_result(bundle_dir)
+
+    if args.assertions:
+        events = [e for e in load_bundle_trace(bundle_dir) if e.type == "validation"]
+    else:
+        events = load_bundle_trace(bundle_dir)
+    if args.filter:
+        needle = args.filter.lower()
+        events = [e for e in events if needle in json.dumps(e.model_dump(mode="json")).lower()]
+
+    rows = [
+        {
+            "seq": e.seq,
+            "type": str(e.type),
+            **({k: str(e.payload[k]) for k in ("tool", "status", "duration_ms") if k in e.payload}),
+        }
+        for e in events[: max(0, args.limit)]
+    ]
+    payload = {
+        "bundle": bundle_dir.name,
+        "task": result.task_id,
+        "run_id": result.run_id,
+        "success": result.success,
+        "checksums_ok": True,
+        "events_shown": len(rows),
+        "events_total": len(events),
+        "events": rows,
+    }
+    if args.json:
+        _emit(payload, True)
+    else:
+        print(f"bundle   : {payload['bundle']}")
+        print(
+            f"task     : {payload['task']}  (run {payload['run_id']}, "
+            f"{'PASS' if result.success else 'FAIL'})"
+        )
+        print(f"events   : {len(rows)} of {len(events)} shown")
+        for r in rows:
+            extras = " ".join(f"{k}={v}" for k, v in r.items() if k not in {"seq", "type"})
+            print(f"  #{r['seq']:<4} {r['type']:<14} {extras}")
+    return EXIT_OK
+
+
 def cmd_self_test(args: argparse.Namespace) -> int:
     """Harness self-test: sandbox cleanup, scoring determinism, timers,
     fixture integrity, trace integrity - no model required."""
@@ -594,6 +756,24 @@ def build_parser() -> argparse.ArgumentParser:
     dr.add_argument("--task", required=True)
 
     add("self-test", cmd_self_test, "verify harness: cleanup, determinism, timers, integrity")
+    pe = add("perturb", cmd_perturb, "inject faults and measure recovery")
+    pe.add_argument("--task", required=True)
+    pe.add_argument("--agent", default="scripted")
+    pe.add_argument("--runs", type=int, default=1)
+    pe.add_argument(
+        "--perturbation",
+        help="extra fault kind[:tool], e.g. tool_failure:read_file or delay",
+    )
+    pe.add_argument("--out", help="write .tooltrace bundles for each run")
+    pe.add_argument("--summary", action="store_true", help="omit per-run results")
+    pe.add_argument("--min-recovery-rate", type=float, default=0.0)
+
+    tr = add("trace", cmd_trace, "inspect a bundle trace (filter, assertions, JSONL)")
+    tr.add_argument("bundle", help="path to an unpacked .tooltrace bundle directory")
+    tr.add_argument("--filter", help="substring filter over the raw event JSON")
+    tr.add_argument("--assertions", action="store_true", help="show validation events only")
+    tr.add_argument("--limit", type=int, default=50)
+
     add("snapshot", cmd_snapshot, "generate/verify a hashed dataset snapshot")
     snap = sub.choices["snapshot"]  # type: ignore[union-attr]
     snap.add_argument("--source", required=True)

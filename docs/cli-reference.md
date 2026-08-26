@@ -17,6 +17,8 @@ Exit codes: `0` ok · `2` usage · `3` task/validation · `4` agent · `5` run f
 | `baseline --name N --bundle PATH` | Record a named baseline |
 | `regression --baseline B --current C --thresholds JSON` | CI gate for score/tool/latency regressions |
 | `reproduce BUNDLE [--out DIR] [--no-rerun]` | Verify hashes and optionally re-run |
+| `perturb --task ID [--perturbation kind:tool] [--runs N] [--min-recovery-rate R]` | Inject safe faults and measure recovery rate; `--out` writes bundles |
+| `trace BUNDLE [--filter SUBSTR] [--assertions] [--limit N]` | Inspect a bundle trace in the terminal (checksum-verified) |
 
 ## Reporting / export
 
