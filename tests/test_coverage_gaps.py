@@ -9,8 +9,9 @@ import sys
 from pathlib import Path
 
 import pytest
-from tests.conftest import make_task
 from tooltrace.core.models import FailureReason, PerturbationSpec, TraceEvent
+
+from tests.conftest import make_task
 
 
 def _ev(type_: str, payload: dict) -> TraceEvent:
@@ -762,10 +763,18 @@ class TestCLICommands:
 
         bundles = sorted(Path("results").rglob("*.tooltrace"))
         assert len(bundles) >= 2
-        # regression only compares identical task/protocol versions — pick a pair
+        # regression only compares identical task/protocol versions — pair by
+        # the task recorded inside each bundle (dir names are not unique keys:
+        # shared output dirs like results/_smoke mix tasks).
+        from tooltrace.bundles import load_bundle_result
+
         by_task: dict[str, list[Path]] = {}
         for b in bundles:
-            by_task.setdefault(b.parent.name, []).append(b)
+            try:
+                tid = str(load_bundle_result(b).task_id)
+            except Exception:
+                continue
+            by_task.setdefault(tid, []).append(b)
         pair = next(v for v in by_task.values() if len(v) >= 2)
         assert main(["baseline", "--name", "ci-base", "--bundle", str(pair[0]), "--json"]) == 0
         reg = json.loads(capsys.readouterr().out)
