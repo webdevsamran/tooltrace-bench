@@ -253,3 +253,115 @@ export function TraceTimeline({ events }: { events: TraceLine[] }) {
     </ol>
   )
 }
+
+// ---------- resilience & access states ----------
+
+import { Component, useEffect as _useEffect, useState as _useState } from 'react'
+import type { ErrorInfo } from 'react'
+
+/** Route-level error boundary: a crash in one page never blanks the app. */
+export class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
+  state = { error: null as Error | null }
+
+  static getDerivedStateFromError(error: Error): { error: Error } {
+    return { error }
+  }
+
+  componentDidCatch(error: Error, info: ErrorInfo): void {
+    // Local diagnostics only — never reported anywhere.
+    console.error('Route render failed:', error.message, info.componentStack)
+  }
+
+  render(): ReactNode {
+    if (this.state.error) {
+      return (
+        <div className="state error" role="alert">
+          <strong>This page hit an unexpected error.</strong>{' '}
+          <button type="button" onClick={() => this.setState({ error: null })}>Try again</button>
+        </div>
+      )
+    }
+    return this.props.children
+  }
+}
+
+/** Banner shown when the browser reports offline connectivity. */
+export function OfflineBanner({ online }: { online: boolean }) {
+  if (online) return null
+  return (
+    <div className="offline-banner" role="status">
+      You are offline — showing cached/static data. Live server features are unavailable.
+    </div>
+  )
+}
+
+export function useOnlineStatus(): boolean {
+  const [online, setOnline] = _useState(() => navigator.onLine)
+  _useEffect(() => {
+    const up = () => setOnline(true)
+    const down = () => setOnline(false)
+    window.addEventListener('online', up)
+    window.addEventListener('offline', down)
+    return () => {
+      window.removeEventListener('online', up)
+      window.removeEventListener('offline', down)
+    }
+  }, [])
+  return online
+}
+
+export function NoPermission({ hint }: { hint?: string }) {
+  return (
+    <div className="state" role="alert">
+      <strong>No permission.</strong> {hint ?? 'Your account/token lacks the required role for this action.'}
+    </div>
+  )
+}
+
+export function DemoBadge() {
+  return <Badge kind="warn">DEMO DATA</Badge>
+}
+
+// ---------- virtualized list for large traces ----------
+
+/** Windowed list: renders only the visible slice so multi-thousand-event
+ * traces scroll smoothly instead of freezing the browser. */
+export function VirtualList<T>({
+  items,
+  itemHeight,
+  height,
+  render,
+  ariaLabel,
+}: {
+  items: T[]
+  itemHeight: number
+  height: number
+  render: (item: T, index: number) => ReactNode
+  ariaLabel?: string
+}) {
+  const [scrollTop, setScrollTop] = _useState(0)
+  const total = items.length * itemHeight
+  const start = Math.max(0, Math.floor(scrollTop / itemHeight) - 4)
+  const visibleCount = Math.ceil(height / itemHeight) + 8
+  const end = Math.min(items.length, start + visibleCount)
+  const slice = items.slice(start, end)
+  return (
+    <div
+      className="virtual-list"
+      style={{ height, overflowY: 'auto', position: 'relative' }}
+      onScroll={(e) => setScrollTop((e.target as HTMLDivElement).scrollTop)}
+      role="list"
+      aria-label={ariaLabel}
+    >
+      <div style={{ height: total, position: 'relative' }}>
+        <ol style={{ position: 'absolute', top: start * itemHeight, left: 0, right: 0, margin: 0, padding: 0, listStyle: 'none' }}>
+          {slice.map((item, i) => (
+            <li key={start + i} style={{ minHeight: itemHeight }} role="listitem">
+              {render(item, start + i)}
+            </li>
+          ))}
+        </ol>
+      </div>
+    </div>
+  )
+}

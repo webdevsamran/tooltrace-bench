@@ -1,9 +1,10 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { getResults, useAsync } from '../api'
+import { LineChart } from '../charts'
 import {
   BarChart, DataTable, DiffViewer, EmptyState, ErrorState,
-  LineChart, Loading, SuccessBadge, TraceTimeline,
+  LineChart as LineChartOld, Loading, SuccessBadge, TraceTimeline,
 } from '../components'
 import type { TraceLine } from '../components'
 
@@ -129,11 +130,13 @@ export function ReliabilityTrendsPage() {
   if (results.loading) return <Loading />
   if (results.error) return <ErrorState message={results.error} />
   const rows = [...(results.data ?? [])].sort((x, y) => x.created_at.localeCompare(y.created_at))
-  const byAgent = useMemo(() => {
+  // Plain computation (no hook): this runs only on the loaded render path,
+  // keeping hook order stable across loading/error/loaded states.
+  const byAgent = (() => {
     const m = new Map<string, number[]>()
     for (const r of rows) m.set(r.agent, [...(m.get(r.agent) ?? []), r.success ? 1 : 0])
     return m
-  }, [rows])
+  })()
   return (
     <div>
       <h1>Reliability Trends</h1>
@@ -141,11 +144,32 @@ export function ReliabilityTrendsPage() {
       {[...byAgent.entries()].map(([agent, pts]) => (
         <section key={agent}>
           <h2>{agent}</h2>
-          <LineChart series={[{ label: 'success (1/0)', points: pts }]} />
+          <LineChartOld series={[{ label: 'success (1/0)', points: pts }]} />
+          <h3>Running success probability</h3>
+          <SuccessCurve agent={agent} outcomes={pts} />
         </section>
       ))}
       {byAgent.size === 0 && <EmptyState hint="No runs recorded yet." />}
     </div>
+  )
+}
+
+/** Running (cumulative) success probability per attempt — the empirical
+ * foundation for pass^k-style consistency estimates. */
+function SuccessCurve({ agent, outcomes }: { agent: string; outcomes: number[] }) {
+  let successes = 0
+  const points = outcomes.map((v, i) => {
+    successes += v
+    return { x: i + 1, y: successes / (i + 1) }
+  })
+  if (points.length === 0) return null
+  return (
+    <LineChart
+      series={[{ name: `${agent} running pass rate`, points }]}
+      xLabel="attempt"
+      yLabel="pass rate"
+      yMax={1}
+    />
   )
 }
 

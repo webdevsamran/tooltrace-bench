@@ -1,7 +1,28 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { getIndex, getResults, useAsync, type IndexData, type ResultRow } from '../api'
-import { DataTable, ErrorState, Loading, type Column } from '../components'
+import { DataTable, ErrorState, Loading, VirtualList, type Column } from '../components'
+import { Histogram, Scatter } from '../charts'
+
+/** Bucket wall times into 5 roughly-even bins for the latency histogram. */
+function latencyBins(values: number[]): { bins: number[]; labels: string[] } {
+  if (values.length === 0) return { bins: [0, 0, 0, 0, 0], labels: ['–', '–', '–', '–', '–'] }
+  const sorted = [...values].sort((a, b) => a - b)
+  const min = sorted[0]
+  const max = sorted[sorted.length - 1]
+  const width = (max - min || min || 1) / 5
+  const bins = [0, 0, 0, 0, 0]
+  for (const v of values) {
+    const idx = Math.min(4, Math.floor((v - min) / (width || 1)))
+    bins[idx] += 1
+  }
+  return {
+    bins,
+    labels: Array.from({ length: 5 }, (_, i) =>
+      `${Math.round(min + i * width)}–${Math.round(min + (i + 1) * width)}`,
+    ),
+  }
+}
 
 interface TraceEvent {
   seq?: number
@@ -18,16 +39,20 @@ function Stat({ label, value }: { label: string; value: string }) {
   )
 }
 
-/** Trace Explorer: filterable timeline with expandable sanitized payloads. */
+/** Trace Explorer: filterable timeline with expandable sanitized payloads.
+ * Large traces are windowed via VirtualList so multi-thousand-event runs
+ * scroll smoothly instead of freezing the browser tab. */
 export function TraceExplorerPage() {
   const results = useAsync(getResults)
   const [selected, setSelected] = useState<string | null>(null)
   const [events, setEvents] = useState<TraceEvent[] | null>(null)
   const [traceError, setTraceError] = useState<string | null>(null)
   const [filter, setFilter] = useState('')
+  const [openEvent, setOpenEvent] = useState<number | null>(null)
 
   useEffect(() => {
     if (!selected) return
+    setOpenEvent(null)
     setEvents(null)
     setTraceError(null)
     fetch(`bundles/${selected}/trace.jsonl`)
@@ -61,7 +86,8 @@ export function TraceExplorerPage() {
       <h1>Trace Explorer</h1>
       <p className="muted">
         Inspect exactly why a run succeeded or failed: every event, tool call and validation,
-        streamed line-by-line from the bundle trace.
+        streamed line-by-line from the bundle trace. Long traces are virtualized — only visible
+        events render.
       </p>
       <label className="field">
         Bundle{' '}
@@ -87,11 +113,21 @@ export function TraceExplorerPage() {
           {traceError && <ErrorState message={traceError} />}
           {!events && !traceError && <Loading />}
           {events && (
-            <ol className="trace-timeline">
-              {filtered.map((e, i) => (
-                <li key={i}>
-                  <details>
-                    <summary>
+            <>
+              {filtered.length === 0 ? (
+                <p className="state empty">No events match the filter.</p>
+              ) : (
+                <VirtualList
+                  items={filtered}
+                  itemHeight={44}
+                  height={420}
+                  ariaLabel="Trace events"
+                  render={(e, i) => (
+                    <button
+                      type="button"
+                      className={`trace-row${openEvent === i ? ' active' : ''}`}
+                      onClick={() => setOpenEvent(openEvent === i ? null : i)}
+                    >
                       <code>#{e.seq ?? i}</code> <strong>{e.type}</strong>
                       {'tool' in (e.payload ?? {}) && (
                         <span className="tag">{String(e.payload?.tool)}</span>
@@ -101,19 +137,23 @@ export function TraceExplorerPage() {
                           {String(e.payload?.status)}
                         </span>
                       )}
-                    </summary>
-                    <pre>{JSON.stringify(e.payload ?? {}, null, 2)}</pre>
-                  </details>
-                </li>
-              ))}
-              {filtered.length === 0 && <li className="state empty">No events match the filter.</li>}
-            </ol>
+                    </button>
+                  )}
+                />
+              )}
+              {openEvent !== null && filtered[openEvent] && (
+                <div className="card">
+                  <strong>Event #{filtered[openEvent].seq ?? openEvent} — {filtered[openEvent].type}</strong>
+                  <pre>{JSON.stringify(filtered[openEvent].payload ?? {}, null, 2)}</pre>
+                </div>
+              )}
+              <p>
+                <a href={`bundles/${selected}/trace.jsonl`} download>
+                  Download raw JSONL trace
+                </a>
+              </p>
+            </>
           )}
-          <p>
-            <a href={`bundles/${selected}/trace.jsonl`} download>
-              Download raw JSONL trace
-            </a>
-          </p>
         </>
       )}
       {!selected && <p className="state empty">Select a bundle to load its trace.</p>}
@@ -211,6 +251,19 @@ export function CostEfficiencyPage() {
         <Stat label="Mean wall time (ms)" value={eff.wallMsMean.toFixed(1)} />
         <Stat label="Wasted tool calls" value={String(eff.wastedCalls)} />
       </div>
+      <h2>Score vs wall time</h2>
+      <Scatter
+        points={eff.rows.map((r) => ({ x: r.wall_ms, y: r.score_total, label: `${r.run_id} (${r.agent})` }))}
+        xLabel="wall time (ms)"
+        yLabel="score"
+        height={200}
+      />
+      <h2>Latency distribution</h2>
+      <Histogram
+        bins={latencyBins(eff.rows.map((r) => r.wall_ms)).bins}
+        labels={latencyBins(eff.rows.map((r) => r.wall_ms)).labels}
+        xLabel="wall ms buckets"
+      />
       <h2>Wall time per run</h2>
       <ul className="bars" aria-label="Wall time per run">
         {[...eff.rows]
