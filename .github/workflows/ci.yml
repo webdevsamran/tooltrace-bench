@@ -152,6 +152,28 @@ jobs:
       - name: Test suite
         run: pytest -q -m "not slow"
 
+
+  # ubuntu-latest runners have Docker; the script skips cleanly elsewhere.
+  # Kept as its own job so a Docker outage cannot redden the main gate, and
+  # deliberately NOT added to branch protection for the same reason.
+  sandbox-docker:
+    name: Sandbox conformance (Docker)
+    runs-on: ubuntu-latest
+    steps:
+      # actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      # actions/setup-python@v5
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: "3.12"
+      - run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+      - name: Local sandbox conformance
+        run: python scripts/sandbox_check.py
+      - name: Docker sandbox conformance
+        run: python scripts/docker_sandbox_check.py
+
   audit:
     name: Dependency audit (blocking)
     runs-on: ubuntu-latest
