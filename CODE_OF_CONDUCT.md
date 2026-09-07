@@ -34,7 +34,14 @@ This Code of Conduct applies within all community spaces (repository, issue trac
 
 ## Enforcement
 
-Instances of abusive, harassing, or otherwise unacceptable behavior may be reported to the lead maintainer at **webdevsamran@users.noreply.github.com**. All complaints will be reviewed and investigated promptly and fairly. All community leaders are obligated to respect the privacy and security of the reporter of any incident.
+Instances of abusive, harassing, or otherwise unacceptable behavior may be
+reported to the lead maintainer at **webdevsamran@users.noreply.github.com**, or
+through GitHub's report-abuse form at
+<https://github.com/contact/report-abuse>. All complaints will be reviewed and
+investigated promptly and fairly.
+
+All community leaders are obligated to respect the privacy and security of the
+reporter of any incident.
 
 ## Attribution
 
