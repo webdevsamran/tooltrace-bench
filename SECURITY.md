@@ -18,7 +18,10 @@ Include: affected version/commit, reproduction steps, impact assessment, and any
 logs (sanitized — never include secrets).
 
 You will receive an acknowledgment within 7 days and a status update within 30
-days. We credit reporters in release notes unless they prefer anonymity.
+days. This project has a single maintainer; those are the windows that can
+actually be met, rather than a shorter number that sounds better.
+
+We credit reporters in release notes unless they prefer anonymity.
 
 ## Scope
 
