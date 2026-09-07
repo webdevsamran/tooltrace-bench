@@ -189,6 +189,7 @@ class TaskRunner:
                 finish_reason=outcome.finish_reason,
                 timed_out=timed_out,
                 score_total=score.total,
+                succeeded=success,
             )
 
             recovered: bool | None = (

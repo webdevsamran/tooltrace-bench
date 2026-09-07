@@ -137,7 +137,7 @@ Details in [ARCHITECTURE.md](ARCHITECTURE.md). The sandbox threat model is in [d
 
 ## Task types shipped
 
-Thirteen packs, eighteen tasks. `tooltrace tasks` prints the authoritative list
+Thirteen packs, nineteen tasks. `tooltrace tasks` prints the authoritative list
 with difficulty; the pack directory names below are the ones you pass to
 `--task`.
 
@@ -154,7 +154,7 @@ with difficulty; the pack directory names below are the ones you pass to
 | `mock-api` | local mock-API state tasks |
 | `data-analysis` | data analysis over fixtures |
 | `multi-step-planning` | multi-step planning |
-| `failure-recovery` | recovery under injected perturbations |
+| `failure-recovery` | recovery under injected perturbations, including a compositional task where three faults compound |
 | `long-context` | context-scaling family (1k / 4k / 16k) |
 
 Two tasks in `shell-workflow` exercise **compiled-language** workflows, where
