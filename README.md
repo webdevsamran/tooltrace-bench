@@ -170,6 +170,7 @@ Agents implement a small, stable interface: `initialize`, `run`, an **event stre
 
 - `subprocess` — run any agent CLI inside the sandbox (opaque, one step).
 - `openai_compat` — an agentic loop against any OpenAI-compatible HTTP endpoint (e.g. a local server). Provider SDKs are **not** required; provider-specific integrations stay optional extras.
+- `streaming` — drive a local agent process that emits **one event per step** over NDJSON on stdin/stdout. The per-step counterpart to `subprocess`: instead of one opaque blocking call, the trace records the actual sequence of decisions. Fully offline (a child process, not a network call) and framework-agnostic — anything that can print a line of JSON can be driven by it. See [`examples/streaming_agent.py`](examples/streaming_agent.py) for a runnable reference.
 - `scripted` — deterministic tool-call scripts for CI, tests and reproducible examples.
 
 ## pytest integration & trace ingestion
