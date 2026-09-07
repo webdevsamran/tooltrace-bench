@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { getResults, useAsync } from '../api'
 import { LineChart } from '../charts'
@@ -8,6 +7,7 @@ import {
   LineChart as LineChartOld, Loading, SuccessBadge, TraceTimeline,
 } from '../components'
 import type { TraceLine } from '../components'
+import { useUrlState } from '../lib/useUrlState'
 
 // Fetch a bundle's trace + diff lazily from the raw-data directory.
 async function fetchBundleDetail(bundle: string) {
@@ -56,8 +56,11 @@ export function ResultDetailPage() {
 
 export function ComparePage() {
   const results = useAsync(getResults)
-  const [a, setA] = useState('')
-  const [b, setB] = useState('')
+  // In the URL so a comparison is a link. Previously these lived in component
+  // state only, so "look at this comparison" meant describing which two
+  // agents to pick, and a reload lost the selection.
+  const [a, setA] = useUrlState('a')
+  const [b, setB] = useUrlState('b')
   if (results.loading) return <Loading />
   if (results.error) return <ErrorState message={results.error} />
   const rows = results.data ?? []
@@ -195,15 +198,33 @@ function PassAtKCurve({ outcomes }: { outcomes: number[] }) {
 
 export function FailureAnalysisPage() {
   const results = useAsync(getResults)
+  const [reason, setReason] = useUrlState('reason')
   if (results.loading) return <Loading />
   if (results.error) return <ErrorState message={results.error} />
   const rows = results.data ?? []
-  const failures = rows.filter((r) => !r.success)
+  const allFailures = rows.filter((r) => !r.success)
+  const reasons = [...new Set(allFailures.map((f) => f.failure_reason))].sort()
+  const failures = reason ? allFailures.filter((f) => f.failure_reason === reason) : allFailures
   const byReason = new Map<string, number>()
   for (const f of failures) byReason.set(f.failure_reason, (byReason.get(f.failure_reason) ?? 0) + 1)
   return (
     <div>
       <h1>Failure Analysis</h1>
+      <label>
+        Failure reason{' '}
+        <select
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          aria-label="Filter by failure reason"
+        >
+          <option value="">All reasons ({allFailures.length})</option>
+          {reasons.map((r) => (
+            <option key={r} value={r}>
+              {r} ({allFailures.filter((f) => f.failure_reason === r).length})
+            </option>
+          ))}
+        </select>
+      </label>
       <BarChart
         data={[...byReason.entries()].map(([label, value]) => ({ label, value }))}
         format={(v) => String(v)}
