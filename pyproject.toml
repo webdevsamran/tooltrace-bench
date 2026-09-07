@@ -105,6 +105,8 @@ git_diff = "tooltrace.scoring.builtin:_git_diff"
 ast_check = "tooltrace.scoring.builtin:_ast_check"
 data_equals = "tooltrace.scoring.builtin:_data_equals"
 api_state = "tooltrace.scoring.builtin:_api_state"
+ast_unrelated_edits = "tooltrace.scoring.builtin:_ast_unrelated_edits"
+json_set_equals = "tooltrace.scoring.builtin:_json_set_equals"
 
 [project.entry-points."tooltrace.reporters"]
 json_report = "tooltrace.exporters:json_report"
