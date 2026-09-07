@@ -71,6 +71,7 @@ Documentation = "https://github.com/webdevsamran/tooltrace-bench/tree/main/docs"
 subprocess = "tooltrace.agents.subprocess:SubprocessAgent"
 openai_compat = "tooltrace.agents.openai_compat:OpenAICompatAgent"
 scripted = "tooltrace.agents.scripted:ScriptedAgent"
+streaming = "tooltrace.agents.streaming:StreamingAgent"
 
 [project.entry-points."tooltrace.sandboxes"]
 local = "tooltrace.sandbox.local:TempWorkspaceSandbox"
