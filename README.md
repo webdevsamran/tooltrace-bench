@@ -4,7 +4,7 @@
 
 - **Creator / Founder / Lead Maintainer:** [@webdevsamran](https://github.com/webdevsamran)
 - **License:** Apache-2.0
-- **Status:** Beta (v0.2.1)
+- **Status:** Beta (v0.3.0)
 
 ---
 
@@ -70,8 +70,8 @@ $ tooltrace run --task file-editing/fix-config-typo --agent scripted --json
 {
   "result": {
     "schema_version": 1,
-    "framework_version": "0.2.1",
-    "run_id": "7906c91224bc",
+    "framework_version": "0.3.0",
+    "run_id": "8e788323a488",
     "task_id": "file-editing/fix-config-typo",
     "task_version": "1.0.0",
     "task_protocol_version": 1,
@@ -93,17 +93,16 @@ $ tooltrace run --task file-editing/fix-config-typo --agent scripted --json
     "unnecessary_changes": 0,
     "workspace_violations": 0,
     "test_pass_ratio": null,
-    "wall_ms": 12.767,
+    "wall_ms": 12.717,
     "model_ms": null,
-    "tool_ms": 12.438,
+    "tool_ms": 12.412,
     "usage": {"tokens": null, "model_time_ms": null, "provider_cost_reported": null, "currency": null},
     "trust_state": "LOCAL",
-    "started_at": "2026-09-07T04:45:50.298976+00:00",
-    "finished_at": "2026-09-07T04:45:50.333629+00:00"
+    "started_at": "2026-09-07T06:39:00.913248+00:00",
+    "finished_at": "2026-09-07T06:39:00.947706+00:00"
   },
   "diff": "--- config.ini\n+++ config.ini\n@@ -1,4 +1,4 @@\n [server]\n host = localhost\n port = 8080\n-timout = 30\n+timeout = 30"
-}
-```
+}```
 
 Two things worth noticing, because they are the point of the tool. Score
 `components` are the task's own human-readable assertion labels, not scorer
