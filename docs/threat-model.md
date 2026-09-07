@@ -41,16 +41,43 @@ some trust in. For untrusted agents, use the Docker sandbox.
 
 ## Docker sandbox (`DockerSandbox`, optional extra)
 
-**Provides (in addition):**
+Everything in this section is **exercised by `scripts/docker_sandbox_check.py`
+in CI**, not asserted. That distinction matters more here than anywhere else on
+this page: the Docker provider makes the strongest claims, so it is the one
+people actually rely on, and an untested strong claim is worse than a tested
+weak one.
 
-- Container filesystem isolation (`--network none` by default, memory/CPU
-  caps) — a much stronger boundary for untrusted agents.
+**Provides, and verified:**
+
+| Claim | How it is checked |
+| --- | --- |
+| The agent sees only the mounted workspace | The container reads a seeded file, writes one back to the host workspace, and `ls /` is inspected for host paths |
+| No outbound network (`--network none`) | A real outbound connection to `1.1.1.1:53` is attempted and must fail. Confirmed non-vacuous: the same check passes the connection when the provider is switched to `--network bridge` |
+| Declared `resource_limits` are applied | The container reads its own `/sys/fs/cgroup/memory.max` and it must match the task's declared limit. A task asking for 64 MB gets 64 MiB, not the previously hardcoded 512 MB |
+| Timeouts terminate the container | A `sleep 30` under a 5s timeout must return exit 124 rather than hanging |
+| Cleanup removes the workspace | The directory must not exist after `cleanup()` |
+
+Limits come from the task's `resource_limits`, falling back to 512 MB / 1.0
+CPU. `--memory-swap` is pinned equal to `--memory`, because a container
+allowed to swap past its memory limit is not bounded in any way that matters,
+and `--pids-limit 256` bounds fork bombs.
 
 **Does NOT provide:**
 
-- Protection against container-runtime vulnerabilities or kernel escapes.
+- Protection against container-runtime vulnerabilities or kernel escapes. The
+  boundary is as strong as the host's Docker installation, no stronger.
+- Protection when the container is run with a weaker network policy. The
+  default is `none`; passing something else is your decision and voids the
+  network claim above.
+- Disk quota enforcement. `ResourceLimits.max_disk_mb` is accepted by the task
+  schema but **is not enforced by this provider** — it would need a sized
+  volume or a filesystem quota, neither of which is wired up. Do not read a
+  declared `max_disk_mb` as a guarantee.
 - Secrets management beyond what you configure; do not mount your home
   directory into benchmark containers.
+- Any isolation on Windows or macOS runners. The conformance suite runs on
+  `ubuntu-latest` only, so on other platforms these guarantees are inferred
+  from Docker's own behaviour rather than verified here.
 
 ## Supply chain
 
