@@ -8,14 +8,14 @@ agents and local fixtures.
 
 ```bash
 tooltrace doctor                       # environment + discovered plugins
-tooltrace run --task fileops/copy-and-rename --agent my_adapter --json
+tooltrace run --task file-editing/fix-config-typo --agent my_adapter --json
 tooltrace reproduce runs/<latest>.tooltrace
 ```
 
 ## 2. Reliability benchmark (pass^k / pass@k)
 
 ```bash
-tooltrace benchmark --pack fileops --agent scripted --runs 5 --json
+tooltrace benchmark --task file-editing/fix-config-typo,bug-fixing/fix-off-by-one --agent scripted --runs 5 --json
 ```
 
 Read `pass^k` as "probability that k consecutive attempts all succeed" — the
@@ -39,28 +39,33 @@ failures; `--min-recovery-rate` gives a CI gate a stable exit code.
 ## 4. Fair two-agent comparison
 
 ```bash
-tooltrace showdown --agent-a scripted --agent-b subprocess \
-  --suite fileops-core --reps 3 --json
+tooltrace showdown --agents scripted,subprocess \
+  --task file-editing/fix-config-typo --runs 3 --json
 ```
 
-Showdown refuses incompatible task/protocol/scorer cohorts; paired-run
-analysis is used when identical seeds exist for both candidates.
+`--agents` takes a comma-separated list. Showdown refuses incompatible
+task/protocol/scorer cohorts; paired-run analysis is used when identical seeds
+exist for both candidates.
 
 ## 5. CI regression gate
 
 ```bash
 # In your pipeline, after generating fresh bundles:
-tooltrace baseline --suite fileops-core --from runs/
-tooltrace regression --baseline .tooltrace-baselines.json --suite fileops-core
+tooltrace baseline --name nightly --bundle runs/<baseline-bundle>.tooltrace
+tooltrace regression \
+  --baseline runs/<baseline-bundle>.tooltrace \
+  --current  runs/<current-bundle>.tooltrace \
+  --thresholds '{"score":{"min_delta":-0.05}}'
 ```
 
-Exit codes are stable: non-zero on regression beyond configured tolerance at
-suite/domain/task/metric level.
+`--baseline` and `--current` are bundle directories, and `--thresholds` is
+inline JSON rather than a file path. `regression` exits non-zero when a
+threshold is breached, so it gates a pipeline directly.
 
 ## 6. Authoring a deterministic task pack
 
 ```bash
-tooltrace task scaffold --id mypack/new-task --out tooltrace/tasks/packs
+tooltrace task scaffold --pack-dir tooltrace/tasks/packs --task-id mypack/new-task
 tooltrace validate --path tooltrace/tasks/packs/mypack
 tooltrace lint --path tooltrace/tasks/packs/mypack
 tooltrace dry-run --task mypack/new-task     # no model required
@@ -82,8 +87,8 @@ RBAC, quotas, approvals and audit apply per workspace; see
 
 ```bash
 python scripts/make_sample_results.py       # real, reproducible bundles
-tooltrace snapshot --out data/snapshots     # hashes, counts, changelog
-tooltrace snapshot --verify                 # integrity check
+tooltrace snapshot --source results --output data/snapshots/index.json --changelog "nightly"
+tooltrace snapshot --source results --output data/snapshots/index.json --verify
 ```
 
 ## 9. Inspecting why a run failed

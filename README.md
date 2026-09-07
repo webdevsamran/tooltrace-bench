@@ -32,49 +32,87 @@ pip install -e ".[dev]"
 # 2. Check your environment
 tooltrace doctor
 
-# 3. List bundled deterministic task packs
+# 3. List the bundled deterministic tasks
 tooltrace tasks
 
 # 4. Run a single task with the deterministic scripted agent
-tooltrace run --task fileops/copy-and-rename --agent scripted
+tooltrace run --task file-editing/fix-config-typo --agent scripted
 
 # 5. Inject safe faults and measure recovery
 tooltrace perturb --task failure-recovery/retry-after-tool-failure --agent scripted --runs 3
 
-# 6. Inspect exactly why a run passed or failed
+# 6. Write a bundle, then inspect exactly why the run passed or failed
+tooltrace run --task file-editing/fix-config-typo --agent scripted --out runs/
 tooltrace trace runs/<bundle>.tooltrace --assertions
 
-# 7. Run a repeated benchmark (reliability across N runs)
-tooltrace benchmark --pack fileops --agent scripted --runs 3
+# 7. Repeat a benchmark across tasks (reliability across N runs)
+tooltrace benchmark --task file-editing/fix-config-typo,bug-fixing/fix-off-by-one \
+    --agent scripted --runs 3 --summary
 
 # 8. Compare two runs (only identical task/protocol versions compare)
 tooltrace compare runs/run-A.tooltrace runs/run-B.tooltrace
 ```
 
+`--out` takes a *directory*; the bundle inside it is named from the task, agent
+and run id, and `tooltrace run` prints that name.
+
 Every run produces a **`.tooltrace` bundle**: `result.json`, `trace.jsonl`, `task.yaml`, `environment.json`, `workspace.diff`, `scoring.json`, and SHA-256 checksums — reproducible with `tooltrace reproduce <bundle>`.
 
-## A real sample run
+## A sample run
 
-The bundled `scripted` agent replays a deterministic tool-call script, so the sample below is a genuine, reproducible evaluation (no model required, no fabricated numbers):
+Captured from an actual `tooltrace run` on 2026-09-07, not hand-written. The
+`scripted` agent replays a fixed tool-call script, so the pass/fail outcome,
+step counts and score components below are deterministic and you should
+reproduce them exactly; only the timings will differ.
 
 ```console
-$ tooltrace run --task fileops/copy-and-rename --agent scripted --json
+$ tooltrace run --task file-editing/fix-config-typo --agent scripted --json
 {
-  "task_id": "fileops/copy-and-rename",
-  "task_version": "1.0.0",
-  "agent": "scripted",
-  "success": true,
-  "score": {"total": 1.0, "components": {"file_exists": 1.0, "file_contains": 1.0}},
-  "steps": 3,
-  "tool_calls": 3,
-  "failed_tool_calls": 0,
-  "recovery_rate": null,
-  "wall_ms": 41,
-  "bundle": "runs/fileops-copy-and-rename-scripted.tooltrace"
+  "result": {
+    "schema_version": 1,
+    "framework_version": "0.2.1",
+    "run_id": "7906c91224bc",
+    "task_id": "file-editing/fix-config-typo",
+    "task_version": "1.0.0",
+    "task_protocol_version": 1,
+    "agent": "scripted",
+    "success": true,
+    "partial_success": false,
+    "score": {
+      "total": 1.0,
+      "components": {"typo removed": 1.0, "correct key present": 1.0},
+      "weights": {"typo removed": 1.0, "correct key present": 1.0}
+    },
+    "failure_reason": "none",
+    "failure_detail": "no_failure",
+    "steps": 3,
+    "tool_calls": 2,
+    "failed_tool_calls": 0,
+    "invalid_tool_calls": 0,
+    "repeated_calls": 0,
+    "unnecessary_changes": 0,
+    "workspace_violations": 0,
+    "test_pass_ratio": null,
+    "wall_ms": 12.767,
+    "model_ms": null,
+    "tool_ms": 12.438,
+    "usage": {"tokens": null, "model_time_ms": null, "provider_cost_reported": null, "currency": null},
+    "trust_state": "LOCAL",
+    "started_at": "2026-09-07T04:45:50.298976+00:00",
+    "finished_at": "2026-09-07T04:45:50.333629+00:00"
+  },
+  "diff": "--- config.ini\n+++ config.ini\n@@ -1,4 +1,4 @@\n [server]\n host = localhost\n port = 8080\n-timout = 30\n+timeout = 30"
 }
 ```
 
-Your exact timings will differ; the pass/fail outcome, step counts and trace are deterministic.
+Two things worth noticing, because they are the point of the tool. Score
+`components` are the task's own human-readable assertion labels, not scorer
+function names — you can read *why* it passed. And `model_ms`, `usage.tokens`
+and `test_pass_ratio` are `null` rather than zero: the scripted agent involves
+no model, and an unmeasured quantity is never reported as a number.
+
+`trust_state` is `LOCAL` because this ran on an unattested machine. That is
+the honest default; it is not a verified published result.
 
 ## Architecture (1-minute tour)
 
@@ -100,20 +138,25 @@ Details in [ARCHITECTURE.md](ARCHITECTURE.md). The sandbox threat model is in [d
 
 ## Task types shipped
 
+Thirteen packs, sixteen tasks. `tooltrace tasks` prints the authoritative list
+with difficulty; the pack directory names below are the ones you pass to
+`--task`.
+
 | Pack | Focus |
 |---|---|
-| `fileops` | file editing, copy/rename, patching |
-| `bugfix` | bug fixing with failing tests |
-| `testrepair` | repairing broken tests |
-| `refactor` | behavior-preserving refactoring |
-| `docsfix` | documentation correction |
-| `datatransform` | JSON/CSV transformation |
-| `gitwork` | git workflows (staging, commits, branches) |
-| `shellwork` | shell workflows |
-| `mockapi` | local mock-API state tasks |
-| `dataanalysis` | data analysis over fixtures |
-| `planning` | multi-step planning |
-| `recovery` | failure recovery under injected perturbations |
+| `file-editing` | targeted edits to config and source files |
+| `bug-fixing` | bug fixing against a failing test |
+| `test-repair` | repairing broken test expectations |
+| `refactoring` | behaviour-preserving renames |
+| `docs-correction` | documentation correction |
+| `json-csv-transform` | JSON/CSV transformation |
+| `git-workflow` | git workflows (staging, commits) |
+| `shell-workflow` | shell workflows and directory structure |
+| `mock-api` | local mock-API state tasks |
+| `data-analysis` | data analysis over fixtures |
+| `multi-step-planning` | multi-step planning |
+| `failure-recovery` | recovery under injected perturbations |
+| `long-context` | context-scaling family (1k / 4k / 16k) |
 
 ## Adapter model
 

@@ -53,10 +53,10 @@ Please avoid trivial issue spam ("fix typo" issues without substance).
 ## Adding a task pack
 
 ```bash
-tooltrace task scaffold mypack --dir tooltrace/tasks/packs
+tooltrace task scaffold --pack-dir tooltrace/tasks/packs --task-id mypack/my-task
 # edit the generated YAML + fixtures
-tooltrace task validate tooltrace/tasks/packs/mypack
-tooltrace task test tooltrace/tasks/packs/mypack   # runs with scripted agent
+tooltrace task validate --path tooltrace/tasks/packs/mypack
+tooltrace task test --path tooltrace/tasks/packs/mypack   # runs with scripted agent
 ```
 
 ## Code style

@@ -66,7 +66,7 @@ export interface DemoBaseline {
 export const DEMO_BASELINES: DemoBaseline[] = [
   { scope: 'suite/fileops-core', metric: 'success_rate', value: 0.92, tolerance: 0.05, last_updated: '2026-08-18' },
   { scope: 'domain/file-editing', metric: 'pass^k(k=3)', value: 0.87, tolerance: 0.06, last_updated: '2026-08-18' },
-  { scope: 'task/fileops/copy-and-rename', metric: 'wall_ms_p95', value: 41000, tolerance: 8000, last_updated: '2026-08-12' },
+  { scope: 'task/file-editing/fix-config-typo', metric: 'wall_ms_p95', value: 41000, tolerance: 8000, last_updated: '2026-08-12' },
 ]
 
 export const DEMO_WEBHOOKS = [
