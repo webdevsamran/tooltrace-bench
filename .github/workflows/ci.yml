@@ -53,8 +53,15 @@ jobs:
         run: python scripts/generate_web_data.py
       - name: Generate SBOM (CycloneDX)
         run: |
-          pip install cyclonedx-bom
-          cyclonedx-py requirements -o sbom.json --no-validate || python scripts/generate_sbom.py
+          # `cyclonedx-py requirements` needs a requirements.txt, and this
+          # project does not have one -- it declares dependencies in
+          # pyproject. That invocation therefore failed on every run and the
+          # `||` silently fell through to the generator, which at the time
+          # dumped the entire interpreter. The generator now resolves the
+          # declared dependency closure, so call it directly rather than
+          # pretending a tool ran that never could.
+          python scripts/generate_sbom.py
+          python -c "import json,sys; b=json.load(open('sbom.json')); sys.exit(0 if b.get('serialNumber') and b['metadata'].get('timestamp') and b['components'] else 'SBOM missing serialNumber, timestamp or components')"
       # actions/upload-artifact@v7
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:

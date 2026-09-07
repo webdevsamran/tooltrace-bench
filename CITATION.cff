@@ -3,9 +3,8 @@ message: "If you use ToolTrace Bench, please cite it as below."
 title: "ToolTrace Bench: vendor-neutral, reproducible benchmarking of AI agents"
 type: software
 authors:
-  - alias: webdevsamran
-    name-surname: Samran
-    name-given-names: ""
+  - name: webdevsamran
+    alias: webdevsamran
     affiliation: "Independent / Open Source"
 identifiers:
   - type: url
@@ -26,5 +25,5 @@ keywords:
   - reliability
   - reproducibility
 license: Apache-2.0
-version: 0.1.0
-date-released: "2026-08-22"
+version: 0.2.1
+date-released: "2026-08-26"
