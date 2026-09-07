@@ -14,6 +14,7 @@
 | [Recipes](recipes.md) | Copy-paste workflows for common evaluation goals |
 | [Security & privacy](threat-model.md) | Threat model and defenses |
 | [Competitive analysis](competitive-analysis.md) | Verified competitor capability matrix |
+| [Statistical policy](statistics.md) | Which estimator is used for which metric, and why |
 | [Troubleshooting & FAQ / glossary](troubleshooting-faq.md) | Common problems, answers, glossary |
 
 Root documents: `README.md` (landing), `ARCHITECTURE.md`, `ROADMAP.md`,
