@@ -180,3 +180,19 @@ def test_every_documented_flag_exists_on_its_subcommand() -> None:
             if name not in known:
                 problems.append(f"{source}: `tooltrace {subcommand} {name}` -- no such flag")
     assert not problems, "documented commands that cannot run:\n  " + "\n  ".join(problems)
+
+
+def test_documented_scorer_count_matches_the_registry() -> None:
+    """docs/plugins.md states a built-in scorer count; keep it derived."""
+    import re
+
+    import tooltrace.scoring.builtin  # noqa: F401  (registers the built-ins)
+    from tooltrace.core.registry import scorer_registry
+
+    registered = len(scorer_registry.names())
+    doc = (_ROOT / "docs" / "plugins.md").read_text(encoding="utf-8")
+    match = re.search(r"(\d+) built-in scorers", doc)
+    assert match, "docs/plugins.md no longer states a scorer count"
+    assert int(match.group(1)) == registered, (
+        f"docs/plugins.md says {match.group(1)} built-in scorers; the registry has {registered}"
+    )

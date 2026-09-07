@@ -7,6 +7,7 @@ registered in ``scorer_registry`` by assertion type name.
 from __future__ import annotations
 
 import ast
+import copy
 import csv
 import io
 import json
@@ -297,3 +298,138 @@ def _api_state(params: dict[str, object], workspace: Path) -> ScorerOutcome:
         1.0 if ok else 0.0,
         f"{json_path}={'match' if ok else 'mismatch'}",
     )
+
+
+@register_scorer("ast_unrelated_edits")
+def _ast_unrelated_edits(params: dict[str, object], workspace: Path) -> ScorerOutcome:
+    """Fail when the agent changed code it was not asked to touch.
+
+    Complements ``unnecessary_changes``, which counts *files*. This works at
+    the definition level: it compares the set of top-level functions and
+    classes, and each one's normalized body, against a reference copy of the
+    file. An agent that fixes the requested bug but also silently rewrites a
+    neighbouring function scores zero here while a file-level check sees only
+    "one file edited, as expected".
+
+    Params:
+      path      - file to inspect, relative to the workspace
+      reference - the pre-edit copy to compare against, relative to the
+                  workspace (task fixtures ship this as e.g. ``.before/x.py``)
+      allow     - definition names the agent is *permitted* to change
+    """
+    path = _resolve(workspace, params.get("path"))
+    reference = _resolve(workspace, params.get("reference"))
+    if not path.is_file():
+        return ScorerOutcome(0.0, "file missing")
+    if not reference.is_file():
+        return ScorerOutcome(0.0, "reference file missing")
+
+    raw_allow = params.get("allow")
+    allowed = {str(a) for a in raw_allow} if isinstance(raw_allow, list) else set()
+
+    def definitions(source: str, label: str) -> dict[str, str]:
+        try:
+            tree = ast.parse(source)
+        except SyntaxError as exc:
+            raise ValueError(f"{label}: syntax error: {exc}") from exc
+        found: dict[str, str] = {}
+        for node in tree.body:
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                # Compare behaviour, not prose. ast.dump already discards
+                # formatting and comments, but a docstring is a real node in
+                # the body, so rewording one would otherwise read as a
+                # behaviour change. Strip it from a copy before dumping.
+                stripped = copy.deepcopy(node)
+                body = getattr(stripped, "body", [])
+                if (
+                    body
+                    and isinstance(body[0], ast.Expr)
+                    and isinstance(body[0].value, ast.Constant)
+                    and isinstance(body[0].value.value, str)
+                ):
+                    del body[0]
+                found[node.name] = ast.dump(stripped, annotate_fields=True)
+        return found
+
+    try:
+        after = definitions(_read(path), "file")
+        before = definitions(_read(reference), "reference")
+    except ValueError as exc:
+        return ScorerOutcome(0.0, str(exc))
+
+    changed = sorted(name for name in before.keys() & after.keys() if before[name] != after[name])
+    removed = sorted(before.keys() - after.keys())
+    added = sorted(after.keys() - before.keys())
+
+    unrelated = [n for n in changed + removed if n not in allowed]
+    unexpected_new = [n for n in added if n not in allowed]
+
+    problems: list[str] = []
+    if unrelated:
+        problems.append("modified unrelated definitions: " + ", ".join(unrelated))
+    if unexpected_new:
+        problems.append("added unrequested definitions: " + ", ".join(unexpected_new))
+    if problems:
+        return ScorerOutcome(0.0, "; ".join(problems))
+    return ScorerOutcome(1.0, "no unrelated definitions changed")
+
+
+@register_scorer("json_set_equals")
+def _json_set_equals(params: dict[str, object], workspace: Path) -> ScorerOutcome:
+    """Compare a JSON collection ignoring order.
+
+    ``json_equals`` compares documents structurally, so a correct answer whose
+    list happens to be in a different order fails. Many tasks have no defined
+    ordering -- "write the matching users to users.json" does not say which
+    order -- and penalising it measures nothing real.
+
+    Params:
+      path     - JSON file to read, relative to the workspace
+      expected - the collection to compare against
+      pointer  - optional dotted path selecting the collection inside the
+                 document (e.g. ``result.items``)
+    """
+    path = _resolve(workspace, params.get("path"))
+    if not path.is_file():
+        return ScorerOutcome(0.0, "file missing")
+    try:
+        document = json.loads(_read(path))
+    except json.JSONDecodeError as exc:
+        return ScorerOutcome(0.0, f"invalid JSON: {exc}")
+
+    pointer = params.get("pointer")
+    if isinstance(pointer, str) and pointer:
+        for segment in pointer.split("."):
+            if isinstance(document, dict) and segment in document:
+                document = document[segment]
+            else:
+                return ScorerOutcome(0.0, f"pointer '{pointer}' not found at '{segment}'")
+
+    expected = params.get("expected")
+    if not isinstance(expected, list):
+        return ScorerOutcome(0.0, "expected must be a list")
+    if not isinstance(document, list):
+        return ScorerOutcome(0.0, f"selected value is {type(document).__name__}, not a list")
+
+    def canonical(items: list[object]) -> list[str]:
+        # Members may be dicts, which are unhashable; canonical JSON with
+        # sorted keys gives a stable comparable form without requiring
+        # hashability, and sorting the encodings makes the set comparison
+        # order-independent while still counting duplicates.
+        return sorted(json.dumps(item, sort_keys=True, default=str) for item in items)
+
+    actual_canonical = canonical(document)
+    expected_canonical = canonical(expected)
+    if actual_canonical == expected_canonical:
+        return ScorerOutcome(1.0, f"{len(expected)} members match (order ignored)")
+
+    missing = [m for m in expected_canonical if m not in actual_canonical]
+    extra = [m for m in actual_canonical if m not in expected_canonical]
+    detail = []
+    if missing:
+        detail.append(f"{len(missing)} missing")
+    if extra:
+        detail.append(f"{len(extra)} unexpected")
+    if not detail:
+        detail.append("duplicate counts differ")
+    return ScorerOutcome(0.0, "collection differs: " + ", ".join(detail))

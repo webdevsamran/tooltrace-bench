@@ -12,7 +12,7 @@ user action.
 | `tooltrace.agents` | `AgentAdapter`: initialize / run / event stream / usage / artifacts | subprocess, openai_compat, scripted |
 | `tooltrace.tools` | typed tool with sanitized event emission | read/write/patch/list/search files, shell, git, calculator, test_runner, http |
 | `tooltrace.task_packs` | pack directory with YAML task definitions | builtin |
-| `tooltrace.scorers` | deterministic scorer functions | 13 built-in scorers |
+| `tooltrace.scorers` | deterministic scorer functions | 15 built-in scorers |
 | `tooltrace.reporters` | report exporters (JSON/CSV/MD/JUnit/HTML) | 5 exporters |
 | `tooltrace.sandboxes` | sandbox providers | local temp workspace, Docker (+Podman-compatible interface) |
 | `pytest11` | pytest fixtures (`tooltrace_runner`, `run_tooltrace`, `assert_tooltrace_pass`) + `tooltrace` marker | bundled pytest plugin (auto-enabled on install) |
