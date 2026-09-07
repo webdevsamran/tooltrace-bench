@@ -103,8 +103,14 @@ jobs:
           python-version: "3.12"
       - name: Generate SBOM (CycloneDX)
         run: |
-          python -m pip install --upgrade pip cyclonedx-bom
-          cd release-assets && cyclonedx-py requirements -o sbom.json --no-validate
+          # Same reason as ci.yml: there is no requirements.txt for
+          # `cyclonedx-py requirements` to read. Unlike ci.yml this had no
+          # fallback, so a real tagged release would have failed here -- which
+          # went unnoticed because no tag has ever been pushed.
+          python -m pip install --upgrade pip
+          pip install -e .
+          python scripts/generate_sbom.py
+          cp sbom.json release-assets/sbom.json
       - name: SHA-256 checksums
         run: |
           cd release-assets

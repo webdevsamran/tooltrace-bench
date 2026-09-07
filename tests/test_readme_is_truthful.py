@@ -271,3 +271,51 @@ def test_pyproject_classifiers_are_all_tested() -> None:
     assert not untested, (
         f"pyproject classifies Python {untested} as supported, but CI never tests them"
     )
+
+
+def test_version_is_consistent_everywhere_it_appears() -> None:
+    """A version that disagrees with itself makes every other claim suspect.
+
+    CITATION.cff said 0.1.0 and SECURITY.md supported only 0.1.x while the
+    package was 0.2.1, so a citation and a security policy both described a
+    release two versions behind the code.
+    """
+    import tomllib
+
+    import yaml
+
+    with (_ROOT / "pyproject.toml").open("rb") as fh:
+        version = tomllib.load(fh)["project"]["version"]
+
+    citation = yaml.safe_load((_ROOT / "CITATION.cff").read_text(encoding="utf-8"))
+    assert str(citation["version"]) == version, (
+        f"CITATION.cff says {citation['version']}, pyproject says {version}"
+    )
+
+    from tooltrace.core.versions import FRAMEWORK_VERSION
+
+    assert version == FRAMEWORK_VERSION, (
+        f"FRAMEWORK_VERSION is {FRAMEWORK_VERSION}, pyproject says {version}"
+    )
+
+    minor_series = ".".join(version.split(".")[:2]) + ".x"
+    security = (_ROOT / "SECURITY.md").read_text(encoding="utf-8")
+    assert minor_series in security, (
+        f"SECURITY.md does not list {minor_series} as supported, but that is the "
+        f"current release series ({version})"
+    )
+
+
+def test_citation_authors_are_well_formed() -> None:
+    """An empty required CFF field renders a malformed author downstream."""
+    import yaml
+
+    citation = yaml.safe_load((_ROOT / "CITATION.cff").read_text(encoding="utf-8"))
+    authors = citation.get("authors") or []
+    assert authors, "CITATION.cff lists no authors"
+    for author in authors:
+        assert any(author.get(key) for key in ("name", "family-names", "given-names")), (
+            f"author entry has no usable name: {author}"
+        )
+        for key, value in author.items():
+            assert value != "", f"CITATION.cff author field '{key}' is empty"
