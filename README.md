@@ -1,5 +1,14 @@
 # ToolTrace Bench
 
+<!-- badges -->
+[![CI](https://github.com/webdevsamran/tooltrace-bench/actions/workflows/ci.yml/badge.svg)](https://github.com/webdevsamran/tooltrace-bench/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/webdevsamran/tooltrace-bench/actions/workflows/codeql.yml/badge.svg)](https://github.com/webdevsamran/tooltrace-bench/actions/workflows/codeql.yml)
+[![Release](https://img.shields.io/github/v/release/webdevsamran/tooltrace-bench?sort=semver)](https://github.com/webdevsamran/tooltrace-bench/releases)
+[![License](https://img.shields.io/github/license/webdevsamran/tooltrace-bench)](https://github.com/webdevsamran/tooltrace-bench/blob/main/LICENSE)
+[![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13%20%7C%203.14-blue)](pyproject.toml)
+[![Coverage floor](https://img.shields.io/badge/coverage%20floor-80%25-informational)](pyproject.toml)
+<!-- /badges -->
+
 **Vendor-neutral, reproducible benchmarking of AI agents** across coding, tool use, file operations, multi-step workflows, failure recovery, latency, cost and reliability.
 
 - **Creator / Founder / Lead Maintainer:** [@webdevsamran](https://github.com/webdevsamran)
@@ -115,23 +124,39 @@ the honest default; it is not a verified published result.
 
 ## Architecture (1-minute tour)
 
+The agent never touches the host: it acts through a typed tool registry inside
+a temporary workspace with the network off by default, and every request and
+result it produces is appended to a versioned trace. Scoring reads the trace
+and the final workspace, never the agent's own account of what it did. Boxes
+are real packages under [`tooltrace/`](tooltrace):
+
+<!-- mermaid:architecture -->
+```mermaid
+flowchart TB
+    PACK[tasks/packs/*.yaml] --> DEF[tasks/<br/>TaskDefinition v2<br/>schema-validated]
+    DEF --> RUNNER[runners/<br/>seeded, deterministic]
+
+    RUNNER --> SANDBOX[sandbox/<br/>temp workspace<br/>network off by default]
+    AGENT[agents/<br/>subprocess · streaming ·<br/>OpenAI-compatible · MCP · scripted]
+    AGENT -- actions --> TOOLS[tools/<br/>typed tool registry]
+    TOOLS --> SANDBOX
+    RUNNER -- objective --> AGENT
+
+    TOOLS --> TRACE[artifacts/<br/>versioned JSONL trace]
+    SANDBOX --> TRACE
+    PERTURB[perturbations/<br/>injected faults] -.-> TOOLS
+
+    TRACE --> SCORING[scoring/<br/>deterministic scorers]
+    SANDBOX --> SCORING
+    SCORING --> RESULT[EvalResult<br/>score + FailureReason]
+
+    RESULT --> BUNDLE[.tooltrace bundle]
+    BUNDLE --> ANALYSIS[analysis/<br/>bootstrap CIs · flakiness · baselines]
+    BUNDLE --> REPORTS[reports/<br/>terminal · JSON · HTML]
+    BUNDLE --> REPLAY[replay/<br/>deterministic re-run]
+    ANALYSIS --> WEB[server/ + web/<br/>compare · failure analysis]
 ```
-task pack (YAML) ──► TaskDefinition (schema-validated)
-                          │
-                          ▼
-                   Sandbox (temp workspace, network off by default)
-                          │
-   AgentAdapter ──actions──► Tool registry (typed tools, sanitized events)
-   (subprocess /            │
-    OpenAI-compatible /     ▼
-    scripted)          Trace (versioned JSONL: every request/result/diff)
-                          │
-                          ▼
-              Deterministic scorers ──► Score + FailureReason
-                          │
-                          ▼
-        EvalResult ──► .tooltrace bundle ──► reports / compare / regression
-```
+<!-- /mermaid:architecture -->
 
 Details in [ARCHITECTURE.md](ARCHITECTURE.md). The sandbox threat model is in [docs/threat-model.md](docs/threat-model.md).
 
