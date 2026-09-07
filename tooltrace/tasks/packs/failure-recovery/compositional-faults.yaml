@@ -1,0 +1,122 @@
+id: failure-recovery/compositional-faults
+name: Recover from three faults in sequence
+category: failure-recovery
+tags:
+- recovery
+- perturbation
+- compositional
+difficulty: hard
+objective: >-
+  Fix the typo in config/settings.ini and record the fix in CHANGES.md, while
+  recovering from a moved file, a transient read failure and a failing command.
+description: >-
+  Three faults are injected, and they compound rather than repeat: the file is
+  not where the task says it is, the first read of it fails transiently, and
+  the verification command exits non-zero the first time it is run.
+
+  Single-fault tasks measure whether an agent retries. This measures whether it
+  keeps its objective straight while the ground shifts underneath it -- an
+  agent that recovers from the move but then abandons the original goal has not
+  recovered, it has been derailed.
+
+  Scoring is weighted so partial recovery is visible rather than collapsing to
+  a pass or a fail. Locating the moved file and fixing the typo are the primary
+  objective (weight 3); recording the change is secondary (weight 2); leaving
+  the workspace clean is a hygiene check (weight 1). An agent that survives the
+  move and the read failure but gives up at the command exit scores distinctly
+  higher than one that never finds the file, and distinctly lower than one that
+  completes everything.
+starting_workspace:
+  config/settings.ini: |
+    [server]
+    host = localhost
+    timout = 30
+  CHANGES.md: |
+    # Changes
+starting_workspace_note: >-
+  settings.ini is moved to config/legacy/settings.ini before the agent starts.
+allowed_tools:
+- read_file
+- write_file
+- patch_file
+- list_directory
+- shell
+perturbations:
+# 1. The file is not where the objective says it is.
+- kind: moved_file
+  params:
+    from: config/settings.ini
+    to: config/legacy/settings.ini
+# 2. The first read of anything fails transiently.
+- kind: tool_failure
+  params:
+    tool: read_file
+# 3. The first verification command exits non-zero.
+- kind: command_exit
+  params:
+    tool: shell
+    exit_code: 1
+assertions:
+- type: file_not_contains
+  params:
+    path: config/legacy/settings.ini
+    text: timout
+  weight: 3.0
+  description: primary objective - the typo is fixed in the relocated file
+- type: file_contains
+  params:
+    path: config/legacy/settings.ini
+    text: timeout
+  weight: 3.0
+  description: primary objective - the corrected key is present
+- type: file_contains
+  params:
+    path: CHANGES.md
+    text: timeout
+  weight: 2.0
+  description: secondary objective - the fix is recorded
+- type: file_not_exists
+  params:
+    path: config/settings.ini
+  weight: 1.0
+  description: hygiene - the original path is not recreated alongside the moved file
+expected_artifacts:
+- config/legacy/settings.ini
+- CHANGES.md
+metadata:
+  scripted_script:
+  # Reads the moved location. The first read_file fails transiently; a reliable
+  # agent retries, which the scripted agent models by reading twice.
+  - tool: list_directory
+    args:
+      path: config
+  - tool: read_file
+    args:
+      path: config/legacy/settings.ini
+  - tool: read_file
+    args:
+      path: config/legacy/settings.ini
+  - tool: patch_file
+    args:
+      path: config/legacy/settings.ini
+      search: timout
+      replace: timeout
+  - tool: write_file
+    args:
+      path: CHANGES.md
+      content: |
+        # Changes
+
+        - fixed timeout key in config/legacy/settings.ini
+  # First shell call is failed by the command_exit perturbation; the retry is
+  # what demonstrates recovery from the third fault.
+  - tool: shell
+    args:
+      command: echo verify
+  - tool: shell
+    args:
+      command: echo verify
+version: 1.0.0
+network_policy: disabled
+timeout_seconds: 120
+max_steps: 20
