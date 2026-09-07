@@ -114,12 +114,20 @@ jobs:
       - name: SHA-256 checksums
         run: |
           cd release-assets
-          sha256sum * > SHA256SUMS.txt
+          # `sha256sum *` fails with "Is a directory": the frontend build
+          # contributes assets/, bundles/ and data/ subdirectories, and one
+          # failure aborts the step under `bash -e`. Checksum files only,
+          # recursively, so every artifact is covered rather than only the
+          # top-level ones. Paths stay relative to release-assets/ so the
+          # manifest is verifiable from the extracted release.
+          find . -type f ! -name SHA256SUMS.txt -print0             | sort -z             | xargs -0 sha256sum > SHA256SUMS.txt
+          echo "checksummed $(wc -l < SHA256SUMS.txt) files"
           cat SHA256SUMS.txt
       # actions/attest-build-provenance@v2 — SLSA build provenance for artifacts
       - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8
         with:
-          subject-path: "release-assets/*"
+          # Match the checksum manifest: every file, not just top-level entries.
+          subject-path: "release-assets/**/*"
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
