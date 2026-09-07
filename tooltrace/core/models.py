@@ -118,6 +118,12 @@ class TaskDefinition(BaseModel):
     tags: list[str] = Field(default_factory=list)
     perturbations: list[PerturbationSpec] = Field(default_factory=list)
     long_context: bool = False
+    #: Executables that must be on PATH for this task to be runnable at all.
+    #: A task naming a toolchain the machine does not have is *skipped*, not
+    #: failed: a missing `cargo` says nothing about the agent, and scoring it
+    #: as a failure would make results depend on the runner's installed
+    #: software rather than on agent behaviour.
+    requires_tools: list[str] = Field(default_factory=list)
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @property
