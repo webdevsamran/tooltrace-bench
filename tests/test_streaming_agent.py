@@ -225,3 +225,32 @@ def test_json_that_is_not_an_object_is_handled(tmp_path: Path) -> None:
     outcome = agent.finalize()
     assert actions[-1].kind == "finish"
     assert any("non-object event" in m for m in outcome.messages)
+
+
+def test_stderr_survives_a_stdin_that_refuses_to_close(tmp_path: Path) -> None:
+    """The cross-platform form of a POSIX-only CI failure.
+
+    `_write` swallows a failed flush, so bytes can remain in stdin's buffer
+    after the agent has exited; `close()` then retries that flush against a
+    pipe with no reader and raises. When close and `communicate()` shared one
+    try block, that raise skipped the read and the crashed agent's stderr --
+    the only record of why it died -- was silently dropped. Reproduced here by
+    making close() raise directly, because Windows will not produce the
+    underlying broken pipe.
+    """
+    agent = StreamingAgent({"command": _agent_script(tmp_path, _CRASHING_AGENT)})
+    agent.initialize(_context())
+    _run(agent)
+
+    real_stdin = agent._proc.stdin  # type: ignore[union-attr]
+
+    class RefusesToClose:
+        def __getattr__(self, item: str) -> object:
+            return getattr(real_stdin, item)
+
+        def close(self) -> None:
+            raise BrokenPipeError(32, "Broken pipe")
+
+    agent._proc.stdin = RefusesToClose()  # type: ignore[assignment,union-attr]
+    outcome = agent.finalize()
+    assert any("boom" in m for m in outcome.messages), outcome.messages

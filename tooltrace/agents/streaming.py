@@ -241,23 +241,44 @@ class StreamingAgent(AgentAdapter):
 
             self._messages.append(f"[unknown event type {kind!r}]")
 
-    def finalize(self) -> AgentOutcome:
-        stderr_tail = ""
-        if self._proc is not None:
+    def _shutdown(self) -> str:
+        """Stop the child and return whatever it left on stderr.
+
+        Closing stdin is done in its own try. On POSIX it can raise even
+        though nothing here wrote to it: `_write` swallows a failed flush, so
+        bytes can still be sitting in the buffer, and `close()` retries that
+        flush against a pipe whose reader is gone. Sharing one try with
+        `communicate()` -- as this did -- meant that raise skipped the read
+        entirely and a crashed agent's stderr, its only explanation, was
+        dropped. Windows did not reproduce it; the CI matrix did.
+        """
+        proc = self._proc
+        self._proc = None
+        if proc is None:
+            return ""
+        try:
+            if proc.stdin is not None:
+                proc.stdin.close()
+        except (BrokenPipeError, OSError, ValueError):
+            pass
+        try:
+            if proc.poll() is None:
+                proc.terminate()
+            _, stderr_tail = proc.communicate(timeout=10)
+        except (subprocess.TimeoutExpired, OSError, ValueError):
+            proc.kill()
             try:
-                if self._proc.stdin is not None:
-                    self._proc.stdin.close()
-                self._proc.terminate()
-                _, stderr_tail = self._proc.communicate(timeout=10)
+                _, stderr_tail = proc.communicate(timeout=5)
             except (subprocess.TimeoutExpired, OSError, ValueError):
-                self._proc.kill()
-            finally:
-                self._proc = None
-        if stderr_tail and stderr_tail.strip():
+                stderr_tail = ""
+        return stderr_tail or ""
+
+    def finalize(self) -> AgentOutcome:
+        stderr_tail = self._shutdown()
+        if stderr_tail.strip():
             # Surfaced rather than dropped: an agent that crashed after its
             # last event leaves its explanation here and nowhere else.
             self._messages.append(f"[agent stderr] {stderr_tail.strip()[:2000]}")
-
         # Tokens are reported only when the agent reported them. A zero would
         # be indistinguishable from "this agent used no tokens", which is a
         # different claim from "we do not know".
