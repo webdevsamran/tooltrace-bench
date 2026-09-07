@@ -11,7 +11,7 @@ Four independent version axes (see ARCHITECTURE.md):
 
 from __future__ import annotations
 
-FRAMEWORK_VERSION = "0.2.1"
+FRAMEWORK_VERSION = "0.3.0"
 TASK_PROTOCOL_VERSION = 1
 TASK_SCHEMA_VERSION = 1
 TRACE_SCHEMA_VERSION = 1

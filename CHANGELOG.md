@@ -4,7 +4,34 @@ All notable changes to ToolTrace Bench are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versioning follows [Semantic Versioning](https://semver.org/).
 
-## [Unreleased] — Ecosystem & adoption pass
+## [0.3.0] — Ecosystem, adoption and integrity pass (2026-09-07)
+
+### Fixed — integrity pass
+- **README sample run is now captured, not written.** The section headed "A
+  real sample run", prefaced "no fabricated numbers", showed output for a task
+  that does not exist, with score components no scorer emits and a `wall_ms`
+  traceable to the frontend's demo fixture. Replaced with real output, and
+  `tests/test_readme_is_truthful.py` re-runs the documented command and diffs
+  every deterministic field against the README.
+- **The quickstart could not be followed** — a nonexistent task id, a `--pack`
+  flag the CLI never had, and 12 of 12 wrong task-pack names. Checking the rest
+  of the docs the same way found broken invocations for `showdown`, `baseline`,
+  `regression`, `task scaffold/validate/test` and `snapshot`; all corrected
+  against real `--help` output, with a test that every documented flag exists.
+- **Four CLI bugs** surfaced by running the documented commands: `task
+  scaffold` wrote its file then crashed on an undefined `args.json`; `snapshot
+  --output` did not create parent directories; `verify_bundle` let
+  `BundleError` escape as a raw traceback; `cmd_regression` parsed
+  `--thresholds` outside its try block.
+- **The SBOM described the build machine, not the project** — 147 components
+  against six declared dependencies, including two unrelated sibling projects,
+  with no serialNumber or timestamp. Now resolves the declared dependency
+  closure (40 components). Both workflows also called `cyclonedx-py
+  requirements`, which could never run here; `release.yml` had no fallback, so
+  a real tagged release would have failed at that step.
+- **Version claims disagreed**: CITATION.cff and SECURITY.md described 0.1.x
+  while the package was 0.2.1.
+
 
 ### Added
 - **External trace ingestion** (`tooltrace ingest`, `tooltrace.ingest`): convert
