@@ -14,6 +14,7 @@ the README checkable by machine so it cannot rot back.
 from __future__ import annotations
 
 import json
+import os
 import re
 import subprocess
 import sys
@@ -23,6 +24,28 @@ import pytest
 
 _ROOT = Path(__file__).resolve().parent.parent
 _README = (_ROOT / "README.md").read_text(encoding="utf-8")
+
+
+def _child_env() -> dict[str, str]:
+    """Environment for a subprocess, without this run's coverage plumbing.
+
+    pytest-cov installs a `.pth` that starts coverage in any child process
+    that inherits `COV_CORE_*`. The child below runs with `cwd=tmp_path`,
+    where there is no pyproject.toml, so its coverage falls back to
+    `branch = False` while the parent collects branch data -- and combining
+    the two aborts the whole session with "Can't combine statement coverage
+    data with branch data". `pytest --cov` therefore could not complete
+    locally at all, and the stray `.coverage.<pid>` file it left behind
+    poisoned every subsequent run until deleted by hand.
+
+    `tooltrace/tools/process.py` and `tooltrace/scoring/builtin.py` already
+    scrub the same prefixes for the same reason; this is that rule applied to
+    the one place that had been missed.
+    """
+    return {
+        k: v for k, v in os.environ.items() if not k.startswith(("COV_CORE", "COVERAGE", "PYTEST_"))
+    }
+
 
 # Fields that legitimately vary between runs.
 _NONDETERMINISTIC = {
@@ -110,6 +133,7 @@ def test_readme_sample_is_reproducible(tmp_path: Path) -> None:
         text=True,
         cwd=tmp_path,
         timeout=300,
+        env=_child_env(),
     )
     assert proc.returncode == 0, proc.stderr
     live = json.loads(proc.stdout)["result"]
