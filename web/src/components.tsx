@@ -202,11 +202,34 @@ export function LineChart({
 
 export function DiffViewer({ diff }: { diff: string }) {
   if (!diff.trim()) return <EmptyState hint="No workspace changes." />
+  const lines = diff.split('\n')
+  const added = lines.filter((l) => l.startsWith('+') && !l.startsWith('+++')).length
+  const removed = lines.filter((l) => l.startsWith('-') && !l.startsWith('---')).length
   return (
-    <pre className="diff" data-testid="diff-viewer">
-      {diff.split('\n').map((line, i) => (
+    // A diff is a document, not decoration: it needs a role and an accessible
+    // name so a screen reader can find and announce it, and tabIndex so it can
+    // be scrolled from the keyboard. A <pre> only a mouse can scroll is
+    // unreachable for anyone navigating by keyboard alone.
+    <pre
+      className="diff"
+      data-testid="diff-viewer"
+      role="region"
+      aria-label={`Workspace diff: ${added} lines added, ${removed} removed`}
+      tabIndex={0}
+    >
+      {lines.map((line, i) => (
         <span
           key={i}
+          // The +/- prefix carries meaning visually only; without this a
+          // screen reader reads it as stray punctuation rather than as an
+          // addition or a removal.
+          aria-label={
+            line.startsWith('+') && !line.startsWith('+++')
+              ? `added: ${line.slice(1)}`
+              : line.startsWith('-') && !line.startsWith('---')
+                ? `removed: ${line.slice(1)}`
+                : undefined
+          }
           className={
             line.startsWith('+') && !line.startsWith('+++')
               ? 'add'
@@ -237,20 +260,97 @@ export interface TraceLine {
 }
 
 export function TraceTimeline({ events }: { events: TraceLine[] }) {
+  // Rows are a fixed height, so the window can be computed from scrollTop
+  // arithmetic alone. That is the whole reason this needs no virtualization
+  // dependency: a variable-height list would, a uniform one does not.
+  const ROW_PX = 28
+  const OVERSCAN = 8
+  const VIEWPORT_PX = 520
+  // Below this, rendering everything is cheaper than the scroll bookkeeping.
+  const VIRTUALIZE_ABOVE = 200
+
+  const [scrollTop, setScrollTop] = _useState(0)
+  const [focused, setFocused] = _useState(0)
+
   if (events.length === 0) return <EmptyState hint="No trace events." />
+
+  const virtual = events.length > VIRTUALIZE_ABOVE
+  const first = virtual ? Math.max(0, Math.floor(scrollTop / ROW_PX) - OVERSCAN) : 0
+  const visibleCount = virtual
+    ? Math.min(events.length - first, Math.ceil(VIEWPORT_PX / ROW_PX) + OVERSCAN * 2)
+    : events.length
+  const slice = events.slice(first, first + visibleCount)
+
+  const onKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    // Without this the list is scrollable by mouse only. Home/End matter most
+    // on a long trace: the interesting event is usually the first failure or
+    // the last step, and neither should need a thousand arrow presses.
+    const step =
+      e.key === 'ArrowDown' ? 1
+      : e.key === 'ArrowUp' ? -1
+      : e.key === 'PageDown' ? Math.floor(VIEWPORT_PX / ROW_PX)
+      : e.key === 'PageUp' ? -Math.floor(VIEWPORT_PX / ROW_PX)
+      : 0
+    const next =
+      step ? Math.min(events.length - 1, Math.max(0, focused + step))
+      : e.key === 'Home' ? 0
+      : e.key === 'End' ? events.length - 1
+      : null
+    if (next === null) return
+    e.preventDefault()
+    setFocused(next)
+    const target = e.currentTarget
+    const top = next * ROW_PX
+    if (top < target.scrollTop) target.scrollTop = top
+    else if (top + ROW_PX > target.scrollTop + VIEWPORT_PX)
+      target.scrollTop = top + ROW_PX - VIEWPORT_PX
+  }
+
+  const row = (e: TraceLine, index: number) => (
+    <li
+      key={e.seq}
+      className={`tl-${e.type}`}
+      role="option"
+      aria-selected={index === focused}
+      aria-setsize={events.length}
+      aria-posinset={index + 1}
+      style={virtual ? { position: 'absolute', top: index * ROW_PX, height: ROW_PX, left: 0, right: 0 } : undefined}
+    >
+      <span className="tl-seq">#{e.seq}</span>
+      <span className="tl-type">{e.type}</span>
+      {e.tool && <code>{e.tool}</code>}
+      {e.status && <Badge kind={e.status === 'ok' ? 'ok' : e.status === 'denied' ? 'warn' : 'bad'}>{e.status}</Badge>}
+      {typeof e.duration_ms === 'number' && <span className="tl-ms">{e.duration_ms.toFixed(1)} ms</span>}
+      {e.summary && <span className="tl-summary">{e.summary}</span>}
+    </li>
+  )
+
+  if (!virtual) {
+    return (
+      <ol className="timeline" role="listbox" aria-label={`Trace timeline, ${events.length} events`} tabIndex={0}>
+        {events.map((e, i) => row(e, i))}
+      </ol>
+    )
+  }
+
   return (
-    <ol className="timeline">
-      {events.map((e) => (
-        <li key={e.seq} className={`tl-${e.type}`}>
-          <span className="tl-seq">#{e.seq}</span>
-          <span className="tl-type">{e.type}</span>
-          {e.tool && <code>{e.tool}</code>}
-          {e.status && <Badge kind={e.status === 'ok' ? 'ok' : e.status === 'denied' ? 'warn' : 'bad'}>{e.status}</Badge>}
-          {typeof e.duration_ms === 'number' && <span className="tl-ms">{e.duration_ms.toFixed(1)} ms</span>}
-          {e.summary && <span className="tl-summary">{e.summary}</span>}
-        </li>
-      ))}
-    </ol>
+    <div
+      className="timeline-viewport"
+      role="listbox"
+      aria-label={`Trace timeline, ${events.length} events`}
+      tabIndex={0}
+      onKeyDown={onKeyDown}
+      onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)}
+      style={{ height: VIEWPORT_PX, overflowY: 'auto', position: 'relative' }}
+      data-testid="trace-timeline"
+      data-virtualized="true"
+    >
+      {/* Spacer gives the scrollbar the full list's height while only the
+          visible window exists in the DOM. */}
+      <ol className="timeline" style={{ height: events.length * ROW_PX, position: 'relative', margin: 0 }}>
+        {slice.map((e) => row(e, events.indexOf(e)))}
+      </ol>
+    </div>
   )
 }
 
