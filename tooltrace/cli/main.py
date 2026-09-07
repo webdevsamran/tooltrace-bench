@@ -274,7 +274,20 @@ def cmd_baseline(args: argparse.Namespace) -> int:
 def cmd_regression(args: argparse.Namespace) -> int:
     from tooltrace.analysis.compare import check_regression
 
-    thresholds = json.loads(args.thresholds)
+    # Parsed inside the guarded block: --thresholds takes inline JSON, and a
+    # path or a typo previously escaped as a raw JSONDecodeError traceback.
+    try:
+        thresholds = json.loads(args.thresholds)
+    except json.JSONDecodeError as exc:
+        print(
+            f"error: --thresholds expects inline JSON, not a file path: {exc}",
+            file=sys.stderr,
+        )
+        print(
+            'hint: --thresholds takes inline JSON, e.g. {"score":{"min_delta":-0.05}}',
+            file=sys.stderr,
+        )
+        return EXIT_USAGE
     try:
         report = check_regression(Path(args.baseline), Path(args.current), thresholds)
     except Exception as exc:
@@ -810,6 +823,11 @@ def build_parser() -> argparse.ArgumentParser:
     va.add_argument("--path", required=True)
     te = tksub.add_parser("test")
     te.add_argument("--path", required=True)
+    # cmd_task_group emits through _emit(..., args.json) for all three, so each
+    # needs the flag. Without it `task scaffold` wrote the file and *then* died
+    # with AttributeError: 'Namespace' object has no attribute 'json'.
+    for _task_sub in (sc, va, te):
+        _task_sub.add_argument("--json", action="store_true", help="structured JSON output")
     tk.set_defaults(func=cmd_task_group)
 
     ing = add(

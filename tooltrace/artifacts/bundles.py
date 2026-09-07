@@ -109,6 +109,12 @@ def verify_bundle(bundle_dir: Path) -> list[str]:
         raise BundleError(f"bundle directory not found: {bundle_dir}")
     try:
         manifest = read_manifest(bundle_dir)
+    except BundleError as exc:
+        # A directory that is not a bundle is a *problem to report*, not a
+        # crash. verify_bundle's contract is to return problems; letting
+        # BundleError escape here surfaced a raw traceback to anyone who
+        # pointed `tooltrace trace` at the wrong directory.
+        return [str(exc)]
     except (json.JSONDecodeError, OSError) as exc:
         return [f"unreadable manifest: {exc}"]
     checksums = manifest.get("checksums", {})
