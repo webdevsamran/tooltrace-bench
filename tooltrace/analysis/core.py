@@ -296,7 +296,12 @@ def generate_snapshot(source_dir: Path, output_path: Path, changelog: str) -> di
         "files": files,
     }
     snapshot["snapshot_sha256"] = sha256_text(canonical_json(snapshot))
-    Path(output_path).write_text(json.dumps(snapshot, indent=2), encoding="utf-8")
+    out = Path(output_path)
+    # Create the parent directory rather than failing with a bare
+    # FileNotFoundError: the natural first invocation writes into a
+    # data/ or snapshots/ path that does not exist yet.
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(snapshot, indent=2), encoding="utf-8")
     return snapshot
 
 
