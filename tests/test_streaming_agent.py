@@ -227,16 +227,19 @@ def test_json_that_is_not_an_object_is_handled(tmp_path: Path) -> None:
     assert any("non-object event" in m for m in outcome.messages)
 
 
-def test_stderr_survives_a_stdin_that_refuses_to_close(tmp_path: Path) -> None:
+def test_stderr_survives_a_broken_stdin_pipe(tmp_path: Path) -> None:
     """The cross-platform form of a POSIX-only CI failure.
 
-    `_write` swallows a failed flush, so bytes can remain in stdin's buffer
-    after the agent has exited; `close()` then retries that flush against a
-    pipe with no reader and raises. When close and `communicate()` shared one
-    try block, that raise skipped the read and the crashed agent's stderr --
-    the only record of why it died -- was silently dropped. Reproduced here by
-    making close() raise directly, because Windows will not produce the
-    underlying broken pipe.
+    Once the agent has exited, a write to its stdin fails. `_write` swallows
+    that, so bytes can still be sitting in the buffer, and every later flush
+    against the dead pipe raises `BrokenPipeError` -- including the implicit
+    one inside `close()`. When teardown closed stdin itself, inside the same
+    try block as the read, that raise skipped `communicate()` and the crashed
+    agent's stderr, the only record of why it died, was dropped.
+
+    Windows will not produce the broken pipe, so it is injected here: a stdin
+    whose flush and close both raise, exactly as a real `TextIOWrapper` over a
+    dead pipe does.
     """
     agent = StreamingAgent({"command": _agent_script(tmp_path, _CRASHING_AGENT)})
     agent.initialize(_context())
@@ -244,13 +247,79 @@ def test_stderr_survives_a_stdin_that_refuses_to_close(tmp_path: Path) -> None:
 
     real_stdin = agent._proc.stdin  # type: ignore[union-attr]
 
-    class RefusesToClose:
+    class BrokenPipeStdin:
+        """Everything real except flush and close, which the dead pipe fails."""
+
         def __getattr__(self, item: str) -> object:
             return getattr(real_stdin, item)
+
+        def flush(self) -> None:
+            raise BrokenPipeError(32, "Broken pipe")
 
         def close(self) -> None:
             raise BrokenPipeError(32, "Broken pipe")
 
-    agent._proc.stdin = RefusesToClose()  # type: ignore[assignment,union-attr]
+    agent._proc.stdin = BrokenPipeStdin()  # type: ignore[assignment,union-attr]
     outcome = agent.finalize()
+    real_stdin.close()
     assert any("boom" in m for m in outcome.messages), outcome.messages
+
+
+def test_shutdown_is_idempotent(tmp_path: Path) -> None:
+    """finalize() may be called twice by a runner unwinding after an error."""
+    agent = StreamingAgent({"command": _agent_script(tmp_path, _ECHO_AGENT)})
+    agent.initialize(_context())
+    _run(agent)
+    first = agent.finalize()
+    second = agent.finalize()
+    assert second.finish_reason == first.finish_reason
+
+
+def test_teardown_hands_communicate_an_open_stdin(tmp_path: Path) -> None:
+    """The invariant behind the second, opposite way this broke.
+
+    A first attempt at fixing the broken-pipe case closed stdin itself before
+    reading. That passed on Windows and failed *every* test in this file on
+    POSIX: `communicate()` flushes stdin unconditionally before reading, and
+    flushing an already-closed file raises `ValueError: I/O operation on
+    closed file`, which CPython does not catch -- unlike the BrokenPipeError
+    it does catch around both the flush and the close it does itself.
+
+    The platform difference lives in `_communicate`'s internals (selectors on
+    POSIX, threads on Windows), so the failure itself cannot be reproduced
+    here. The rule that avoids it can be: hand `communicate()` an stdin it
+    still owns, and let it do the closing.
+    """
+    agent = StreamingAgent({"command": _agent_script(tmp_path, _CRASHING_AGENT)})
+    agent.initialize(_context())
+    _run(agent)
+
+    proc = agent._proc
+    assert proc is not None
+    real_stdin, real_communicate = proc.stdin, proc.communicate
+    seen: list[bool] = []
+
+    class TracksClose:
+        closed = False
+
+        def __getattr__(self, item: str) -> object:
+            return getattr(real_stdin, item)
+
+        def close(self) -> None:
+            TracksClose.closed = True
+            if real_stdin is not None:
+                real_stdin.close()
+
+    def spy(*args: object, **kwargs: object) -> tuple[str, str]:
+        seen.append(TracksClose.closed)
+        return real_communicate(*args, **kwargs)  # type: ignore[arg-type]
+
+    proc.stdin = TracksClose()  # type: ignore[assignment]
+    proc.communicate = spy  # type: ignore[method-assign, assignment]
+    agent.finalize()
+
+    assert seen, "teardown never called communicate(); stderr cannot be read"
+    assert not seen[0], (
+        "teardown closed stdin before communicate() -- communicate() flushes "
+        "it first, and flushing a closed file raises ValueError on POSIX"
+    )

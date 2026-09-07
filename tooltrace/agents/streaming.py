@@ -36,6 +36,7 @@ and one object per line written to its stdin::
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import shlex
@@ -244,33 +245,40 @@ class StreamingAgent(AgentAdapter):
     def _shutdown(self) -> str:
         """Stop the child and return whatever it left on stderr.
 
-        Closing stdin is done in its own try. On POSIX it can raise even
-        though nothing here wrote to it: `_write` swallows a failed flush, so
-        bytes can still be sitting in the buffer, and `close()` retries that
-        flush against a pipe whose reader is gone. Sharing one try with
-        `communicate()` -- as this did -- meant that raise skipped the read
-        entirely and a crashed agent's stderr, its only explanation, was
-        dropped. Windows did not reproduce it; the CI matrix did.
+        Notably this does *not* close stdin first. `communicate()` closes it
+        itself, and already tolerates a broken pipe on the flush it does
+        beforehand -- CPython catches BrokenPipeError around both. Closing it
+        here instead makes that same flush raise `ValueError: I/O operation on
+        closed file`, which is how the first attempt at this fix turned one
+        failing POSIX test into every POSIX test failing.
+
+        The original bug was the other half of the same misunderstanding:
+        stdin.close(), terminate() and communicate() shared one try block, so
+        when close() re-raised a flush that `_write` had already swallowed --
+        which happens on POSIX once the agent has exited -- communicate() was
+        skipped and the crashed agent's stderr, its only explanation, was
+        lost. Letting communicate() own the whole teardown fixes both.
         """
         proc = self._proc
         self._proc = None
         if proc is None:
             return ""
-        try:
-            if proc.stdin is not None:
-                proc.stdin.close()
-        except (BrokenPipeError, OSError, ValueError):
-            pass
-        try:
-            if proc.poll() is None:
+        if proc.poll() is None:
+            with contextlib.suppress(OSError):
                 proc.terminate()
+        stderr_tail = ""
+        try:
             _, stderr_tail = proc.communicate(timeout=10)
-        except (subprocess.TimeoutExpired, OSError, ValueError):
+        except subprocess.TimeoutExpired:
             proc.kill()
             try:
                 _, stderr_tail = proc.communicate(timeout=5)
             except (subprocess.TimeoutExpired, OSError, ValueError):
                 stderr_tail = ""
+        except (OSError, ValueError):
+            # A half-finished communicate() leaves Popen in a state where
+            # retrying raises AttributeError, so this path does not retry.
+            stderr_tail = ""
         return stderr_tail or ""
 
     def finalize(self) -> AgentOutcome:
