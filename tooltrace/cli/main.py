@@ -94,12 +94,16 @@ def cmd_tasks(args: argparse.Namespace) -> int:
     tasks = load_all_tasks()
     if args.category:
         tasks = [t for t in tasks if t.category == args.category]
+    from tooltrace.tasks.availability import availability
+
     rows = [
         {
             "id": t.id,
             "version": t.version,
             "category": t.category,
             "difficulty": t.difficulty.value,
+            "runnable_here": availability(t).runnable,
+            "requires_tools": t.requires_tools,
             "tags": t.tags,
             "max_steps": t.max_steps,
             "perturbations": [p.kind for p in t.perturbations],
@@ -124,6 +128,26 @@ def cmd_run(args: argparse.Namespace) -> int:
     except Exception as exc:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_TASK
+
+    # A task that needs a toolchain this machine lacks is skipped, not scored.
+    # Recording it as a failure would make the result depend on the runner's
+    # installed software rather than on the agent.
+    from tooltrace.tasks.availability import availability
+
+    state = availability(task)
+    if not state.runnable:
+        _emit(
+            {
+                "task_id": task.id,
+                "skipped": True,
+                "reason": state.reason,
+                "missing_tools": list(state.missing),
+            },
+            args.json,
+        )
+        print(f"skipped {task.id}: {state.reason}", file=sys.stderr)
+        return EXIT_OK
+
     agent_config = json.loads(args.agent_config) if args.agent_config else None
     if agent_config is None and args.agent == "scripted":
         script = task.metadata.get("scripted_script")
@@ -161,6 +185,22 @@ def cmd_benchmark(args: argparse.Namespace) -> int:
     if not tasks:
         print("error: no tasks selected", file=sys.stderr)
         return EXIT_TASK
+
+    # Drop tasks this machine cannot run, and say which -- silently omitting
+    # them would make the benchmark look complete when it was not, and scoring
+    # them as failures would blame the agent for the runner's missing software.
+    from tooltrace.tasks.availability import partition
+
+    tasks, skipped = partition(tasks)
+    for task, reason in skipped:
+        print(f"skipping {task.id}: {reason}", file=sys.stderr)
+    if not tasks:
+        print(
+            "error: every selected task requires tooling this machine lacks",
+            file=sys.stderr,
+        )
+        return EXIT_TASK
+
     bench = run_benchmark(
         tasks,
         args.agent,

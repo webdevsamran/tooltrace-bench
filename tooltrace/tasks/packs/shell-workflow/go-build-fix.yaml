@@ -1,0 +1,68 @@
+id: shell-workflow/go-build-fix
+name: Fix a Go compile error and build
+category: shell-workflow
+tags:
+- shell
+- compiled
+- go
+objective: Make the Go program compile and print the expected greeting.
+description: >-
+  main.go does not compile. Fix it so that `go build` succeeds and running the
+  program prints "hello, tooltrace". This differs from the Python tasks in an
+  important way: the failure is at build time, before anything runs, so the
+  agent has to read a compiler diagnostic rather than a runtime traceback.
+requires_tools:
+- go
+starting_workspace:
+  go.mod: |
+    module toolexample
+
+    go 1.21
+  main.go: |
+    package main
+
+    import "fmt"
+
+    func main() {
+        message := "hello, tooltrace"
+        fmt.Println(mesage)
+    }
+allowed_tools:
+- shell
+- read_file
+- write_file
+- patch_file
+- list_directory
+assertions:
+- type: file_contains
+  params:
+    path: main.go
+    text: fmt.Println(message)
+  weight: 1.0
+  description: the undefined identifier is corrected
+- type: command_exit
+  params:
+    command: go build ./...
+    expected: 0
+  weight: 2.0
+  description: the package compiles
+expected_artifacts:
+- main.go
+metadata:
+  scripted_script:
+  - tool: read_file
+    args:
+      path: main.go
+  - tool: patch_file
+    args:
+      path: main.go
+      search: mesage
+      replace: message
+  - tool: shell
+    args:
+      command: go build ./...
+version: 1.0.0
+difficulty: easy
+network_policy: disabled
+timeout_seconds: 180
+max_steps: 12
