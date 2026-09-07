@@ -187,6 +187,34 @@ A production-quality React + TypeScript + Vite app lives in [`web/`](web/): lead
 
 The same component model also powers the **self-hosted team console** (`/workspace`): experiments + builder with live SSE progress, workers/capacity, baselines & regressions, Task Authoring Studio, publication review queue, users & service accounts, policies & budgets, audit log, webhooks, retention/settings and system health. Point it at your own `tooltrace server` for live REST/SSE data; without a server it offers an explicitly labeled DEMO preview and never mixes demo rows into public pages. Dark/light mode, accessibility (axe-gated), global search, shareable filters, sortable/paginated tables, route-level code splitting, error boundaries and raw-data downloads are built in.
 
+## Supported platforms
+
+Every row below is what CI actually runs on each push, not an aspiration.
+
+| Platform | Coverage |
+|---|---|
+| Linux (`ubuntu-latest`) | Full suite, coverage gate, lint, types, dependency audit, frontend build, Playwright e2e and accessibility checks |
+| Windows (`windows-latest`) | Full Python suite |
+| macOS (`macos-latest`) | Full Python suite |
+
+| Python | Coverage |
+|---|---|
+| 3.11, 3.13, 3.14 | Full Python suite on Linux |
+| 3.12 | Full suite plus coverage gate, lint, types and schema validation |
+
+Node 22 is required for the frontend: `jsdom` pulls `undici@8`, which declares
+`engines.node: ">=22.19.0"`.
+
+Two caveats worth stating rather than leaving implied:
+
+- **The sandbox's container provider is not exercised on Windows or macOS.**
+  Conformance checks for it run on Linux only, so isolation guarantees are
+  verified there and inferred elsewhere. Hardening this across providers is
+  tracked in [#12](https://github.com/webdevsamran/tooltrace-bench/issues/12).
+- **The frontend is built and tested on Linux only.** It is a static site, so
+  the build output is platform-independent, but no browser test runs on
+  Windows or macOS.
+
 ## Documentation
 
 Full docs hierarchy in [`docs/`](docs/index.md): [getting started](docs/getting-started.md),

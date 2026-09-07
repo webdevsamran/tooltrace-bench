@@ -117,6 +117,34 @@ jobs:
       - name: Test suite (cross-platform)
         run: pytest -q -m "not slow"
 
+  # Deliberately a separate job rather than a python-version dimension on
+  # `python-matrix`: adding one would rename its checks from
+  # "Tests (windows-latest)" to "Tests (windows-latest, 3.11)", and branch
+  # protection matches contexts byte-for-byte, so every pull request would
+  # hang on a check that can never report. This repository has already been
+  # in that state once.
+  python-versions:
+    name: Tests (python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # 3.12 is covered by the main `python` job; these are the other
+        # versions pyproject's classifiers claim to support.
+        python-version: ["3.11", "3.13", "3.14"]
+    steps:
+      # actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      # actions/setup-python@v5
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: ${{ matrix.python-version }}
+      - run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+      - name: Test suite
+        run: pytest -q -m "not slow"
+
   audit:
     name: Dependency audit (blocking)
     runs-on: ubuntu-latest

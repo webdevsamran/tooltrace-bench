@@ -196,3 +196,78 @@ def test_documented_scorer_count_matches_the_registry() -> None:
     assert int(match.group(1)) == registered, (
         f"docs/plugins.md says {match.group(1)} built-in scorers; the registry has {registered}"
     )
+
+
+def test_documented_platforms_match_what_ci_runs() -> None:
+    """The README's platform table is a claim CI must actually back.
+
+    Declaring support for a platform or Python version nothing tests is the
+    same class of defect as a fabricated sample: it is a statement about
+    behaviour with nothing behind it. pyproject classified 3.11 through 3.14
+    while CI tested only 3.12.
+    """
+    import yaml
+
+    workflow = yaml.safe_load(
+        (_ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    )
+    jobs = workflow["jobs"]
+
+    tested_os = {"ubuntu-latest"}
+    tested_python: set[str] = set()
+    for job in jobs.values():
+        matrix = (job.get("strategy") or {}).get("matrix") or {}
+        tested_os.update(matrix.get("os", []))
+        tested_python.update(str(v) for v in matrix.get("python-version", []))
+        for step in job.get("steps", []):
+            with_ = step.get("with") or {}
+            version = with_.get("python-version")
+            if isinstance(version, (str, float, int)) and "${{" not in str(version):
+                tested_python.add(str(version))
+
+    section = _README.split("## Supported platforms", 1)[1].split("\n## ", 1)[0]
+
+    for platform in ("ubuntu-latest", "windows-latest", "macos-latest"):
+        if f"`{platform}`" in section:
+            assert platform in tested_os, (
+                f"README claims {platform} support, but no CI job runs on it"
+            )
+
+    claimed_python = set(re.findall(r"\b3\.(1[0-9])\b", section))
+    for minor in claimed_python:
+        version = f"3.{minor}"
+        assert version in tested_python, (
+            f"README claims Python {version} support; CI tests {sorted(tested_python)}"
+        )
+
+
+def test_pyproject_classifiers_are_all_tested() -> None:
+    """A Python classifier is a support claim; CI must cover each one."""
+    import tomllib
+
+    import yaml
+
+    with (_ROOT / "pyproject.toml").open("rb") as fh:
+        classifiers = tomllib.load(fh)["project"]["classifiers"]
+    claimed = {
+        c.rsplit(" :: ", 1)[-1]
+        for c in classifiers
+        if c.startswith("Programming Language :: Python :: 3.")
+    }
+
+    workflow = yaml.safe_load(
+        (_ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    )
+    tested: set[str] = set()
+    for job in workflow["jobs"].values():
+        matrix = (job.get("strategy") or {}).get("matrix") or {}
+        tested.update(str(v) for v in matrix.get("python-version", []))
+        for step in job.get("steps", []):
+            version = (step.get("with") or {}).get("python-version")
+            if isinstance(version, (str, float, int)) and "${{" not in str(version):
+                tested.add(str(version))
+
+    untested = sorted(claimed - tested)
+    assert not untested, (
+        f"pyproject classifies Python {untested} as supported, but CI never tests them"
+    )
