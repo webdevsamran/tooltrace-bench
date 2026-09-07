@@ -137,7 +137,7 @@ Details in [ARCHITECTURE.md](ARCHITECTURE.md). The sandbox threat model is in [d
 
 ## Task types shipped
 
-Thirteen packs, sixteen tasks. `tooltrace tasks` prints the authoritative list
+Thirteen packs, eighteen tasks. `tooltrace tasks` prints the authoritative list
 with difficulty; the pack directory names below are the ones you pass to
 `--task`.
 
@@ -156,6 +156,13 @@ with difficulty; the pack directory names below are the ones you pass to
 | `multi-step-planning` | multi-step planning |
 | `failure-recovery` | recovery under injected perturbations |
 | `long-context` | context-scaling family (1k / 4k / 16k) |
+
+Two tasks in `shell-workflow` exercise **compiled-language** workflows, where
+the failure is a compiler diagnostic before anything runs rather than a runtime
+traceback. They declare `requires_tools` (`go`, `cargo`) and are **skipped, not
+failed**, on machines without those toolchains -- scoring a missing compiler as
+an agent failure would make results depend on the runner rather than the agent.
+`tooltrace tasks` reports `runnable_here` for each.
 
 ## Adapter model
 

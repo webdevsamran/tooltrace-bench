@@ -1,0 +1,75 @@
+id: shell-workflow/rust-build-fix
+name: Fix a Rust type error and build
+category: shell-workflow
+tags:
+- shell
+- compiled
+- rust
+objective: Make the Rust program compile and print the expected total.
+description: >-
+  src/main.rs does not compile: a usize is being added to an i32. Fix it so
+  `cargo check --offline` succeeds. Rust surfaces this as a type error at
+  compile time, with the expected and found types named in the diagnostic --
+  a different reading task from a Python runtime traceback.
+
+  Uses `cargo check` rather than `cargo build` deliberately: checking
+  type-checks without invoking the platform linker, so the task exercises the
+  compile-diagnostic workflow on machines that have Rust but not a linker
+  toolchain (a stock Windows install with rustup but no MSVC C++ build tools,
+  for instance). Linking is not what this task is measuring.
+requires_tools:
+- cargo
+starting_workspace:
+  Cargo.toml: |
+    [package]
+    name = "toolexample"
+    version = "0.1.0"
+    edition = "2021"
+
+    [dependencies]
+  src/main.rs: |
+    fn main() {
+        let counts: Vec<i32> = vec![1, 2, 3];
+        let total: i32 = counts.iter().sum();
+        let n = counts.len();
+        println!("total {} over {} items", total + n, n);
+    }
+allowed_tools:
+- shell
+- read_file
+- write_file
+- patch_file
+- list_directory
+assertions:
+- type: command_exit
+  params:
+    command: cargo check --offline
+    expected: 0
+  weight: 2.0
+  description: the crate type-checks
+- type: file_contains
+  params:
+    path: src/main.rs
+    text: total
+  weight: 1.0
+  description: the total is still printed
+expected_artifacts:
+- src/main.rs
+metadata:
+  scripted_script:
+  - tool: read_file
+    args:
+      path: src/main.rs
+  - tool: patch_file
+    args:
+      path: src/main.rs
+      search: total + n
+      replace: total + n as i32
+  - tool: shell
+    args:
+      command: cargo check --offline
+version: 1.0.0
+difficulty: medium
+network_policy: disabled
+timeout_seconds: 300
+max_steps: 12
