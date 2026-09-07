@@ -111,6 +111,23 @@ jobs:
           pip install -e .
           python scripts/generate_sbom.py
           cp sbom.json release-assets/sbom.json
+      - name: Archive the built frontend
+        run: |
+          # A GitHub release asset is a single file, but the frontend build
+          # arrives as a directory tree (assets/, bundles/, data/). Package it
+          # rather than uploading loose: `gh release create release-assets/*`
+          # fails with "is a directory", and even if it did not, uploading ~30
+          # hashed chunk files individually would be noise on the release page.
+          # Deterministic tar flags so the archive is byte-reproducible.
+          cd release-assets
+          dirs=$(find . -mindepth 1 -maxdepth 1 -type d -printf '%P\n')
+          if [ -n "$dirs" ]; then
+            tar --sort=name --owner=0 --group=0 --numeric-owner --mtime='UTC 2020-01-01' -czf frontend.tar.gz $dirs
+            rm -rf $dirs
+            echo "archived into frontend.tar.gz: $dirs"
+          else
+            echo "no directories to archive"
+          fi
       - name: SHA-256 checksums
         run: |
           cd release-assets
