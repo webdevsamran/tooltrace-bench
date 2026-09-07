@@ -1,0 +1,524 @@
+{
+  "run_id": "362ad2321005",
+  "created_at": "2026-09-07T07:13:51.326869+00:00",
+  "config": {
+    "agent": "scripted",
+    "agent_config": {},
+    "runs_per_task": 2,
+    "tasks": [
+      "failure-recovery/retry-after-tool-failure",
+      "file-editing/fix-config-typo",
+      "json-csv-transform/users-to-csv"
+    ]
+  },
+  "compatibility_key": "protocol=1;trace=1;result=1",
+  "results": [
+    {
+      "schema_version": 1,
+      "framework_version": "0.3.0",
+      "run_id": "362ad2321005-retry-after-tool-failure-0",
+      "task_id": "failure-recovery/retry-after-tool-failure",
+      "task_version": "1.0.0",
+      "task_protocol_version": 1,
+      "agent": "scripted",
+      "agent_config": {
+        "script": [
+          {
+            "tool": "read_file",
+            "args": {
+              "path": "notes.txt"
+            }
+          },
+          {
+            "tool": "read_file",
+            "args": {
+              "path": "notes.txt"
+            }
+          },
+          {
+            "tool": "patch_file",
+            "args": {
+              "path": "notes.txt",
+              "search": "reday",
+              "replace": "ready"
+            }
+          }
+        ]
+      },
+      "success": true,
+      "partial_success": false,
+      "score": {
+        "total": 1.0,
+        "components": {
+          "typo fixed": 1.0,
+          "correct word": 1.0
+        },
+        "weights": {
+          "typo fixed": 1.0,
+          "correct word": 1.0
+        }
+      },
+      "failure_reason": "none",
+      "failure_detail": "no_failure",
+      "steps": 4,
+      "tool_calls": 3,
+      "failed_tool_calls": 1,
+      "invalid_tool_calls": 0,
+      "repeated_calls": 1,
+      "unnecessary_changes": 0,
+      "workspace_violations": 0,
+      "test_pass_ratio": null,
+      "wall_ms": 8.822,
+      "model_ms": null,
+      "tool_ms": 8.289,
+      "usage": {
+        "tokens": null,
+        "model_time_ms": null,
+        "provider_cost_reported": null,
+        "currency": null
+      },
+      "trust_state": "LOCAL",
+      "judge_config": null,
+      "started_at": "2026-09-07T07:13:50.801763+00:00",
+      "finished_at": "2026-09-07T07:13:50.827673+00:00",
+      "bundle_path": "failure-recovery-retry-after-tool-failure-scripted-362ad2321005-retry-after-tool-failure-0.tooltrace"
+    },
+    {
+      "schema_version": 1,
+      "framework_version": "0.3.0",
+      "run_id": "362ad2321005-retry-after-tool-failure-1",
+      "task_id": "failure-recovery/retry-after-tool-failure",
+      "task_version": "1.0.0",
+      "task_protocol_version": 1,
+      "agent": "scripted",
+      "agent_config": {
+        "script": [
+          {
+            "tool": "read_file",
+            "args": {
+              "path": "notes.txt"
+            }
+          },
+          {
+            "tool": "read_file",
+            "args": {
+              "path": "notes.txt"
+            }
+          },
+          {
+            "tool": "patch_file",
+            "args": {
+              "path": "notes.txt",
+              "search": "reday",
+              "replace": "ready"
+            }
+          }
+        ]
+      },
+      "success": true,
+      "partial_success": false,
+      "score": {
+        "total": 1.0,
+        "components": {
+          "typo fixed": 1.0,
+          "correct word": 1.0
+        },
+        "weights": {
+          "typo fixed": 1.0,
+          "correct word": 1.0
+        }
+      },
+      "failure_reason": "none",
+      "failure_detail": "no_failure",
+      "steps": 4,
+      "tool_calls": 3,
+      "failed_tool_calls": 1,
+      "invalid_tool_calls": 0,
+      "repeated_calls": 1,
+      "unnecessary_changes": 0,
+      "workspace_violations": 0,
+      "test_pass_ratio": null,
+      "wall_ms": 3.515,
+      "model_ms": null,
+      "tool_ms": 3.156,
+      "usage": {
+        "tokens": null,
+        "model_time_ms": null,
+        "provider_cost_reported": null,
+        "currency": null
+      },
+      "trust_state": "LOCAL",
+      "judge_config": null,
+      "started_at": "2026-09-07T07:13:51.037395+00:00",
+      "finished_at": "2026-09-07T07:13:51.045974+00:00",
+      "bundle_path": "failure-recovery-retry-after-tool-failure-scripted-362ad2321005-retry-after-tool-failure-1.tooltrace"
+    },
+    {
+      "schema_version": 1,
+      "framework_version": "0.3.0",
+      "run_id": "362ad2321005-fix-config-typo-0",
+      "task_id": "file-editing/fix-config-typo",
+      "task_version": "1.0.0",
+      "task_protocol_version": 1,
+      "agent": "scripted",
+      "agent_config": {
+        "script": [
+          {
+            "tool": "read_file",
+            "args": {
+              "path": "config.ini"
+            }
+          },
+          {
+            "tool": "patch_file",
+            "args": {
+              "path": "config.ini",
+              "search": "timout",
+              "replace": "timeout"
+            }
+          }
+        ]
+      },
+      "success": true,
+      "partial_success": false,
+      "score": {
+        "total": 1.0,
+        "components": {
+          "typo removed": 1.0,
+          "correct key present": 1.0
+        },
+        "weights": {
+          "typo removed": 1.0,
+          "correct key present": 1.0
+        }
+      },
+      "failure_reason": "none",
+      "failure_detail": "no_failure",
+      "steps": 3,
+      "tool_calls": 2,
+      "failed_tool_calls": 0,
+      "invalid_tool_calls": 0,
+      "repeated_calls": 0,
+      "unnecessary_changes": 0,
+      "workspace_violations": 0,
+      "test_pass_ratio": null,
+      "wall_ms": 8.046,
+      "model_ms": null,
+      "tool_ms": 7.669,
+      "usage": {
+        "tokens": null,
+        "model_time_ms": null,
+        "provider_cost_reported": null,
+        "currency": null
+      },
+      "trust_state": "LOCAL",
+      "judge_config": null,
+      "started_at": "2026-09-07T07:13:51.092511+00:00",
+      "finished_at": "2026-09-07T07:13:51.110060+00:00",
+      "bundle_path": "file-editing-fix-config-typo-scripted-362ad2321005-fix-config-typo-0.tooltrace"
+    },
+    {
+      "schema_version": 1,
+      "framework_version": "0.3.0",
+      "run_id": "362ad2321005-fix-config-typo-1",
+      "task_id": "file-editing/fix-config-typo",
+      "task_version": "1.0.0",
+      "task_protocol_version": 1,
+      "agent": "scripted",
+      "agent_config": {
+        "script": [
+          {
+            "tool": "read_file",
+            "args": {
+              "path": "config.ini"
+            }
+          },
+          {
+            "tool": "patch_file",
+            "args": {
+              "path": "config.ini",
+              "search": "timout",
+              "replace": "timeout"
+            }
+          }
+        ]
+      },
+      "success": true,
+      "partial_success": false,
+      "score": {
+        "total": 1.0,
+        "components": {
+          "typo removed": 1.0,
+          "correct key present": 1.0
+        },
+        "weights": {
+          "typo removed": 1.0,
+          "correct key present": 1.0
+        }
+      },
+      "failure_reason": "none",
+      "failure_detail": "no_failure",
+      "steps": 3,
+      "tool_calls": 2,
+      "failed_tool_calls": 0,
+      "invalid_tool_calls": 0,
+      "repeated_calls": 0,
+      "unnecessary_changes": 0,
+      "workspace_violations": 0,
+      "test_pass_ratio": null,
+      "wall_ms": 7.951,
+      "model_ms": null,
+      "tool_ms": 7.613,
+      "usage": {
+        "tokens": null,
+        "model_time_ms": null,
+        "provider_cost_reported": null,
+        "currency": null
+      },
+      "trust_state": "LOCAL",
+      "judge_config": null,
+      "started_at": "2026-09-07T07:13:51.150765+00:00",
+      "finished_at": "2026-09-07T07:13:51.168121+00:00",
+      "bundle_path": "file-editing-fix-config-typo-scripted-362ad2321005-fix-config-typo-1.tooltrace"
+    },
+    {
+      "schema_version": 1,
+      "framework_version": "0.3.0",
+      "run_id": "362ad2321005-users-to-csv-0",
+      "task_id": "json-csv-transform/users-to-csv",
+      "task_version": "1.0.0",
+      "task_protocol_version": 1,
+      "agent": "scripted",
+      "agent_config": {
+        "script": [
+          {
+            "tool": "write_file",
+            "args": {
+              "path": "users.csv",
+              "content": "name,age\nAda,36\nLin,28\n"
+            }
+          }
+        ]
+      },
+      "success": true,
+      "partial_success": false,
+      "score": {
+        "total": 1.0,
+        "components": {
+          "csv created": 1.0,
+          "csv content exact": 1.0
+        },
+        "weights": {
+          "csv created": 1.0,
+          "csv content exact": 1.0
+        }
+      },
+      "failure_reason": "none",
+      "failure_detail": "no_failure",
+      "steps": 2,
+      "tool_calls": 1,
+      "failed_tool_calls": 0,
+      "invalid_tool_calls": 0,
+      "repeated_calls": 0,
+      "unnecessary_changes": 0,
+      "workspace_violations": 0,
+      "test_pass_ratio": null,
+      "wall_ms": 4.68,
+      "model_ms": null,
+      "tool_ms": 4.512,
+      "usage": {
+        "tokens": null,
+        "model_time_ms": null,
+        "provider_cost_reported": null,
+        "currency": null
+      },
+      "trust_state": "LOCAL",
+      "judge_config": null,
+      "started_at": "2026-09-07T07:13:51.212041+00:00",
+      "finished_at": "2026-09-07T07:13:51.225910+00:00",
+      "bundle_path": "json-csv-transform-users-to-csv-scripted-362ad2321005-users-to-csv-0.tooltrace"
+    },
+    {
+      "schema_version": 1,
+      "framework_version": "0.3.0",
+      "run_id": "362ad2321005-users-to-csv-1",
+      "task_id": "json-csv-transform/users-to-csv",
+      "task_version": "1.0.0",
+      "task_protocol_version": 1,
+      "agent": "scripted",
+      "agent_config": {
+        "script": [
+          {
+            "tool": "write_file",
+            "args": {
+              "path": "users.csv",
+              "content": "name,age\nAda,36\nLin,28\n"
+            }
+          }
+        ]
+      },
+      "success": true,
+      "partial_success": false,
+      "score": {
+        "total": 1.0,
+        "components": {
+          "csv created": 1.0,
+          "csv content exact": 1.0
+        },
+        "weights": {
+          "csv created": 1.0,
+          "csv content exact": 1.0
+        }
+      },
+      "failure_reason": "none",
+      "failure_detail": "no_failure",
+      "steps": 2,
+      "tool_calls": 1,
+      "failed_tool_calls": 0,
+      "invalid_tool_calls": 0,
+      "repeated_calls": 0,
+      "unnecessary_changes": 0,
+      "workspace_violations": 0,
+      "test_pass_ratio": null,
+      "wall_ms": 4.809,
+      "model_ms": null,
+      "tool_ms": 4.633,
+      "usage": {
+        "tokens": null,
+        "model_time_ms": null,
+        "provider_cost_reported": null,
+        "currency": null
+      },
+      "trust_state": "LOCAL",
+      "judge_config": null,
+      "started_at": "2026-09-07T07:13:51.264782+00:00",
+      "finished_at": "2026-09-07T07:13:51.279192+00:00",
+      "bundle_path": "json-csv-transform-users-to-csv-scripted-362ad2321005-users-to-csv-1.tooltrace"
+    }
+  ],
+  "summary": {
+    "overall": {
+      "runs": 6,
+      "ci_method": "wilson",
+      "rate": 1.0,
+      "ci_low": 0.6096569663469354,
+      "ci_high": 0.9999999999999999,
+      "n": 6,
+      "partial_success_rate": 0.0,
+      "steps_mean": 3.0,
+      "steps_p95": 4.0,
+      "tool_calls_mean": 2.0,
+      "failed_tool_calls_mean": 0.333,
+      "wall_ms_p50": 6.38,
+      "wall_ms_p95": 8.628,
+      "steps_ci95": [
+        2.333,
+        3.667
+      ],
+      "wall_ms_ci95": [
+        4.68,
+        7.879
+      ],
+      "flakiness": {
+        "runs": 1,
+        "expected_runs": null,
+        "z": null,
+        "flaky": false,
+        "reason": "not enough of both outcomes to test independence"
+      }
+    },
+    "per_task": {
+      "failure-recovery/retry-after-tool-failure": {
+        "runs": 2,
+        "ci_method": "wilson",
+        "rate": 1.0,
+        "ci_low": 0.34237195288961925,
+        "ci_high": 1.0,
+        "n": 2,
+        "partial_success_rate": 0.0,
+        "steps_mean": 4.0,
+        "steps_p95": 4.0,
+        "tool_calls_mean": 3.0,
+        "failed_tool_calls_mean": 1.0,
+        "wall_ms_p50": 6.168,
+        "wall_ms_p95": 8.557,
+        "steps_ci95": [
+          4.0,
+          4.0
+        ],
+        "wall_ms_ci95": [
+          3.515,
+          8.822
+        ],
+        "flakiness": {
+          "runs": 1,
+          "expected_runs": null,
+          "z": null,
+          "flaky": false,
+          "reason": "not enough of both outcomes to test independence"
+        },
+        "recovery_rate": 1.0
+      },
+      "file-editing/fix-config-typo": {
+        "runs": 2,
+        "ci_method": "wilson",
+        "rate": 1.0,
+        "ci_low": 0.34237195288961925,
+        "ci_high": 1.0,
+        "n": 2,
+        "partial_success_rate": 0.0,
+        "steps_mean": 3.0,
+        "steps_p95": 3.0,
+        "tool_calls_mean": 2.0,
+        "failed_tool_calls_mean": 0.0,
+        "wall_ms_p50": 7.998,
+        "wall_ms_p95": 8.041,
+        "steps_ci95": [
+          3.0,
+          3.0
+        ],
+        "wall_ms_ci95": [
+          7.951,
+          8.046
+        ],
+        "flakiness": {
+          "runs": 1,
+          "expected_runs": null,
+          "z": null,
+          "flaky": false,
+          "reason": "not enough of both outcomes to test independence"
+        }
+      },
+      "json-csv-transform/users-to-csv": {
+        "runs": 2,
+        "ci_method": "wilson",
+        "rate": 1.0,
+        "ci_low": 0.34237195288961925,
+        "ci_high": 1.0,
+        "n": 2,
+        "partial_success_rate": 0.0,
+        "steps_mean": 2.0,
+        "steps_p95": 2.0,
+        "tool_calls_mean": 1.0,
+        "failed_tool_calls_mean": 0.0,
+        "wall_ms_p50": 4.745,
+        "wall_ms_p95": 4.803,
+        "steps_ci95": [
+          2.0,
+          2.0
+        ],
+        "wall_ms_ci95": [
+          4.68,
+          4.809
+        ],
+        "flakiness": {
+          "runs": 1,
+          "expected_runs": null,
+          "z": null,
+          "flaky": false,
+          "reason": "not enough of both outcomes to test independence"
+        }
+      }
+    }
+  }
+}

@@ -25,6 +25,7 @@ def classify(
     finish_reason: str = "finished",
     timed_out: bool = False,
     score_total: float = 0.0,
+    succeeded: bool = False,
 ) -> Classification:
     """Classify the dominant failure cause for a run.
 
@@ -46,6 +47,19 @@ def classify(
     """
     if timed_out:
         return Classification(FailureReason.timeout, "wall_timeout", "run exceeded task timeout")
+
+    # A run that finished and met every assertion did not fail, whatever
+    # happened on the way. Without this, a recovery task -- where injected
+    # faults are the *expected* path, not an anomaly -- came back with
+    # success=True alongside failure_reason=execution and
+    # "unrecovered_injected_fault", which is a contradiction: the agent plainly
+    # did recover, or the assertions would not all be 1.0.
+    #
+    # The transient errors remain visible in the trace and in
+    # failed_tool_calls; they are simply not this run's failure *reason*,
+    # because there was no failure.
+    if succeeded and finish_reason == "finished":
+        return Classification(FailureReason.none, "no_failure", "")
 
     denied = [e for e in events if e.type == "tool_result" and e.payload.get("status") == "denied"]
     if denied:
