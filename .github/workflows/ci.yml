@@ -53,6 +53,11 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: python scripts/check_action_pins.py
+      - name: Landscape table matches the fetched competitor data
+        # The table states its own method ("fetched via the GitHub API")
+        # but was typed by hand. In a sibling repo that drifted into
+        # publishing that a live competitor's repo was gone.
+        run: python scripts/generate_landscape.py --check
       - name: Docs link check
         run: python scripts/check_docs_links.py
       - name: Generate static web data
