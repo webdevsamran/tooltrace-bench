@@ -215,7 +215,8 @@ class Coordinator:
                 os.replace(job_path, target)  # atomic claim
             except OSError:
                 continue  # another worker won the race
-            return json.loads(target.read_text(encoding="utf-8"))
+            manifest: dict[str, Any] = json.loads(target.read_text(encoding="utf-8"))
+            return manifest
         return None
 
     def submit_result(self, job_id: str, result: dict[str, Any]) -> Path:

@@ -72,7 +72,7 @@ class TaskRunner:
                     timestamp=_now_iso(),
                     seq=counter.next(),
                     type=type_,  # type: ignore[arg-type]
-                    payload=sanitize_obj(payload),  # type: ignore[arg-type]
+                    payload=sanitize_obj(payload),
                 )
             )
 
@@ -100,8 +100,8 @@ class TaskRunner:
             tool_ctx = ToolContext(
                 workspace=workspace,
                 network_policy=task.network_policy.value,
-                http_allowlist=list(task.metadata.get("http_allowlist", [])),  # type: ignore[arg-type]
-                env_allowlist=list(task.metadata.get("env_allowlist", [])),  # type: ignore[arg-type]
+                http_allowlist=list(task.metadata.get("http_allowlist", [])),
+                env_allowlist=list(task.metadata.get("env_allowlist", [])),
             )
             executor = ToolExecutor(
                 ctx=tool_ctx,

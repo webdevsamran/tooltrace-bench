@@ -265,7 +265,7 @@ def sample_resource_usage(pid: int | None = None) -> dict[str, Any]:
     info: dict[str, Any] = {"platform": os.name}
     try:
         if os.name == "posix":
-            import resource  # type: ignore[import-not-found]
+            import resource
 
             ru = resource.getrusage(resource.RUSAGE_CHILDREN)  # type: ignore[attr-defined]
             info["cpu_seconds"] = ru.ru_utime + ru.ru_stime

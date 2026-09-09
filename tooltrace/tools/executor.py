@@ -99,7 +99,7 @@ class ToolExecutor:
             timestamp=_iso_now(),
             seq=self._next_seq(),
             type=type_,  # type: ignore[arg-type]
-            payload=sanitize_obj(payload),  # type: ignore[arg-type]
+            payload=sanitize_obj(payload),
         )
 
     # -- public API ---------------------------------------------------------

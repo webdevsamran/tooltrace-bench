@@ -109,7 +109,7 @@ class GitTool(Tool):
         if isinstance(git_args, str):
             parts = git_args.split()
         elif isinstance(git_args, list) and all(isinstance(p, str) for p in git_args):
-            parts = list(git_args)  # type: ignore[arg-type]
+            parts = list(git_args)
         else:
             return ToolResult(ok=False, error="args must be a string or list of strings")
         forbidden = {"push", "pull", "fetch", "clone", "remote"}

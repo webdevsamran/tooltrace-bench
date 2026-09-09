@@ -9,6 +9,7 @@ Rules:
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
 from tooltrace.artifacts.bundles import load_bundle_result, read_manifest
@@ -47,7 +48,7 @@ _METRICS: dict[str, tuple[Any, str]] = {
 }
 
 
-def _load_pair(baseline_dir, current_dir) -> tuple[EvalResult, EvalResult]:
+def _load_pair(baseline_dir: Path, current_dir: Path) -> tuple[EvalResult, EvalResult]:
     base = load_bundle_result(baseline_dir)
     curr = load_bundle_result(current_dir)
     base_key = str(read_manifest(baseline_dir).get("compatibility_key", ""))
@@ -64,8 +65,10 @@ def _load_pair(baseline_dir, current_dir) -> tuple[EvalResult, EvalResult]:
     return base, curr
 
 
-def compare_bundles(baseline_dir, current_dir, metrics: list[str] | None = None):
-    """Compare two single-run bundles. Returns list[MetricComparison]."""
+def compare_bundles(
+    baseline_dir: Path, current_dir: Path, metrics: list[str] | None = None
+) -> list[MetricComparison]:
+    """Compare two single-run bundles."""
     base, curr = _load_pair(baseline_dir, current_dir)
     wanted = metrics or ["success", "score", "steps", "tool_calls", "wall_ms"]
     out: list[MetricComparison] = []
@@ -89,8 +92,8 @@ def compare_bundles(baseline_dir, current_dir, metrics: list[str] | None = None)
 
 
 def check_regression(
-    baseline_dir,
-    current_dir,
+    baseline_dir: Path,
+    current_dir: Path,
     thresholds: dict[str, dict[str, float]],
 ) -> RegressionReport:
     """Apply thresholds like {"score": {"min_delta": -0.05}, "wall_ms":

@@ -13,13 +13,13 @@ from pathlib import Path
 
 from tooltrace.analysis.stats import summarize_reliability
 from tooltrace.artifacts.bundles import write_bundle
-from tooltrace.core.models import BenchmarkRun, EvalResult
+from tooltrace.core.models import BenchmarkRun, EvalResult, TaskDefinition
 from tooltrace.core.versions import compatibility_key
 from tooltrace.runners.runner import TaskRunner
 
 
 def run_benchmark(
-    tasks: list,
+    tasks: list[TaskDefinition],
     agent_name: str,
     agent_config: dict[str, object] | None = None,
     runs: int = 1,
@@ -30,7 +30,7 @@ def run_benchmark(
     runner = TaskRunner(output_dir=out_dir)
     run_id = uuid.uuid4().hex[:12]
 
-    def _config_for(task) -> dict[str, object] | None:
+    def _config_for(task: TaskDefinition) -> dict[str, object] | None:
         if agent_config is not None:
             return dict(agent_config)
         if agent_name == "scripted":
@@ -112,7 +112,7 @@ def run_benchmark(
 
 
 def context_sweep(
-    tasks: list,
+    tasks: list[TaskDefinition],
     agent_name: str,
     agent_config: dict[str, object] | None = None,
     runs: int = 1,
@@ -132,9 +132,9 @@ def context_sweep(
             "context_sweep requires long-context tasks; not marked long_context: "
             + ", ".join(sorted(missing))
         )
-    by_chars: dict[int, list] = {}
+    by_chars: dict[int, list[TaskDefinition]] = {}
     for t in family:
-        chars = int(t.metadata.get("context_chars", 0))  # type: ignore[arg-type]
+        chars = int(t.metadata.get("context_chars", 0))
         by_chars.setdefault(chars, []).append(t)
 
     per_size: dict[str, dict[str, object]] = {}
@@ -142,7 +142,7 @@ def context_sweep(
         bench = run_benchmark(by_chars[chars], agent_name, agent_config, runs=runs, out_dir=out_dir)
         per_size[str(chars)] = {
             "task_ids": [t.id for t in by_chars[chars]],
-            **bench.summary.get("overall", {}),  # type: ignore[arg-type]
+            **bench.summary.get("overall", {}),
         }
 
     sizes = sorted(per_size, key=int)
@@ -150,7 +150,7 @@ def context_sweep(
     if len(sizes) >= 2:
         small, large = per_size[sizes[0]], per_size[sizes[-1]]
         for metric in ("rate", "steps_mean", "wall_ms_p95"):
-            s_val, l_val = small.get(metric), large.get(metric)  # type: ignore[attr-defined]
+            s_val, l_val = small.get(metric), large.get(metric)
             if isinstance(s_val, (int, float)) and isinstance(l_val, (int, float)) and s_val:
                 degradation[metric] = {
                     "smallest": s_val,

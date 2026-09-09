@@ -65,6 +65,17 @@ versioning follows [Semantic Versioning](https://semver.org/).
   `label + group` string meant the entry for Experiments read "Experiments
   Workspace", which "wsx" cannot thread through, while the reverse order
   matched. Both orders are scored now.
+- **`mypy --strict` was claimed in three places and configured in none.**
+  `CONTRIBUTING.md` (twice), `.github/PULL_REQUEST_TEMPLATE.md` and a pre-commit
+  hook literally named "mypy (strict)" all asserted it while `[tool.mypy]` set
+  no `strict` key and explicitly disabled `warn_return_any`. The config is strict
+  now, which cost 40 errors across 16 files: 18 stale `type: ignore` comments
+  (pure cleanup), 9 unannotated public functions — including `write_bundle`,
+  `compare_bundles`, `check_regression`, `load_bundle_result` and
+  `run_benchmark` — 7 bare generics, 5 `Any` leaking through a declared return
+  type, and one untyped call. `tests/test_typing_claims_are_honest.py` pins the
+  claim to the config so the two cannot drift apart again, and rejects
+  per-module overrides that would make the claim true but hollow.
 - **Three of the four published schemas were never enforced.** `schemas/` has
   shipped `result`, `trace` and `bundle-manifest` documents since 0.1.0, and no
   runtime path, test or CI step ever validated an artifact against any of them —
