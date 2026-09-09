@@ -270,7 +270,9 @@ def cmd_run(args: argparse.Namespace) -> int:
             if e.type == "validation" and isinstance(e.payload.get("details"), dict):
                 details = {str(k): str(v) for k, v in e.payload["details"].items()}
                 break
-        bundle = write_bundle(Path(args.out), result, events, task, diff_text, details)
+        bundle = write_bundle(
+            Path(args.out), result, events, task, diff_text, details, agent_config=agent_config
+        )
         payload["bundle"] = bundle.name
     _emit(payload, args.json)
     return EXIT_OK if result.success else EXIT_RUN
@@ -860,7 +862,9 @@ def cmd_perturb(args: argparse.Namespace) -> int:
                     break
             from tooltrace.artifacts.bundles import write_bundle
 
-            bundle = write_bundle(Path(args.out), result, events, task, diff_text, details)
+            bundle = write_bundle(
+                Path(args.out), result, events, task, diff_text, details, agent_config=agent_config
+            )
             runs[-1]["bundle"] = bundle.name
 
     successes = sum(1 for r in runs if r["recovered"])

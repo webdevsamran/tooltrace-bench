@@ -123,6 +123,8 @@ and a row claiming a task pack has to have that pack on disk.
 | 75b | Evidence view for a compliance reviewer (no compliance claim) | I | `web/src/pages/assurance.tsx` (`EvidencePage`), `tooltrace/analysis/evidence.py`, `web/src/__tests__/assurance.test.tsx` |
 | 75c | Onboarding wizard against the user's own agent | I | `tooltrace/cli/init.py` (`run_init`, `verify`), `tests/test_init_command.py` |
 | 75d | Embeddable reliability badge (SVG + shields endpoint) | I | `tooltrace/reports/badge.py`, `web/src/pages/browse.tsx` (`BadgeEmbed`), `tests/test_badge.py` |
+| 75e | Hardware-aware run metadata + latency comparability verdict | I | `tooltrace/telemetry/hardware.py` (`hardware_metadata`, `comparability`), `tooltrace/runners/runner.py` (`environment_metadata`), `tests/test_hardware_and_latency.py` |
+| 75f | Inference-time vs tool-time split | I | `tooltrace/telemetry/hardware.py` (`latency_split`, `aggregate_latency`), `tooltrace/analysis/stats.py`, `web/src/pages/operations.tsx` (`LatencySplit`) |
 | 76 | Failure clustering (deterministic vectors; semantic labeled) | I | `tooltrace/analysis/core.py` (`cluster_failures`) |
 | 77 | Root-cause drill-down aggregate → trace/assertion | I | `tooltrace/analysis/failures.py` (`Classification.seq`), `tooltrace/metrics/aggregate.py` (`failure_step`), `tooltrace/cli/main.py` (`cmd_trace`), `web/src/lib/clusters.ts` (`clusterFailures`, `stepLink`) |
 | 78 | Reproducibility score (metadata completeness, not validity) | I | `tooltrace/analysis/core.py` (`reproducibility_score`) |

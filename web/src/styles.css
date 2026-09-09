@@ -865,6 +865,15 @@ tbody tr:hover { background: var(--bg-sunken); }
   font-family: var(--mono); font-size: 0.78rem; line-height: 1.6;
 }
 
+/* Latency split. Two segments, each labelled in the list beneath -- the bar is
+   a summary, never the only place a number appears. */
+.split-bar {
+  display: flex; height: 1.5rem; border-radius: var(--r-2); overflow: hidden;
+  background: var(--bg-sunken); border: 1px solid var(--border); margin-bottom: var(--s-3);
+}
+.split-model { background: var(--series-1); }
+.split-tool { background: var(--series-2); }
+
 /* --- 14. Responsive ------------------------------------------------------ */
 
 @media (max-width: 1080px) {

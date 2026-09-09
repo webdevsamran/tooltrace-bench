@@ -249,6 +249,80 @@ export function RecoveryAnalysisPage() {
 }
 
 /** Cost/Latency/Efficiency: outcome per step, per tool call, per ms. */
+/**
+ * Where the wall time went: thinking, doing, or the harness.
+ *
+ * `model_ms` and `tool_ms` were on every result row and nothing had ever shown
+ * them together, so the page could tell you a run took 40 ms and not whether the
+ * agent was slow at deciding or slow at acting — which is the first question
+ * anyone optimising an agent has.
+ *
+ * `model_ms` is null whenever the adapter cannot report it (the scripted agent
+ * has no model at all). In that case the harness share stays *unknown* rather
+ * than being computed as the remainder: a number derived from an unmeasured
+ * input is invention, and it would land in the one place a reader would trust it.
+ */
+function LatencySplit({ rows }: { rows: ResultRow[] }) {
+  const withModel = rows.filter((r) => r.model_ms != null)
+  const total = (pick: (r: ResultRow) => number) => rows.reduce((a, r) => a + pick(r), 0)
+  const wall = total((r) => r.wall_ms)
+  const tool = total((r) => r.tool_ms)
+  const model = withModel.reduce((a, r) => a + (r.model_ms ?? 0), 0)
+
+  if (wall <= 0) return null
+  const toolShare = tool / wall
+  const modelKnown = withModel.length === rows.length && rows.length > 0
+
+  return (
+    <section>
+      <h2>Where the time goes</h2>
+      {modelKnown ? (
+        <p className="muted">
+          Inference against tool execution across {rows.length} run
+          {rows.length === 1 ? '' : 's'}. The remainder is harness overhead.
+        </p>
+      ) : (
+        <p className="callout callout-warn">
+          <strong>
+            {withModel.length} of {rows.length} runs report inference time.
+          </strong>{' '}
+          Adapters that cannot separate model time leave it unmeasured, so the harness share is
+          unknown rather than the remainder — a figure derived from an unmeasured input would look
+          like a measurement.
+        </p>
+      )}
+      <div className="split-bar" role="img"
+        aria-label={
+          modelKnown
+            ? `Inference ${(model / wall * 100).toFixed(0)} percent, tools ${(toolShare * 100).toFixed(0)} percent of wall time`
+            : `Tools ${(toolShare * 100).toFixed(0)} percent of wall time; inference time not reported`
+        }
+      >
+        {modelKnown && (
+          <span className="split-model" style={{ width: `${(model / wall) * 100}%` }} />
+        )}
+        <span className="split-tool" style={{ width: `${toolShare * 100}%` }} />
+      </div>
+      <dl className="kv">
+        <dt>Tool execution</dt>
+        <dd>
+          {tool.toFixed(1)} ms ({(toolShare * 100).toFixed(1)}%)
+        </dd>
+        <dt>Inference</dt>
+        <dd>
+          {modelKnown ? `${model.toFixed(1)} ms (${((model / wall) * 100).toFixed(1)}%)` : 'not reported by this adapter'}
+        </dd>
+        <dt>Harness overhead</dt>
+        <dd>
+          {modelKnown
+            ? `${Math.max(0, wall - model - tool).toFixed(1)} ms`
+            : 'unknown while inference time is unreported'}
+        </dd>
+      </dl>
+    </section>
+  )
+}
+
 export function CostEfficiencyPage() {
   const results = useAsync(getResults)
   const eff = useMemo(() => {
@@ -281,6 +355,8 @@ export function CostEfficiencyPage() {
         <Stat label="Mean wall time (ms)" value={eff.wallMsMean.toFixed(1)} />
         <Stat label="Wasted tool calls" value={String(eff.wastedCalls)} />
       </div>
+      <LatencySplit rows={eff.rows} />
+
       <h2>Score vs wall time</h2>
       <Scatter
         points={eff.rows.map((r) => ({ x: r.wall_ms, y: r.score_total, label: `${r.run_id} (${r.agent})` }))}

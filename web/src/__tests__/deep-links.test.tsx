@@ -3,7 +3,8 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { assetUrl, getResults } from '../api'
-import { TraceExplorerPage } from '../pages/operations'
+import type { ResultRow } from '../api'
+import { CostEfficiencyPage, TraceExplorerPage } from '../pages/operations'
 
 /**
  * Three defects found while building the drill-down from a failure cluster to
@@ -116,5 +117,79 @@ describe('TraceExplorerPage', () => {
     // The assertion that fails on the old code: it showed "HTTP 404" here.
     await waitFor(() => expect(screen.queryByText(/HTTP 404/)).not.toBeInTheDocument())
     await waitFor(() => expect(screen.getByText(/tool_call/)).toBeInTheDocument())
+  })
+})
+
+// --- the latency split ------------------------------------------------------
+
+describe('CostEfficiencyPage latency split', () => {
+  /**
+   * `model_ms` and `tool_ms` were on every row and never shown together, so the
+   * page could say a run took 40 ms without saying whether the agent was slow at
+   * deciding or slow at acting.
+   *
+   * The failure mode to guard is the tempting one: when an adapter cannot report
+   * inference time, computing harness overhead as `wall - tool` produces a
+   * confident number from an unmeasured input, in the one place a reader would
+   * trust it.
+   */
+  function mockRows(rows: Partial<ResultRow>[]) {
+    const full = rows.map((r, i) => ({
+      bundle: `b${i}`, task_id: 'p/one', task_version: '1.0.0', agent: 'a',
+      success: true, partial_success: false, score_total: 1, steps: 2,
+      tool_calls: 1, failed_tool_calls: 0, invalid_tool_calls: 0, repeated_calls: 0,
+      unnecessary_changes: 0, workspace_violations: 0, wall_ms: 100, model_ms: null,
+      tool_ms: 20, failure_reason: 'none', trust_state: 'LOCAL', run_id: `r${i}`,
+      created_at: '2026-09-01T00:00:00Z', ...r,
+    }))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string) =>
+        Promise.resolve(
+          new Response(JSON.stringify(url.includes('results.json') ? full : []), { status: 200 }),
+        ),
+      ),
+    )
+  }
+
+  beforeEach(() => vi.unstubAllGlobals())
+
+  it('splits the time when every run reports inference', async () => {
+    mockRows([{ wall_ms: 100, model_ms: 70, tool_ms: 20 }])
+    render(
+      <MemoryRouter>
+        <CostEfficiencyPage />
+      </MemoryRouter>,
+    )
+    await screen.findByRole('heading', { name: /where the time goes/i })
+    expect(screen.getByText(/70\.0 ms \(70\.0%\)/)).toBeInTheDocument()
+    expect(screen.getByText('10.0 ms')).toBeInTheDocument()
+  })
+
+  it('leaves harness overhead unknown when inference time is unreported', async () => {
+    mockRows([{ wall_ms: 100, model_ms: null, tool_ms: 20 }])
+    render(
+      <MemoryRouter>
+        <CostEfficiencyPage />
+      </MemoryRouter>,
+    )
+    await screen.findByRole('heading', { name: /where the time goes/i })
+    expect(screen.getByText(/unknown while inference time is unreported/i)).toBeInTheDocument()
+    // The specific number that must not appear: 100 - 20.
+    expect(screen.queryByText('80.0 ms')).not.toBeInTheDocument()
+  })
+
+  it('says how much of the sample could answer', async () => {
+    mockRows([
+      { wall_ms: 100, model_ms: 70, tool_ms: 20 },
+      { wall_ms: 100, model_ms: null, tool_ms: 20 },
+    ])
+    render(
+      <MemoryRouter>
+        <CostEfficiencyPage />
+      </MemoryRouter>,
+    )
+    await screen.findByRole('heading', { name: /where the time goes/i })
+    expect(screen.getByText(/1 of 2 runs report inference time/i)).toBeInTheDocument()
   })
 })

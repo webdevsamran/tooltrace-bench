@@ -1,0 +1,29 @@
+{
+  "python_version": "3.14.7",
+  "platform": "Windows-11-10.0.26200-SP0",
+  "os": "Windows",
+  "machine": "AMD64",
+  "timestamp": "2026-09-09T19:27:52.426222+00:00",
+  "hardware": {
+    "cpu_count": 20,
+    "cpu": "Intel64 Family 6 Model 154 Stepping 3, GenuineIntel",
+    "memory_gb": null,
+    "gpus": [
+      {
+        "name": "NVIDIA GeForce RTX 3080 Ti Laptop GPU",
+        "vram_mb": 16384,
+        "driver_version": "610.74"
+      }
+    ],
+    "gpu_detection": "probed",
+    "inference": {
+      "backend": "",
+      "engine_version": "",
+      "model": "",
+      "quantization": "",
+      "base_url": "",
+      "is_declared": false,
+      "source": "declared_by_caller"
+    }
+  }
+}

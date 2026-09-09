@@ -298,11 +298,26 @@ class TaskRunner:
         return ratios[-1] if ratios else None
 
 
-def environment_metadata() -> dict[str, object]:
+def environment_metadata(agent_config: dict[str, object] | None = None) -> dict[str, object]:
+    """Host metadata for `environment.json`.
+
+    The `hardware` block is additive: five fields were recorded before, which is
+    enough to know a run happened on Windows on x86_64 and not enough to know
+    whether its latency number means anything beside another run's. A p95 of
+    40 ms on a laptop and 40 ms on a GPU server are the same number describing
+    different things.
+
+    Everything in there is either detected or explicitly marked as declared by
+    the caller; nothing is guessed. See `tooltrace/telemetry/hardware.py` for
+    why an undetectable value is `None` rather than a plausible default.
+    """
+    from tooltrace.telemetry.hardware import hardware_metadata
+
     return {
         "python_version": sys.version.split()[0],
         "platform": platform.platform(),
         "os": platform.system(),
         "machine": platform.machine(),
         "timestamp": _now_iso(),
+        "hardware": hardware_metadata(agent_config),
     }
