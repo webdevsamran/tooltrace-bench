@@ -117,6 +117,19 @@ versioning follows [Semantic Versioning](https://semver.org/).
   separately because they fail for different reasons — tampering after the fact
   versus never having matched the published format — and `--no-schema` runs the
   checksum half alone.
+- **Four-axis leaderboard.** The public leaderboard ranked on success rate
+  alone. It now shows accuracy, cost per resolved task, p95 latency and attack
+  success rate side by side — the combination no competing benchmark reports.
+
+  The hard part is honesty about the axes nobody has measured yet. A null cost
+  rendered as `0` reads as *free*; a null attack-success rate rendered as `0%`
+  reads as *perfectly secure*. Both would be the most misleading numbers on the
+  page, and both are null for every agent in this repository today: no adapter
+  reports spend, and no security pack ships. So those cells render "not
+  measured" with a reason, a banner states which axes the dataset does not
+  cover, and the header counts how many agents have each axis measured.
+  `undefined` is treated the same as `null`, because data generated before these
+  fields existed omits them entirely.
 - **Trajectory metrics now reach a user.** `tooltrace/metrics/` shipped ten
   functions — trajectory efficiency, loop detection, hallucinated resources,
   context retention, tool-selection confusion, verification quality, failure

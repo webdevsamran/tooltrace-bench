@@ -51,6 +51,18 @@ export interface AgentRow {
   mean_steps: number
   failed_tool_calls_mean: number
   wall_ms_p95: number
+  /**
+   * The cost and security axes. Null means *not measured*, never zero: an
+   * unmeasured cost rendered as 0 would read as free, and an unmeasured attack
+   * success rate as perfectly secure. Both are the most misleading numbers this
+   * dashboard could show, so the UI renders them as "not measured".
+   */
+  cost_per_resolved_task: number | null
+  total_cost: number | null
+  priced_runs: number
+  currency: string | null
+  attack_success_rate: number | null
+  security_runs: number
 }
 
 export interface IndexData {

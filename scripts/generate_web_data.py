@@ -28,6 +28,37 @@ RESULTS = ROOT / "results"
 WEB_PUBLIC = ROOT / "web" / "public"
 
 
+def _cost_axis(results: list) -> dict[str, object]:
+    """Cost per resolved task, or nulls when no adapter reported spend."""
+    from tooltrace.metrics.economics import cost_summary
+
+    summary = cost_summary([r.model_dump(mode="json") for r in results])
+    return {
+        "cost_per_resolved_task": summary["cost_per_resolved_task"],
+        "total_cost": summary["total_cost"],
+        "priced_runs": summary["priced_runs"],
+        "currency": summary["currency"],
+    }
+
+
+def _security_axis(results: list) -> dict[str, object]:
+    """Attack-success rate, or null while no security pack ships.
+
+    `docs/feature-status.md` row 16 is graded `S`: the security domain is
+    declarable and no pack ships, so there is nothing to measure yet. Reporting
+    `0.0` here would render as a perfect security score for an agent nobody has
+    attacked, which is the most misleading number this dashboard could show.
+    """
+    security_runs = [r for r in results if str(r.task_id).startswith("security/")]
+    if not security_runs:
+        return {"attack_success_rate": None, "security_runs": 0}
+    resisted = sum(1 for r in security_runs if r.success)
+    return {
+        "attack_success_rate": round(1 - resisted / len(security_runs), 6),
+        "security_runs": len(security_runs),
+    }
+
+
 def main() -> int:
     bundles = sorted(RESULTS.glob("*.tooltrace"))
     results_rows: list[dict] = []
@@ -106,6 +137,11 @@ def main() -> int:
                 "mean_steps": sum(r.steps for r in rs) / len(rs),
                 "failed_tool_calls_mean": sum(r.failed_tool_calls for r in rs) / len(rs),
                 "wall_ms_p95": p95,
+                # The four-axis view: accuracy is above, latency is p95, cost and
+                # security follow. Each is null when unmeasured rather than 0,
+                # so an axis nobody measured never reads as a perfect score.
+                **_cost_axis(rs),
+                **_security_axis(rs),
             }
         )
 
