@@ -26,6 +26,8 @@ const ComparePage = page(() => import('./pages/results'), (m) => m.ComparePage)
 const ReliabilityTrendsPage = page(() => import('./pages/results'), (m) => m.ReliabilityTrendsPage)
 const FailureAnalysisPage = page(() => import('./pages/results'), (m) => m.FailureAnalysisPage)
 const TraceExplorerPage = page(() => import('./pages/operations'), (m) => m.TraceExplorerPage)
+const SecurityPosturePage = page(() => import('./pages/assurance'), (m) => m.SecurityPosturePage)
+const EvidencePage = page(() => import('./pages/assurance'), (m) => m.EvidencePage)
 const RecoveryAnalysisPage = page(() => import('./pages/operations'), (m) => m.RecoveryAnalysisPage)
 const CostEfficiencyPage = page(() => import('./pages/operations'), (m) => m.CostEfficiencyPage)
 const DatasetBrowserPage = page(() => import('./pages/operations'), (m) => m.DatasetBrowserPage)
@@ -88,6 +90,8 @@ export const NAV_SECTIONS: readonly NavSection[] = [
       ['/recovery', 'Recovery'],
       ['/efficiency', 'Efficiency'],
       ['/traces', 'Traces'],
+      ['/security', 'Security'],
+      ['/evidence', 'Evidence'],
     ],
   },
   {
@@ -289,6 +293,8 @@ export default function App() {
                 <Route path="/trends" element={<ReliabilityTrendsPage />} />
                 <Route path="/failures" element={<FailureAnalysisPage />} />
                 <Route path="/traces" element={<TraceExplorerPage />} />
+                <Route path="/security" element={<SecurityPosturePage />} />
+                <Route path="/evidence" element={<EvidencePage />} />
                 <Route path="/recovery" element={<RecoveryAnalysisPage />} />
                 <Route path="/efficiency" element={<CostEfficiencyPage />} />
                 <Route path="/dataset" element={<DatasetBrowserPage />} />

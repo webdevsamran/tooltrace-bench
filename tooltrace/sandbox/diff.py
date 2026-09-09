@@ -34,11 +34,14 @@ def workspace_diff(before: dict[str, str], after: dict[str, str]) -> str:
         if old == new:
             continue
         if old is None:
-            lines.extend(f"--- /dev/null{chr(10)}+++ {path}")
+            # `extend` with a single string iterates its characters, which
+            # spelled this header one letter per line. Both header lines are
+            # separate entries, because that is what a list of lines is.
+            lines.extend(["--- /dev/null", f"+++ {path}"])
             lines.extend(f"+{line}" for line in new.splitlines())  # type: ignore[union-attr]
             lines.append("")
         elif new is None:
-            lines.extend(f"--- {path}{chr(10)}+++ /dev/null")
+            lines.extend([f"--- {path}", "+++ /dev/null"])
             lines.extend(f"-{line}" for line in old.splitlines())
             lines.append("")
         else:
