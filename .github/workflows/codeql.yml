@@ -13,14 +13,26 @@ permissions:
 
 jobs:
   analyze:
-    name: Analyze (python)
+    # `Analyze (${{ matrix.language }})` still produces "Analyze (python)",
+    # which is what branch protection requires byte-for-byte. The added
+    # javascript-typescript leg is a new, non-required context -- this repo has
+    # already spent a backlog on a renamed required check, so the python name
+    # is deliberately preserved rather than reformatted.
+    name: Analyze (${{ matrix.language }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # web/ was never scanned: this job analysed python only, while the
+        # other three siblings cover both languages.
+        language: [python, javascript-typescript]
     steps:
-      # actions/checkout@v7
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-      # github/codeql-action/init@v3
-      - uses: github/codeql-action/init@cdf488f595d80d6e07e03d4674febd5ab45fa938
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: github/codeql-action/init@cdf488f595d80d6e07e03d4674febd5ab45fa938 # v4.37.9
         with:
-          languages: python
-      # github/codeql-action/analyze@v3
-      - uses: github/codeql-action/analyze@cdf488f595d80d6e07e03d4674febd5ab45fa938
+          languages: ${{ matrix.language }}
+          # Matches the other three siblings.
+          queries: security-extended
+      - uses: github/codeql-action/analyze@cdf488f595d80d6e07e03d4674febd5ab45fa938 # v4.37.9
+        with:
+          category: "/language:${{ matrix.language }}"
