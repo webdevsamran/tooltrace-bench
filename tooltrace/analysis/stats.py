@@ -146,6 +146,15 @@ def summarize_reliability(
 
     out["flakiness"] = runs_test(successes)
 
+    # Where the wall time actually went. `model_ms` and `tool_ms` were on every
+    # result and never reported together, so nobody could tell a slow-thinking
+    # agent from a slow-acting one -- the first question anyone optimising an
+    # agent has. An adapter that cannot report model time leaves the split
+    # unknown rather than attributing the remainder to tools.
+    from tooltrace.telemetry.hardware import aggregate_latency
+
+    out["latency"] = aggregate_latency(results)
+
     rec = recovery_rate(opportunities, recoveries)
     if rec is not None:
         out["recovery_rate"] = round(rec, 4)

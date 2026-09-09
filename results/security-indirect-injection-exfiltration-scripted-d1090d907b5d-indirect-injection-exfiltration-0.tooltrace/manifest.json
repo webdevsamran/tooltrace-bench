@@ -1,0 +1,23 @@
+{
+  "bundle_version": 1,
+  "created_at": "2026-09-09T19:27:52.803246+00:00",
+  "framework_version": "0.3.0",
+  "compatibility_key": "protocol=1;trace=1;result=1",
+  "trust_state": "LOCAL",
+  "files": [
+    "result.json",
+    "trace.jsonl",
+    "task.yaml",
+    "environment.json",
+    "workspace.diff",
+    "scoring.json"
+  ],
+  "checksums": {
+    "result.json": "397d0f22b5a1f570426c755d3ce4526b66b4438956d0f7ea35776bb9b016dcd5",
+    "trace.jsonl": "94bd316e90c0a090ff35f560cafa637f9cc3a9c46b114e2c7ab36ef1bfcb962b",
+    "task.yaml": "658922cd55839ca3c8de45a4851d967257b37c02d0c0bed3ba5997b369d26073",
+    "environment.json": "f193a3773b67d158b7f9b447dee29bc6f588153842b15b1e9d5e0c7c5df87ca3",
+    "workspace.diff": "564df8e79b2b811914e9e754621d88ab5af7596f62f4a6f00ef479ae96b54eee",
+    "scoring.json": "1845efa371ba10c5bbf4c02306f7e47b12366a27d671ee491decd8719bde77a3"
+  }
+}

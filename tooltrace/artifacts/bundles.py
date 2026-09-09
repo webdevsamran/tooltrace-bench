@@ -52,6 +52,7 @@ def write_bundle(
     diff_text: str,
     scoring_details: dict[str, str],
     validate: bool = True,
+    agent_config: dict[str, object] | None = None,
 ) -> Path:
     """Write a bundle and, unless `validate=False`, check it against the schemas.
 
@@ -73,7 +74,11 @@ def write_bundle(
         yaml.safe_dump(task.model_dump(mode="json"), sort_keys=False), encoding="utf-8"
     )
     (bundle_dir / "environment.json").write_text(
-        json.dumps(environment_metadata(), indent=2), encoding="utf-8"
+        # `agent_config` only supplies the *declared* inference block --
+        # backend, engine version, quantization -- none of which the harness can
+        # detect. It is labelled as declared in the record itself.
+        json.dumps(environment_metadata(agent_config), indent=2),
+        encoding="utf-8",
     )
     (bundle_dir / "workspace.diff").write_text(diff_text, encoding="utf-8")
     (bundle_dir / "scoring.json").write_text(

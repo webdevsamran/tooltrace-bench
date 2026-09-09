@@ -125,3 +125,53 @@ a dated price table prices the model; nothing is estimated, interpolated, or
 filled in from a typical rate. An adapter that reports no usage produces `null`,
 never `0.0`, and the Pareto frontier excludes unpriced agents rather than
 ranking them as free.
+
+## Latency is only comparable on comparable hardware
+
+A p95 of 40 ms on a laptop and 40 ms on a GPU server are the same number
+describing different things. `environment.json` used to record five fields —
+python version, platform string, OS, machine, timestamp — which is enough to know
+a run happened on Windows on x86_64 and not enough to know whether its latency
+means anything beside another run's.
+
+Every bundle now carries a `hardware` block: CPU count, total memory, GPUs
+detected through `nvidia-smi`, and the inference backend **as declared by the
+caller**. Nothing in it is guessed. An undetectable value is `null`, and an empty
+GPU list is accompanied by `gpu_detection`, which says whether a probe was
+possible at all — a machine with an Apple or AMD GPU and no `nvidia-smi` is not a
+machine without a GPU. The `WorkerInventory.gpu = False` this replaces is the
+failure mode: a hardcoded `False` is indistinguishable from a checked one.
+
+`comparability(a, b)` returns a **three-state verdict**, not a boolean, and that
+is the substance of it. A boolean has to lie in one direction: `True` would claim
+two runs match when the record never determined their memory size, and `False`
+would call two runs from one machine incomparable because neither declared a
+backend.
+
+| Verdict | Meaning |
+|---|---|
+| `comparable` | Everything relevant was determined, and it agrees |
+| `not_comparable` | Something relevant was determined, and it differs |
+| `unknown` | Nothing differs, but something was never determined |
+
+Differences are returned as both values, because "not comparable" is not
+actionable and "8 CPUs versus 64" is. This deliberately does **not** fold into
+`compatibility_key`: that key gates whether artifacts can be *read* together,
+which has one right answer. Hardware difference is a caveat on interpretation,
+and refusing to compare two runs from different laptops would break the tool for
+its most common use.
+
+## Where the wall time went
+
+`model_ms` and `tool_ms` were recorded on every result and never reported
+together, so a reader could see that a run took 40 ms and not whether the agent
+was slow at deciding or slow at acting — the first question anyone optimising an
+agent has. `summarize_reliability` now carries a `latency` block with the split
+and the harness remainder.
+
+The rule that matters: when an adapter cannot report model time — the scripted
+agent has no model at all — the split stays `null` rather than attributing the
+remainder to tools, and the aggregate reports `runs_reporting_model_time` so a
+split over 2 of 200 runs is not read as a description of those 200. `0.0` and
+"not reported" are also kept distinct, because a model that took no measurable
+time and an adapter that never said are different facts.

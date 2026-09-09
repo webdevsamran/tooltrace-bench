@@ -69,7 +69,15 @@ def run_benchmark(
                         scoring_details = {str(k): str(v) for k, v in e.payload["details"].items()}
                         break
                 _ = score_task  # keep import meaningful for type checkers
-                write_bundle(out_dir, result, events, task, diff_text, scoring_details)
+                write_bundle(
+                    out_dir,
+                    result,
+                    events,
+                    task,
+                    diff_text,
+                    scoring_details,
+                    agent_config=_config_for(task),
+                )
                 result.bundle_path = (
                     f"{result.task_id.replace('/', '-')}-{agent_name}-{result.run_id}.tooltrace"
                 )
@@ -80,6 +88,12 @@ def run_benchmark(
                 "tool_calls": result.tool_calls,
                 "failed_tool_calls": result.failed_tool_calls,
                 "wall_ms": result.wall_ms,
+                # Carried into the row so the latency split can be summarised.
+                # `model_ms` is None whenever the adapter cannot report it, and
+                # the split preserves that rather than attributing the whole
+                # wall time to tools.
+                "model_ms": result.model_ms,
+                "tool_ms": result.tool_ms,
             }
             if task.perturbations:
                 row["recovered"] = bool(
@@ -109,6 +123,8 @@ def run_benchmark(
                 "tool_calls": r.tool_calls,
                 "failed_tool_calls": r.failed_tool_calls,
                 "wall_ms": r.wall_ms,
+                "model_ms": r.model_ms,
+                "tool_ms": r.tool_ms,
                 "recovered": None,
             }
             for r in all_results

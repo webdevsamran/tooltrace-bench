@@ -7,6 +7,44 @@ versioning follows [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- **Hardware-aware run metadata, and a comparability verdict for latency.**
+  `environment.json` recorded python version, platform, OS, machine and a
+  timestamp — enough to know a run happened on Windows on x86_64, and not enough
+  to know whether its latency number means anything beside another run's. A p95
+  of 40 ms on a laptop and 40 ms on a GPU server are the same number describing
+  different things, and a leaderboard that ranks them together measures the
+  hardware while claiming to measure the agent.
+
+  Bundles now carry a `hardware` block: CPU count, total memory, GPUs detected
+  via `nvidia-smi`, and the inference backend **as declared by the caller**,
+  labelled as declared because none of it is detectable from inside the harness.
+  Nothing is guessed — an undetectable value is `null`, and an empty GPU list
+  ships with `gpu_detection` saying whether a probe was possible at all. The
+  `WorkerInventory.gpu = False` this replaces is the exact failure mode: a
+  hardcoded `False` cannot be told apart from a checked one.
+
+  `comparability()` returns a three-state verdict rather than a boolean, because
+  a boolean has to lie in one direction. `True` would claim two runs match when
+  the record never determined their memory size; `False` would call two runs from
+  one machine incomparable because neither declared a backend. Differences come
+  back as both values: "not comparable" is not actionable, "8 CPUs versus 64" is.
+
+- **Inference time against tool time.** `model_ms` and `tool_ms` were on every
+  result and nothing reported them together, so nobody could tell a slow-thinking
+  agent from a slow-acting one. The benchmark summary now carries a `latency`
+  block, and the dashboard's efficiency page shows the split.
+
+  When an adapter cannot report model time the harness share stays **unknown**
+  rather than being computed as the remainder — a confident figure derived from an
+  unmeasured input, in the one place a reader would trust it. `0.0` and "not
+  reported" stay distinct, and the aggregate says how many runs could answer at
+  all, so a split over 2 of 200 runs is not read as describing those 200.
+
+- **`--agent-config` reaches the bundle.** The declared inference block comes
+  from the adapter config passed to `run`, `benchmark` and `perturb`, so a
+  bundle records which backend produced it.
+
+### Added
 - **`tooltrace init` — an on-ramp, not a scaffold.** Getting from "installed" to
   "learned something about my agent" previously meant reading the adapter docs,
   discovering that `subprocess` takes a `command` with an `{objective}`
