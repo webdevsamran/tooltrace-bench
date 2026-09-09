@@ -15,6 +15,11 @@ from tooltrace.analysis.stats import summarize_reliability
 from tooltrace.artifacts.bundles import write_bundle
 from tooltrace.core.models import BenchmarkRun, EvalResult, TaskDefinition
 from tooltrace.core.versions import compatibility_key
+from tooltrace.metrics.aggregate import (
+    aggregate_trajectory,
+    failure_taxonomy,
+    trajectory_report,
+)
 from tooltrace.runners.runner import TaskRunner
 
 
@@ -41,9 +46,14 @@ def run_benchmark(
 
     all_results: list[EvalResult] = []
     per_task_summary: dict[str, dict[str, object]] = {}
+    # Trajectory metrics were computed nowhere before this: `tooltrace/metrics/`
+    # had no caller outside the tests, so `benchmark` reported success rates and
+    # latency and nothing about *how* the agent got there.
+    all_trajectories: list[dict[str, object]] = []
 
     for task in tasks:
         task_rows: list[dict[str, object]] = []
+        task_trajectories: list[dict[str, object]] = []
         for i in range(runs):
             result, events, diff_text = runner.run(
                 task, agent_name, _config_for(task), run_id=f"{run_id}-{task.name}-{i}"
@@ -78,8 +88,12 @@ def run_benchmark(
                 row["recovered"] = None
             task_rows.append(row)
             all_results.append(result)
+            report = trajectory_report(result, events, task)
+            task_trajectories.append(report)
+            all_trajectories.append(report)
 
         summary = summarize_reliability(task_rows)
+        summary["trajectory"] = aggregate_trajectory(task_trajectories)
         per_task_summary[task.id] = summary
 
     overall = summarize_reliability(
@@ -96,6 +110,8 @@ def run_benchmark(
             for r in all_results
         ]
     )
+    overall["trajectory"] = aggregate_trajectory(all_trajectories)
+    overall["failure_taxonomy"] = failure_taxonomy(all_results)
     return BenchmarkRun(
         run_id=run_id,
         created_at=datetime.now(UTC).isoformat(),

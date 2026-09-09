@@ -65,6 +65,28 @@ versioning follows [Semantic Versioning](https://semver.org/).
   `label + group` string meant the entry for Experiments read "Experiments
   Workspace", which "wsx" cannot thread through, while the reverse order
   matched. Both orders are scored now.
+### Added
+- **Trajectory metrics now reach a user.** `tooltrace/metrics/` shipped ten
+  functions — trajectory efficiency, loop detection, hallucinated resources,
+  context retention, tool-selection confusion, verification quality, failure
+  taxonomy, policy compliance, side-effect correctness, change minimality — each
+  with unit tests and **no caller outside the test suite**. No runner, CLI
+  command, report, bundle field or web page ever computed them, so
+  `tooltrace benchmark` reported success rates and latency and nothing about how
+  the agent got there. The package docstring still said "(Prompt-2 features
+  31-46)", which is the tell: they were written against a feature list rather
+  than a run path.
+
+  `tooltrace/metrics/aggregate.py` supplies the missing assembly — pairing each
+  `tool_request` with its `tool_result`, since the metrics want one record per
+  call and the trace stores two events — and `run_benchmark` now emits a
+  `trajectory` block per task and overall, plus a `failure_taxonomy` count.
+  Nothing touches `EvalResult` or the bundle layout: the metrics land in
+  `BenchmarkRun.summary`, an unversioned dict, so no artifact format changes and
+  no committed bundle becomes incomparable. Unmeasured quantities aggregate to
+  `null`, never `0`.
+
+### Fixed
 - **The competitive analysis contradicted itself.** `docs/competitive-analysis.md`
   carried a CI-checked generated table and, twenty lines below it, a
   hand-written "Landscape summary" dated three weeks earlier that disagreed —

@@ -74,3 +74,29 @@ benchmarking, such a test has very little power, and reporting a
 non-significant result invites reading it as evidence of no difference. The
 interval is the honest summary: it shows both the estimate and how little the
 data constrains it.
+
+
+## Trajectory metrics in the benchmark summary
+
+`benchmark` reports how an agent reached its score, not only what the score was.
+Every run's trace is turned into a trajectory report by
+`tooltrace/metrics/aggregate.py`, and the aggregate lands in
+`BenchmarkRun.summary` under `trajectory` — both overall and per task — with a
+`failure_taxonomy` count alongside it.
+
+| Key | Meaning |
+|---|---|
+| `efficiency_mean` | Mean score per tool call, per step, per 1k tokens, per second |
+| `stagnating_runs` | Runs that repeated a semantically identical call, or cycled between two tools |
+| `hallucinated_resource_events` | References to files, tools or commands that do not exist |
+| `policy_violating_runs` | Runs with a denied call or an undeclared side effect |
+| `unverified_success_runs` | Runs that declared success without running a check after their last mutating call |
+| `failure_taxonomy` | How many runs ended in each failure class |
+
+**What these do not measure.** They describe the shape of a trajectory, not its
+correctness — an agent can take an efficient, non-stagnating, policy-compliant
+route to a wrong answer, which is what the scorers are for. `score_per_1k_tokens`
+is `null` unless the adapter reports token usage; it is never estimated. The
+metrics live in the summary, which is an unversioned dict: they are not part of
+the `.tooltrace` bundle format and do not affect `compatibility_key()`, so they
+cannot make two bundles incomparable.
