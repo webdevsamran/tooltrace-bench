@@ -204,6 +204,16 @@ jobs:
         run: python scripts/sandbox_check.py
       - name: Docker sandbox conformance
         run: python scripts/docker_sandbox_check.py
+      - name: Image builds and the installed wheel loads its packs
+        # The image installs a *built wheel* into a clean container with no
+        # repository beside it. That is the same check scripts/wheel_check.py
+        # performs, enforced by the artifact people actually run -- and the
+        # defect it guards against went unnoticed for three releases because
+        # every install anyone tried was editable.
+        run: |
+          docker build -t tooltrace-bench:ci .
+          docker run --rm tooltrace-bench:ci tasks --json > /dev/null
+          docker run --rm tooltrace-bench:ci doctor --json > /dev/null
 
   audit:
     name: Dependency audit (blocking)

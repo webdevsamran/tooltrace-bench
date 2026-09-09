@@ -117,6 +117,25 @@ versioning follows [Semantic Versioning](https://semver.org/).
   separately because they fail for different reasons — tampering after the fact
   versus never having matched the published format — and `--no-schema` runs the
   checksum half alone.
+- **A Dockerfile and a devcontainer.** The image installs a **built wheel** into
+  a clean container with no repository beside it, and the build fails if that
+  wheel cannot load its own task packs. That shape is deliberate: this project
+  shipped a wheel whose JSON Schemas were never packaged, and the defect stayed
+  invisible for three releases precisely because every install anyone tried was
+  editable, with the source tree next to it. The image is therefore the same
+  check `scripts/wheel_check.py` performs, enforced by the artifact people
+  actually run.
+
+  It runs as a non-root user: an evaluation harness executes code it did not
+  write, and `docs/threat-model.md` is explicit that the local sandbox does not
+  stop a raw-socket program spawned through `shell`. Container isolation is the
+  answer to that and is worth nothing as root. `.dockerignore` excludes a stale
+  `tooltrace/schema_data/` so a local build artifact cannot mask a real break.
+
+  **Not verified locally** — no Docker daemon was available in the development
+  environment — so the `sandbox-docker` CI job builds the image and runs
+  `tasks` and `doctor` inside it. What can be checked without a daemon is
+  checked by `tests/test_distribution_artifacts.py`.
 - **`tooltrace evidence` — an audit dossier from bundles.** The remaining EU AI
   Act provisions became applicable 2 August 2026, and every compliance guide
   repeats that an organisation must *demonstrate* compliance rather than claim
