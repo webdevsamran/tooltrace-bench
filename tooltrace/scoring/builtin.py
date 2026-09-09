@@ -150,6 +150,41 @@ def _command_exit(params: dict[str, object], workspace: Path) -> ScorerOutcome:
     return ScorerOutcome(1.0 if ok else 0.0, detail)
 
 
+def score_pytest_output(output: str, min_ratio: float) -> ScorerOutcome:
+    """Turn a pytest summary line into a score. Pure, so it can be tested.
+
+    This calculation used to live inside `_tests_pass`, welded to a
+    `subprocess.run`, which meant no test could reach it without executing a
+    real pytest in a temporary workspace -- so no test did. Mutation testing
+    found the consequence: every operator here survived. `passed + failed +
+    errors` could become a subtraction, `passed / total` a multiplication, and
+    the `>=` threshold could invert, with the whole suite still green. For a
+    benchmarking tool that is the measurement itself going unchecked.
+
+    Extracted rather than merely tested: the reason it was untested is that it
+    was unreachable.
+    """
+
+    def count(pattern: str) -> int:
+        m = re.search(pattern, output)
+        return int(m.group(1)) if m else 0
+
+    passed, failed, errors = (
+        count(r"(\d+) passed"),
+        count(r"(\d+) failed"),
+        count(r"(\d+) error"),
+    )
+    total = passed + failed + errors
+    ratio = passed / total if total else 0.0
+    # A run with errors never scores full marks even at a satisfied ratio:
+    # a collection error means the suite did not fully execute.
+    score = 1.0 if ratio >= min_ratio and errors == 0 else round(ratio, 4)
+    return ScorerOutcome(
+        score,
+        f"passed={passed} failed={failed} errors={errors} ratio={ratio:.2f}",
+    )
+
+
 @register_scorer("tests_pass")
 def _tests_pass(params: dict[str, object], workspace: Path) -> ScorerOutcome:
     target = str(params.get("path", "."))
@@ -177,22 +212,7 @@ def _tests_pass(params: dict[str, object], workspace: Path) -> ScorerOutcome:
         return ScorerOutcome(0.0, "test run timed out")
     output = proc.stdout + proc.stderr
 
-    def count(pattern: str) -> int:
-        m = re.search(pattern, output)
-        return int(m.group(1)) if m else 0
-
-    passed, failed, errors = (
-        count(r"(\d+) passed"),
-        count(r"(\d+) failed"),
-        count(r"(\d+) error"),
-    )
-    total = passed + failed + errors
-    ratio = passed / total if total else 0.0
-    score = 1.0 if ratio >= min_ratio and errors == 0 else round(ratio, 4)
-    return ScorerOutcome(
-        score,
-        f"passed={passed} failed={failed} errors={errors} ratio={ratio:.2f}",
-    )
+    return score_pytest_output(output, min_ratio)
 
 
 @register_scorer("git_diff")
@@ -222,7 +242,16 @@ def _git_diff(params: dict[str, object], workspace: Path) -> ScorerOutcome:
         if needle in diff_text:
             problems.append(f"diff contains forbidden {needle!r}")
     if max_changed is not None:
-        changed = {line.split()[2] for line in diff_text.splitlines() if line.startswith("+++ b/")}
+        # `+++ b/path` has two whitespace-separated fields, so the old
+        # `line.split()[2]` raised IndexError on every real diff -- the
+        # max_changed_files constraint could never return a score, only crash.
+        # No shipped task used it, which is why nothing noticed; a boundary
+        # test written for a surviving mutant is what surfaced it.
+        changed = {
+            line.split(maxsplit=1)[1].removeprefix("b/")
+            for line in diff_text.splitlines()
+            if line.startswith("+++ b/")
+        }
         limit = int(max_changed) if isinstance(max_changed, (int, float)) else 10**9
         if len(changed) > limit:
             problems.append(f"changed files {len(changed)} > {max_changed}")
