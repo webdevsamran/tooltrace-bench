@@ -1,63 +1,60 @@
 # Competitive Analysis
 
-Last refreshed: 2026-08-23. Every row below was verified against the official
-GitHub repository / documentation at refresh time (evidence links inline).
-This file is the human-readable companion to `data/competitive-capabilities.json`
-(the machine-readable capability matrix) and `product-gaps.md` (the gap list
-derived from it).
+Repository facts in this file are generated, not typed. The snapshot below is
+rendered from `data/competitor-meta.json` by `scripts/generate_landscape.py`,
+which CI re-checks on every run, and it carries its own fetch date -- so there
+is no separate "last refreshed" line to go stale.
 
-Method: repository metadata fetched via the GitHub API on the refresh date;
-feature claims are taken only from each project's own README/docs/releases.
+Method: repository metadata comes from the GitHub API on the recorded date.
+Feature claims are taken only from each project's own README, docs or releases.
 We never claim a competitor lacks a feature without checking its docs; where we
-could not verify a feature we mark it "unverified" rather than asserting absence.
+could not verify a feature it is marked "unverified" rather than asserted as
+missing.
+
+> **Correction, 2026-09-09.** This file previously carried a hand-written
+> "Landscape summary" table dated 2026-08-23 twenty lines below the generated
+> one, and the two disagreed: SWE-bench was listed as pushed 2026-08-18 against
+> the generated 2026-09-02, and SWE-bench-Live as ~224 stars against 234. Three
+> of its eighteen projects were never fetched at all, and two of those had moved
+> org. The hand table is deleted; every fact now comes from the fetch, and a
+> test rejects any star-bearing table outside the generated markers so it cannot
+> return.
 
 
 <!-- landscape:generated -->
 ## Landscape snapshot (fetched 2026-09-09)
 
-| Project | License | Stars | Last push | Latest release | Status |
-|---|---|---|---|---|---|
-| [browser-use/browser-use](https://github.com/browser-use/browser-use) | MIT | 113,853 | 2026-09-07 | 0.13.10 (2026-09-04) | active |
-| [langfuse/langfuse](https://github.com/langfuse/langfuse) | NOASSERTION | 34,392 | 2026-09-09 | v4.32.0 (2026-09-08) | active |
-| [promptfoo/promptfoo](https://github.com/promptfoo/promptfoo) | MIT | 24,964 | 2026-09-09 | code-scan-action-0.2.0 (2026-08-28) | active |
-| [openai/evals](https://github.com/openai/evals) | NOASSERTION | 19,414 | 2026-04-14 | — | active |
-| [confident-ai/deepeval](https://github.com/confident-ai/deepeval) | Apache-2.0 | 18,186 | 2026-09-08 | python-v4.2.0 (2026-08-24) | active |
-| [Arize-ai/phoenix](https://github.com/Arize-ai/phoenix) | NOASSERTION | 11,388 | 2026-09-09 | arize-phoenix-client-v3.5.0 (2026-09-08) | active |
-| [AgentOps-AI/agentops](https://github.com/AgentOps-AI/agentops) | MIT | 5,813 | 2026-06-25 | 0.4.21 (2025-08-29) | active |
-| [SWE-bench/SWE-bench](https://github.com/SWE-bench/SWE-bench) | MIT | 5,807 | 2026-09-02 | — | active |
-| [THUDM/AgentBench](https://github.com/THUDM/AgentBench) | Apache-2.0 | 3,717 | 2026-02-08 | — | active |
-| [xlang-ai/OSWorld](https://github.com/xlang-ai/OSWorld) | Apache-2.0 | 3,134 | 2026-08-30 | v0.1.16 (2024-06-26) | active |
-| [UKGovernmentBEIS/inspect_ai](https://github.com/UKGovernmentBEIS/inspect_ai) | MIT | 2,734 | 2026-09-09 | — | active |
-| [sierra-research/tau2-bench](https://github.com/sierra-research/tau2-bench) | MIT | 1,991 | 2026-09-07 | v1.0.1 (2026-07-22) | active |
-| [web-arena-x/webarena](https://github.com/web-arena-x/webarena) | Apache-2.0 | 1,606 | 2025-11-26 | v0.2.0 (2023-10-21) | active |
-| [sierra-research/tau-bench](https://github.com/sierra-research/tau-bench) | MIT | 1,427 | 2026-03-18 | — | active |
-| [microsoft/SWE-bench-Live](https://github.com/microsoft/SWE-bench-Live) | MIT | 234 | 2026-09-07 | v1.0-multi-language-multi-os-benchmarking (2026-03-08) | active |
+| Project | Category | License | Stars | Last push | Latest release | Status |
+|---|---|---|---|---|---|---|
+| [browser-use/browser-use](https://github.com/browser-use/browser-use) | Browser automation library | MIT | 113,915 | 2026-09-07 | 0.13.10 (2026-09-04) | active |
+| [langfuse/langfuse](https://github.com/langfuse/langfuse) | LLM observability platform | NOASSERTION | 34,402 | 2026-09-09 | v4.32.0 (2026-09-08) | active |
+| [promptfoo/promptfoo](https://github.com/promptfoo/promptfoo) | LLM eval and red-teaming framework | MIT | 24,972 | 2026-09-09 | code-scan-action-0.2.0 (2026-08-28) | active |
+| [openai/evals](https://github.com/openai/evals) | Vendor eval harness | NOASSERTION | 19,417 | 2026-04-14 | — | active |
+| [confident-ai/deepeval](https://github.com/confident-ai/deepeval) | LLM evaluation framework | Apache-2.0 | 18,189 | 2026-09-08 | python-v4.2.0 (2026-08-24) | active |
+| [vibrantlabsai/ragas](https://github.com/vibrantlabsai/ragas)<br><sub>moved from explodinggradients/ragas</sub> | RAG evaluation framework | Apache-2.0 | 15,691 | 2026-02-24 | v0.4.3 (2026-01-13) | active |
+| [ShishirPatil/gorilla](https://github.com/ShishirPatil/gorilla) | Function-call benchmark + leaderboard (BFCL) | Apache-2.0 | 13,018 | 2026-04-13 | v1.3 (2025-07-17) | active |
+| [Arize-ai/phoenix](https://github.com/Arize-ai/phoenix) | Observability and eval platform | NOASSERTION | 11,389 | 2026-09-09 | arize-phoenix-client-v3.5.0 (2026-09-08) | active |
+| [AgentOps-AI/agentops](https://github.com/AgentOps-AI/agentops) | Agent observability SDK | MIT | 5,813 | 2026-06-25 | 0.4.21 (2025-08-29) | active |
+| [SWE-bench/SWE-bench](https://github.com/SWE-bench/SWE-bench) | Patch-only coding benchmark | MIT | 5,808 | 2026-09-02 | — | active |
+| [OpenBMB/ToolBench](https://github.com/OpenBMB/ToolBench) | Static tool/API catalog benchmark | Apache-2.0 | 5,736 | 2025-05-21 | — | active |
+| [THUDM/AgentBench](https://github.com/THUDM/AgentBench) | Multi-domain agent benchmark | Apache-2.0 | 3,718 | 2026-02-08 | — | active |
+| [xlang-ai/OSWorld](https://github.com/xlang-ai/OSWorld) | Real-desktop OS agent benchmark | Apache-2.0 | 3,134 | 2026-08-30 | v0.1.16 (2024-06-26) | active |
+| [UKGovernmentBEIS/inspect_ai](https://github.com/UKGovernmentBEIS/inspect_ai) | Evaluation framework | MIT | 2,735 | 2026-09-09 | — | active |
+| [harbor-framework/terminal-bench-1](https://github.com/harbor-framework/terminal-bench-1)<br><sub>moved from laude-institute/terminal-bench</sub> | Terminal/OS agent benchmark | Apache-2.0 | 2,572 | 2026-07-11 | — | active |
+| [sierra-research/tau2-bench](https://github.com/sierra-research/tau2-bench) | Dual-control tool-agent benchmark | MIT | 1,994 | 2026-09-07 | v1.0.1 (2026-07-22) | active |
+| [mlcommons/inference](https://github.com/mlcommons/inference) | Serving-scale inference benchmark | Apache-2.0 | 1,624 | 2026-09-02 | v5.1.1 (2025-10-28) | active |
+| [web-arena-x/webarena](https://github.com/web-arena-x/webarena) | Web-agent benchmark (self-hosted sites) | Apache-2.0 | 1,606 | 2025-11-26 | v0.2.0 (2023-10-21) | active |
+| [sierra-research/tau-bench](https://github.com/sierra-research/tau-bench) | Tool-agent customer-service benchmark | MIT | 1,427 | 2026-03-18 | — | active |
+| [ethz-spylab/agentdojo](https://github.com/ethz-spylab/agentdojo) | Prompt-injection security benchmark | MIT | 810 | 2026-06-02 | v0.1.35 (2025-10-27) | active |
+| [UKGovernmentBEIS/inspect_evals](https://github.com/UKGovernmentBEIS/inspect_evals) | Evaluation suite for inspect_ai | MIT | 664 | 2026-09-09 | v0.19.0 (2026-08-31) | active |
+| [THUDM/VisualAgentBench](https://github.com/THUDM/VisualAgentBench) | Multimodal/GUI agent benchmark | Apache-2.0 | 276 | 2025-04-24 | — | active |
+| [microsoft/SWE-bench-Live](https://github.com/microsoft/SWE-bench-Live) | Contamination-resistant coding benchmark | MIT | 234 | 2026-09-07 | v1.0-multi-language-multi-os-benchmarking (2026-03-08) | active |
+| [uiuc-kang-lab/InjecAgent](https://github.com/uiuc-kang-lab/InjecAgent) | Prompt-injection security benchmark | MIT | 168 | 2024-07-02 | — | active |
+| [microsoft/BIPIA](https://github.com/microsoft/BIPIA) | Indirect prompt-injection benchmark | NOASSERTION | 157 | 2024-04-15 | — | active |
+| [mlcommons/mlperf_client](https://github.com/mlcommons/mlperf_client) | Vendor-curated PC hardware benchmark | Apache-2.0 | 90 | 2026-08-18 | v2.0 (2026-08-18) | active |
 
-Rows are generated from `data/competitor-meta.json` by `scripts/fetch_competitor_meta.py`, which reads the GitHub API. Star counts and dates are facts about the repositories on the fetch date, not judgements. Nothing here claims a project lacks a feature: where a capability was not verified it is absent from this table rather than asserted as missing.
+Rows are generated from `data/competitor-meta.json` by `scripts/fetch_competitor_meta.py`, which reads the GitHub API. Star counts and dates are facts about the repositories on the fetch date, not judgements. Nothing here claims a project lacks a feature: where a capability was not verified it is absent from this table rather than asserted as missing. **Category** is the one column the API cannot supply: it is a labelled human judgement kept in `data/competitor-registry.json`, which is also the single list of what gets fetched.
 <!-- /landscape:generated -->
-
-## Landscape summary
-
-| Project | License | Activity (pushed) | Stars | Category |
-|---|---|---|---|---|
-| SWE-bench | MIT | 2026-08-18 | ~5.7k | Patch-only coding benchmark |
-| SWE-bench-Live (Microsoft) | MIT | 2026-08-20 | ~224 | Contamination-resistant coding benchmark |
-| Terminal-Bench (Harbor/Laude) | Apache-2.0 | 2026-07-11 | ~2.6k | Terminal/OS agent benchmark |
-| τ-bench (Sierra) | MIT | 2026-03-18 | ~1.4k | Tool-agent customer-service benchmark |
-| τ²-bench (Sierra) | MIT | 2026-08-18 | ~1.9k | Dual-control tool-agent benchmark |
-| AgentBench (THUDM) | Apache-2.0 | 2026-02-08 | ~3.7k | Multi-domain agent benchmark |
-| VisualAgentBench (THUDM) | Apache-2.0 | 2025-04-24 | ~274 | Multimodal/GUI agent benchmark |
-| OSWorld (xlang-ai) | Apache-2.0 | 2026-08-21 | ~3.1k | Real-desktop OS agent benchmark |
-| WebArena | Apache-2.0 | 2025-11-26 | ~1.6k | Web-agent benchmark (self-hosted sites) |
-| browser-use | MIT | 2026-08-22 | ~110k | Browser automation library/framework |
-| inspect_ai (UK AISI) | MIT | 2026-08-23 | ~2.6k | Evaluation framework |
-| promptfoo | MIT | 2026-08-23 | ~24k | LLM eval/red-teaming framework |
-| DeepEval (Confident AI) | Apache-2.0 | 2026-08-21 | ~17.8k | LLM eval framework |
-| ragas (VibrantLabs) | Apache-2.0 | 2026-02-24 | ~15.4k | RAG evaluation framework |
-| AgentOps | MIT | 2026-06-25 | ~5.8k | Agent observability SDK |
-| Arize Phoenix | mixed (ELv2-style components) | 2026-08-22 | ~11.1k | Observability/eval platform |
-| Langfuse | mixed (core MIT, enterprise features commercial) | 2026-08-23 | ~33.6k | LLM observability platform |
-| OpenAI Evals | custom (NOASSERTION) | 2026-04-14 | ~19.2k | Vendor eval harness |
 
 ## Per-competitor detail
 
@@ -173,6 +170,53 @@ Rows are generated from `data/competitor-meta.json` by `scripts/fetch_competitor
   scored against assertions; everything reproducible locally without a server;
   our team/enterprise layers are self-hostable open source.
 - Not worth copying: always-on telemetry (we default to zero telemetry).
+
+### BFCL / Gorilla — function-call correctness leaderboard
+
+- Evidence: [ShishirPatil/gorilla](https://github.com/ShishirPatil/gorilla) (Apache-2.0). Leaderboard: <https://gorilla.cs.berkeley.edu/leaderboards.html>
+- **Citation note.** BFCL's dataset generations ("v3", "v4") are versions of the
+  leaderboard and its data, not of the repository: the repo's own release tags
+  stop at `v1.3` (2025-07-17). A claim about a BFCL generation therefore has to
+  cite the leaderboard, with the date it was read — citing a GitHub release for
+  it would be citing something that does not exist.
+- Coverage: whether a model emits the correct function call, matched structurally
+  against an expected signature (an AST comparison) so thousands of functions can
+  be graded without executing any of them. That technique is a good one and is
+  worth adopting; it is not the same measurement as this project's.
+- Distinction: BFCL scores **the call**, on a model leaderboard. tooltrace-bench
+  scores **the run** — recovery from failure, side effects on the environment,
+  cost, and whether a third party can reproduce the number from the bundle.
+  Neither subsumes the other: an agent can emit every call correctly and still
+  destroy the workspace, and an agent can fumble a call and recover cleanly.
+
+### MLPerf Client / MLPerf Inference — hardware and serving benchmarks
+
+- Evidence: [mlcommons/mlperf_client](https://github.com/mlcommons/mlperf_client) (Apache-2.0), release `v2.0` published 2026-08-18; [mlcommons/inference](https://github.com/mlcommons/inference) (Apache-2.0).
+- Coverage: MLPerf Client v2.0 added an agentic category reporting end-to-end
+  performance with a breakdown of model time against tool-execution time.
+  MLPerf Inference covers serving-scale throughput against OpenAI-compatible
+  endpoints.
+- Distinction: these are vendor-curated hardware and serving benchmarks, not
+  agent-reliability harnesses — and they are a validating signal rather than a
+  rival. The inference-time/tool-time split they report is the same
+  decomposition this project already records per run (`model_ms` and `tool_ms`
+  on every `EvalResult`); what is missing here is the aggregation and the
+  hardware profile to report it against, which is tracked work rather than a
+  claim.
+
+### agentdojo / InjecAgent / BIPIA — prompt-injection benchmarks
+
+- Evidence: [ethz-spylab/agentdojo](https://github.com/ethz-spylab/agentdojo) (MIT), [uiuc-kang-lab/InjecAgent](https://github.com/uiuc-kang-lab/InjecAgent) (MIT), [microsoft/BIPIA](https://github.com/microsoft/BIPIA) (NOASSERTION).
+- Coverage: adversarial resilience in isolation — whether an agent can be
+  diverted by injected instructions.
+- Activity, from the fetch above: agentdojo is active; InjecAgent was last
+  pushed 2024-07-02 and BIPIA 2024-04-15. BIPIA carries no recognised licence
+  (`NOASSERTION`), which is a practical constraint on reusing its corpus rather
+  than a criticism of it.
+- **This project does not currently measure any of this.**
+  `docs/feature-status.md` row 16 (defensive-security packs) is graded `S`:
+  the domain is declarable and no pack ships. Listing these projects here is
+  not a claim to compete with them.
 
 ### OpenAI Evals — vendor harness
 - Evidence: https://github.com/openai/evals (custom license)

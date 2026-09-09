@@ -65,6 +65,33 @@ versioning follows [Semantic Versioning](https://semver.org/).
   `label + group` string meant the entry for Experiments read "Experiments
   Workspace", which "wsx" cannot thread through, while the reverse order
   matched. Both orders are scored now.
+- **The competitive analysis contradicted itself.** `docs/competitive-analysis.md`
+  carried a CI-checked generated table and, twenty lines below it, a
+  hand-written "Landscape summary" dated three weeks earlier that disagreed —
+  SWE-bench pushed 2026-08-18 against the generated 2026-09-02, SWE-bench-Live
+  at ~224 stars against 234. Three of the hand table's eighteen projects were
+  never fetched at all, and two of those had moved org, so no refresh could ever
+  have corrected them. The hand table is deleted and every repository fact now
+  comes from the fetch.
+- **Tracked projects went from 15 to 26**, adding BFCL/Gorilla, MLPerf Client,
+  MLPerf Inference, inspect_evals, ToolBench, VisualAgentBench, Terminal-Bench,
+  and the prompt-injection benchmarks agentdojo, InjecAgent and BIPIA. The list
+  lives in a new `data/competitor-registry.json`, which is both what gets
+  fetched and where the one non-machine column (category) is kept, so the
+  documented list and the fetched list cannot disagree.
+- **Org renames are recorded rather than silently followed.** The fetcher stores
+  the slug it asked for alongside the canonical name the API answered with, so
+  the table shows "moved from laude-institute/terminal-bench" and "moved from
+  explodinggradients/ragas" instead of quietly changing name.
+- **BFCL is cited by its leaderboard, not a release tag.** Its "v3"/"v4"
+  generations version the leaderboard and its data; the repository's own release
+  tags stop at `v1.3` (2025-07-17), so citing a GitHub release for a BFCL
+  generation would cite something that does not exist. A test fails if that tag
+  ever changes, so the note gets re-checked rather than rotting.
+- The security-benchmark section states plainly that **this project does not
+  currently measure prompt-injection resilience** (`docs/feature-status.md` row
+  16 is `S`), and a test enforces that disclaimer, so listing those projects
+  cannot be mistaken for competing with them.
 - **`typer` and `rich` were declared as runtime dependencies and never
   imported.** The CLI is `argparse`; neither package appears anywhere in
   `tooltrace/`. Every install resolved and downloaded two packages the project

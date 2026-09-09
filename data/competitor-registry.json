@@ -1,0 +1,43 @@
+{
+  "_comment": [
+    "The projects tracked in docs/competitive-analysis.md, and the one thing about",
+    "each that the GitHub API cannot supply: what kind of thing it is.",
+    "",
+    "Category is a labelled human judgement and is rendered as such. Every other",
+    "cell in the generated table -- licence, stars, dates, releases, archived state,",
+    "and whether the slug has moved -- comes from scripts/fetch_competitor_meta.py",
+    "reading the API on a recorded date.",
+    "",
+    "`slug` is what we ask for. The API follows renames, so the fetcher records the",
+    "canonical name it received as well; an org move then shows up as data rather",
+    "than as prose someone forgets to update."
+  ],
+  "projects": [
+    { "slug": "SWE-bench/SWE-bench", "category": "Patch-only coding benchmark" },
+    { "slug": "microsoft/SWE-bench-Live", "category": "Contamination-resistant coding benchmark" },
+    { "slug": "laude-institute/terminal-bench", "category": "Terminal/OS agent benchmark" },
+    { "slug": "sierra-research/tau-bench", "category": "Tool-agent customer-service benchmark" },
+    { "slug": "sierra-research/tau2-bench", "category": "Dual-control tool-agent benchmark" },
+    { "slug": "THUDM/AgentBench", "category": "Multi-domain agent benchmark" },
+    { "slug": "THUDM/VisualAgentBench", "category": "Multimodal/GUI agent benchmark" },
+    { "slug": "xlang-ai/OSWorld", "category": "Real-desktop OS agent benchmark" },
+    { "slug": "web-arena-x/webarena", "category": "Web-agent benchmark (self-hosted sites)" },
+    { "slug": "browser-use/browser-use", "category": "Browser automation library" },
+    { "slug": "ShishirPatil/gorilla", "category": "Function-call benchmark + leaderboard (BFCL)" },
+    { "slug": "OpenBMB/ToolBench", "category": "Static tool/API catalog benchmark" },
+    { "slug": "mlcommons/mlperf_client", "category": "Vendor-curated PC hardware benchmark" },
+    { "slug": "mlcommons/inference", "category": "Serving-scale inference benchmark" },
+    { "slug": "UKGovernmentBEIS/inspect_ai", "category": "Evaluation framework" },
+    { "slug": "UKGovernmentBEIS/inspect_evals", "category": "Evaluation suite for inspect_ai" },
+    { "slug": "promptfoo/promptfoo", "category": "LLM eval and red-teaming framework" },
+    { "slug": "confident-ai/deepeval", "category": "LLM evaluation framework" },
+    { "slug": "explodinggradients/ragas", "category": "RAG evaluation framework" },
+    { "slug": "openai/evals", "category": "Vendor eval harness" },
+    { "slug": "AgentOps-AI/agentops", "category": "Agent observability SDK" },
+    { "slug": "Arize-ai/phoenix", "category": "Observability and eval platform" },
+    { "slug": "langfuse/langfuse", "category": "LLM observability platform" },
+    { "slug": "ethz-spylab/agentdojo", "category": "Prompt-injection security benchmark" },
+    { "slug": "uiuc-kang-lab/InjecAgent", "category": "Prompt-injection security benchmark" },
+    { "slug": "microsoft/BIPIA", "category": "Indirect prompt-injection benchmark" }
+  ]
+}

@@ -35,7 +35,9 @@ NOTE = (
     "Star counts and dates are facts about the repositories on the fetch date, "
     "not judgements. Nothing here claims a project lacks a feature: where a "
     "capability was not verified it is absent from this table rather than "
-    "asserted as missing."
+    "asserted as missing. **Category** is the one column the API cannot supply: "
+    "it is a labelled human judgement kept in `data/competitor-registry.json`, "
+    "which is also the single list of what gets fetched."
 )
 
 
@@ -44,8 +46,8 @@ def render() -> str:
     date = data["fetched_utc"][:10]
 
     rows = [
-        "| Project | License | Stars | Last push | Latest release | Status |",
-        "|---|---|---|---|---|---|",
+        "| Project | Category | License | Stars | Last push | Latest release | Status |",
+        "|---|---|---|---|---|---|---|",
     ]
     for entry in sorted(data["repos"].values(), key=lambda r: r.get("stars") or 0, reverse=True):
         release = entry.get("latest_release") or {}
@@ -54,8 +56,13 @@ def render() -> str:
         release_cell = f"{tag} ({published})" if tag else "—"
         stars = f"{entry['stars']:,}" if entry.get("stars") is not None else "—"
         name = entry["repo"]
+        requested = entry.get("requested") or name
+        # An org rename is recorded, not quietly followed: a reader who knows the
+        # project by its old name should be able to see that it moved.
+        moved = f"<br><sub>moved from {requested}</sub>" if requested != name else ""
         rows.append(
-            f"| [{name}](https://github.com/{name}) | {entry.get('license_spdx') or '—'} "
+            f"| [{name}](https://github.com/{name}){moved} "
+            f"| {entry.get('category') or '—'} | {entry.get('license_spdx') or '—'} "
             f"| {stars} | {(entry.get('pushed_at') or '')[:10]} | {release_cell} "
             f"| {'**archived**' if entry.get('archived') else 'active'} |"
         )
