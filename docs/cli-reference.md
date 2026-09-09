@@ -43,7 +43,7 @@ Exit codes: `0` ok · `2` usage · `3` task/validation · `4` agent · `5` run f
 
 | Command | Purpose |
 |---|---|
-| `ingest --format otel-spans\\|--format openai-steps --in FILE [--out JSONL] [--task-id] [--agent]` | Convert external traces into ToolTrace trace events; prints event counts and the classified failure reason. OTel GenAI spans come from any OpenTelemetry-instrumented agent framework; OpenAI steps are plain assistant-message/tool-call logs |
+| `ingest --format F --in FILE [--out JSONL] [--task-id ID] [--agent A] [--score-against TASK_ID]` | Convert external traces (OTel GenAI spans / OpenAI steps) into ToolTrace events, and optionally score the trajectory against a task's trace assertions; workspace assertions are reported as skipped |
 
 Ingested traces flow through `tooltrace trace`, replay and scoring unchanged — see
 [`tooltrace.ingest`](../tooltrace/ingest/__init__.py). The pytest plugin (`pytest11`

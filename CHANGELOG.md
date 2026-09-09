@@ -117,6 +117,32 @@ versioning follows [Semantic Versioning](https://semver.org/).
   separately because they fail for different reasons — tampering after the fact
   versus never having matched the published format — and `--no-schema` runs the
   checksum half alone.
+- **Score a real production trace (`ingest --score-against TASK_ID`).** GitHub
+  Copilot, Codex and Claude Code emit OpenTelemetry GenAI spans directly, and
+  `ingest` could already read them — it just could not *score* them, so a real
+  agent run could be converted and classified but never graded.
+
+  This is possible now only because trace-aware scorers exist. A production
+  trace has no workspace, so every `(params, workspace)` assertion is
+  unanswerable; trajectory assertions are not. The command reports `score`,
+  `skipped_assertions` (by name) and `is_partial_score` together, because a
+  partial score presented as a complete one would understate an agent by exactly
+  the assertions nobody could evaluate. A task with no trajectory assertions
+  says so rather than reporting zero.
+
+- **OTel GenAI span export (`tooltrace/exporters/otel.py`).** Results flow into
+  Langfuse, Phoenix, Datadog or any OTel backend — being the harness that feeds
+  those platforms is a better position than competing with them.
+
+  Spans are plain dicts in the OTLP JSON shape rather than SDK objects: an
+  OpenTelemetry SDK dependency in an offline-first, supply-chain-audited project,
+  for what is a documented attribute vocabulary, is a poor trade. **Nothing is
+  transmitted** — a test asserts the module imports no HTTP client at all. Every
+  span records `gen_ai.conventions.version`, since the conventions are still
+  experimental upstream and undated telemetry is unreadable a year later.
+  Unmeasured token counts are *absent* rather than zero, and a failed tool call
+  omits `gen_ai.tool.call.result` because the importer derives status from that
+  attribute's presence — emitting it would make a failure round-trip as a pass.
 - **Indirect prompt-injection suite, measured without any network egress.**
   Prompt injection is #1 on the OWASP Top 10 for Agentic Applications (2026) and
   sensitive-information disclosure is #2. `tooltrace/tasks/packs/security/`
