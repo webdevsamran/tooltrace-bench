@@ -7,6 +7,43 @@ versioning follows [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- **`tooltrace pr-report` — a pull-request gate that does not fire on noise.**
+  `compare` and `regression` take two *single-run* bundles. For latency on a
+  deterministic task that is defensible; for a success rate it is not. One run is
+  one Bernoulli draw, and "the score dropped from 1.0 to 0.0" describes a coin
+  landing differently, not a regression. A gate built on that either blocks pull
+  requests at random or gets switched off.
+
+  This compares two *sets* of runs, and two things must both hold before it fails
+  a build: the change is **real** (the 95% interval on the *difference* excludes
+  zero) and it is **large enough to matter** (the smallest change the interval
+  supports reaches a stated minimum effect). The second condition is not
+  decoration — a deterministic task with no run-to-run variance can make a 0.1%
+  latency shift statistically certain, and failing a pull request on that is
+  exactly the behaviour that gets a reliability gate disabled.
+
+  Four verdicts per metric: `regressed`, `improved`, `no_change_detected`,
+  `inconclusive`. The fourth is what makes the other three trustworthy — without
+  it, "no regression" covers both "we checked" and "we could not tell", and a
+  green check on 3 runs would mean what a green check on 300 means. Only
+  `regressed` exits non-zero; `inconclusive` is reported loudly and does not
+  block, because failing on absent evidence would make the gate a function of the
+  caller's compute budget.
+
+  Proportions use the Newcombe difference of Wilson intervals rather than a
+  bootstrap: ten perfect runs bootstrap to a zero-width interval, and "the rate is
+  exactly 1.0 with no uncertainty" is the most misleading thing it could report.
+  Latency's minimum effect is a share of the baseline, because 5 ms is nothing on
+  a four-second task and everything on a six-millisecond one. A comparison across
+  different task sets or artifact versions is refused rather than annotated:
+  attributing a difference in measurement to the code is worse than no report.
+
+- **`.github/workflows/pr-reliability.yml`** runs the sweep twice in one job —
+  merge base and head — so a difference in runner cannot be mistaken for a
+  difference in code, then comments the table and edits its own previous comment
+  instead of stacking new ones. No third-party actions.
+
+### Added
 - **Hardware-aware run metadata, and a comparability verdict for latency.**
   `environment.json` recorded python version, platform, OS, machine and a
   timestamp — enough to know a run happened on Windows on x86_64, and not enough

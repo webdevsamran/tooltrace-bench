@@ -175,3 +175,47 @@ remainder to tools, and the aggregate reports `runs_reporting_model_time` so a
 split over 2 of 200 runs is not read as a description of those 200. `0.0` and
 "not reported" are also kept distinct, because a model that took no measurable
 time and an adapter that never said are different facts.
+
+## A pull-request gate that does not fire on noise
+
+`compare` and `regression` take two **single-run** bundles and fail a build when
+a metric moves past a threshold. For latency on a deterministic task that is
+defensible. For a success rate it is not: one run is one Bernoulli draw, and "the
+score dropped from 1.0 to 0.0" describes a coin landing differently. A gate built
+on that either blocks pull requests at random or gets switched off, and both are
+worse than no gate at all.
+
+`pr-report` compares two *sets* of runs. Two things must both be true before it
+fails a build:
+
+1. **The change is real** — the 95% interval on the *difference* excludes zero.
+   Not two per-side intervals for a reader to eyeball: overlapping per-side
+   intervals do not imply the difference contains zero, and comparing them by eye
+   is the most common way to get this wrong.
+2. **The change is large enough to matter** — the smallest change the interval
+   supports reaches a stated minimum effect. Statistical significance is not
+   practical significance. A deterministic task with no run-to-run variance can
+   make a 0.1% latency shift *certain*, and failing a pull request on that is
+   precisely what gets a gate disabled.
+
+| Verdict | Meaning | Fails the build |
+|---|---|---|
+| `regressed` | Real, and large enough to matter, in the worse direction | yes |
+| `improved` | Real, and large enough to matter, in the better direction | no |
+| `no_change_detected` | Either no real change, or a real one too small to matter | no |
+| `inconclusive` | Zero is inside the interval, and so is a change that would matter | no |
+
+The fourth verdict is what makes the other three trustworthy. Without it, "no
+regression" covers both "we checked" and "we could not tell", so a green check on
+3 runs would say the same thing as a green check on 300.
+
+`inconclusive` never fails. Blocking on the absence of evidence would make the
+gate a function of how many runs the caller could afford rather than of whether
+the code got worse.
+
+Two implementation notes that matter for correctness. Proportions use the
+Newcombe difference of Wilson intervals rather than a bootstrap: ten perfect runs
+bootstrap to a zero-width interval, and "the rate is exactly 1.0 with no
+uncertainty" is the most misleading thing this could report. Latency's minimum
+effect is a share of the baseline rather than an absolute figure, because 5 ms is
+nothing on a four-second task and everything on a six-millisecond one.
