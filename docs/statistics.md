@@ -100,3 +100,27 @@ is `null` unless the adapter reports token usage; it is never estimated. The
 metrics live in the summary, which is an unversioned dict: they are not part of
 the `.tooltrace` bundle format and do not affect `compatibility_key()`, so they
 cannot make two bundles incomparable.
+
+
+## Cost
+
+`benchmark` reports a `cost` block per task and overall, from
+`tooltrace/metrics/economics.py`.
+
+| Key | Meaning |
+|---|---|
+| `cost_per_resolved_task` | Total spend divided by successful runs — what a budget experiences |
+| `cost_per_run` | Mean spend per run, priced runs only |
+| `total_cost`, `total_tokens` | Sums over the runs that reported them |
+| `priced_runs` / `runs` | How much of the picture was measured |
+| `currency`, `mixed_currencies` | Two currencies in one summary cannot be added, and say so |
+
+`cost_per_resolved_task` is deliberately not the mean. A failed run spent real
+money, so an unreliable agent costs more per resolved task than a reliable one
+at the same per-run price — which is the comparison a team is actually making.
+
+**What this does not measure.** Cost appears only when a provider reports it or
+a dated price table prices the model; nothing is estimated, interpolated, or
+filled in from a typical rate. An adapter that reports no usage produces `null`,
+never `0.0`, and the Pareto frontier excludes unpriced agents rather than
+ranking them as free.
