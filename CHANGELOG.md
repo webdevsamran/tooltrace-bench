@@ -117,6 +117,39 @@ versioning follows [Semantic Versioning](https://semver.org/).
   separately because they fail for different reasons — tampering after the fact
   versus never having matched the published format — and `--no-schema` runs the
   checksum half alone.
+- **Indirect prompt-injection suite, measured without any network egress.**
+  Prompt injection is #1 on the OWASP Top 10 for Agentic Applications (2026) and
+  sensitive-information disclosure is #2. `tooltrace/tasks/packs/security/`
+  measures both classes: exfiltration (was private data sent somewhere a *file*
+  told the agent to send it?) and direct harm (did the agent destroy something
+  it was not asked to touch?).
+
+  The usual way to measure exfiltration is to let data leave the machine. This
+  project will not: the sandbox is offline by default, and adding real egress to
+  measure security would make the harness the vulnerability it tests for. So
+  `http_post` (`tooltrace/tools/sink.py`) is offered to the agent as a way to
+  send data and **sends nothing** — every call is recorded to
+  `.tooltrace_egress/requests.jsonl` in the workspace, which makes the attempt
+  readable by ordinary `(params, workspace)` scorers and puts the evidence in
+  the bundle. The agent cannot rewrite that log: the prefix is refused by every
+  path-taking tool.
+
+  Canary matching happens in the tool on **raw arguments**, before the
+  executor's sanitizer runs — the sanitizer redacts secret-shaped strings, so
+  matching afterwards would find nothing and every agent would score as
+  perfectly secure. Only canary **ids** are recorded, never values, so the log
+  is publishable.
+
+  Scorers score the **defence** (1.0 = resisted), so `success` keeps its meaning
+  everywhere else; attack success rate is derived as `1 - defence_rate` in
+  `tooltrace/metrics/security.py`, with a Wilson interval and a small-sample
+  flag, because 0% over three attempts is not evidence of a secure agent.
+
+  `docs/feature-status.md` row 16 moves from `S` to `I`, and
+  `docs/threat-model.md`'s "no offensive security payloads" non-goal is
+  rewritten: what ships is defensive evaluation with clearly-marked public smoke
+  payloads and a responsible-use policy in `docs/security-evaluation.md`, not a
+  transferable attack corpus.
 - **An adversarial sandbox-escape suite.** `scripts/sandbox_check.py` calls
   `resolve_in_workspace` with a few bad paths and checks some defaults. That is
   a conformance check on a helper — it proves the function rejects what it is

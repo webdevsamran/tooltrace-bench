@@ -7,7 +7,7 @@ Statuses: ✅ shipped · 🚧 in progress · 📋 planned. This file is synchron
 - ✅ Versioned task spec (YAML/JSON) with formal JSON-Schema validation
 - ✅ Agent adapter API with plugin discovery (`tooltrace.agents`)
 - ✅ Subprocess, OpenAI-compatible (local endpoints) and scripted agents
-- ✅ Ten typed tools with sanitized event emission
+- ✅ Typed tools with sanitized event emission (eleven, including the offline egress sink)
 - ✅ Temp-workspace sandbox + optional Docker sandbox
 - ✅ Versioned JSONL trace format + deterministic replay of tool interactions
 - ✅ Deterministic scorers + weighted composite scoring

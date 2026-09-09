@@ -62,6 +62,12 @@ PATH_SUFFIXES: tuple[str, ...] = (
 #: Placeholder syntax: a token containing any of these is a template, not a path.
 PLACEHOLDERS: tuple[str, ...] = ("*", "<", ">", "{", "}", "$")
 
+#: Paths that exist inside a sandbox workspace at run time and never in the
+#: repository. This checker verifies *repository* paths; a runtime path is a
+#: different category, and declaring it here is honest, whereas silently
+#: widening `looks_like_path` until nothing fails would not be.
+RUNTIME_PREFIXES: tuple[str, ...] = (".tooltrace_egress/",)
+
 
 def looks_like_path(token: str) -> bool:
     raw = token.strip()
@@ -75,6 +81,8 @@ def looks_like_path(token: str) -> bool:
         return False
     if "/" not in raw:
         return False
+    if raw.startswith(RUNTIME_PREFIXES):
+        return False  # created inside a workspace at run time, not in the repo
     return raw.endswith(PATH_SUFFIXES) or raw.endswith("/")
 
 

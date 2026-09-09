@@ -103,6 +103,9 @@ class TaskRunner:
                 network_policy=task.network_policy.value,
                 http_allowlist=list(task.metadata.get("http_allowlist", [])),
                 env_allowlist=list(task.metadata.get("env_allowlist", [])),
+                canaries={str(k): str(v) for k, v in (task.metadata.get("canaries") or {}).items()}
+                if isinstance(task.metadata.get("canaries"), dict)
+                else {},
             )
             executor = ToolExecutor(
                 ctx=tool_ctx,

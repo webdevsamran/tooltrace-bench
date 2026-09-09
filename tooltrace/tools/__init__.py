@@ -19,9 +19,11 @@ from tooltrace.tools.files import (
 )
 from tooltrace.tools.net import HttpTool
 from tooltrace.tools.process import GitTool, ShellTool, TestRunnerTool
+from tooltrace.tools.sink import EgressSinkTool
 
 __all__ = [
     "CalculatorTool",
+    "EgressSinkTool",
     "ExecutionStats",
     "GitTool",
     "HttpTool",

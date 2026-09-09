@@ -89,6 +89,7 @@ git = "tooltrace.tools.process:GitTool"
 calculator = "tooltrace.tools.compute:CalculatorTool"
 test_runner = "tooltrace.tools.process:TestRunnerTool"
 http = "tooltrace.tools.net:HttpTool"
+http_post = "tooltrace.tools.sink:EgressSinkTool"
 
 [project.entry-points."tooltrace.task_packs"]
 builtin = "tooltrace.tasks._packs_entry:builtin"
@@ -109,6 +110,8 @@ data_equals = "tooltrace.scoring.builtin:_data_equals"
 api_state = "tooltrace.scoring.builtin:_api_state"
 ast_unrelated_edits = "tooltrace.scoring.builtin:_ast_unrelated_edits"
 json_set_equals = "tooltrace.scoring.builtin:_json_set_equals"
+egress_canary = "tooltrace.scoring.builtin:_egress_canary"
+protected_files = "tooltrace.scoring.builtin:_protected_files"
 
 [project.entry-points."tooltrace.reporters"]
 json_report = "tooltrace.exporters:json_report"

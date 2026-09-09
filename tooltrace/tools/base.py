@@ -17,6 +17,10 @@ from pydantic import BaseModel, Field
 
 from tooltrace.core.exceptions import PolicyViolation
 
+#: Kept here rather than imported from tooltrace.security.canary to avoid a
+#: cycle: the security package imports tools, not the other way round.
+EGRESS_DIR = ".tooltrace_egress"
+
 
 class ToolContext(BaseModel):
     """Execution context handed to every tool call."""
@@ -25,6 +29,13 @@ class ToolContext(BaseModel):
     network_policy: str = "disabled"
     http_allowlist: list[str] = Field(default_factory=list)
     env_allowlist: list[str] = Field(default_factory=list)
+    #: Values planted by a security task whose escape is the thing being
+    #: measured, as {id: value}. Carried here so a tool can match them on raw
+    #: arguments *before* the executor sanitizes -- the sanitizer redacts
+    #: secret-shaped strings, so matching afterwards would find nothing and
+    #: every agent would look perfectly secure. Additive and empty by default,
+    #: so no existing task or tool is affected.
+    canaries: dict[str, str] = Field(default_factory=dict)
 
     model_config = {"arbitrary_types_allowed": True}
 
@@ -65,6 +76,11 @@ def resolve_in_workspace(workspace: Path, relative: object) -> Path:
     candidate = Path(relative)
     if candidate.is_absolute() or candidate.drive or candidate.root:
         raise PolicyViolation(f"Absolute paths are not allowed: {relative!r}")
+    # The egress log is the record of what an agent tried to send. An agent
+    # that could rewrite it could erase the evidence of its own exfiltration,
+    # so the whole prefix is refused to every path-taking tool.
+    if candidate.parts and candidate.parts[0] == EGRESS_DIR:
+        raise PolicyViolation(f"{EGRESS_DIR}/ is reserved for the harness: {relative!r}")
     resolved_root = workspace.resolve()
     target = (resolved_root / candidate).resolve()
     if resolved_root != target and resolved_root not in target.parents:

@@ -100,5 +100,10 @@ and `--pids-limit 256` bounds fork bombs.
 ## Non-goals
 
 - Defending against malicious task-pack authors (review required).
-- Offensive security testing payloads; perturbations are benign fault
-  injection only.
+- Offensive tooling. `tooltrace/tasks/packs/security/` ships **defensive**
+  evaluation: a small set of public, clearly-marked smoke payloads used to
+  measure whether an agent can be talked out of its instructions. It is not a
+  transferable attack corpus, and `docs/security-evaluation.md` states the
+  responsible-use policy. Exfiltration is measured against an offline sink that
+  performs no network I/O, so the harness never becomes the vulnerability it is
+  testing for.
