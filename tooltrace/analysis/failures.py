@@ -17,6 +17,13 @@ class Classification:
     reason: FailureReason
     rule: str
     detail: str
+    #: Which event the classification came from. "The run failed with a policy
+    #: violation" is a category; "it failed at seq 7, calling `shell`" is
+    #: something a reader can act on, and it is what lets a UI jump straight to
+    #: the step that broke. Optional and defaulted, so every existing caller and
+    #: every stored classification stays valid.
+    seq: int | None = None
+    tool: str | None = None
 
 
 def classify(
@@ -67,6 +74,8 @@ def classify(
             FailureReason.policy_violation,
             "denied_tool",
             f"tool '{denied[0].payload.get('tool')}' denied by policy",
+            seq=denied[0].seq,
+            tool=str(denied[0].payload.get("tool") or "") or None,
         )
 
     invalid = [
@@ -81,6 +90,8 @@ def classify(
             FailureReason.hallucinated_resource,
             "unknown_tool",
             f"agent invoked unregistered tool '{invalid[0].payload.get('tool')}'",
+            seq=invalid[0].seq,
+            tool=str(invalid[0].payload.get("tool") or "") or None,
         )
 
     error_results = [
@@ -100,22 +111,50 @@ def classify(
                 FailureReason.loop,
                 "repeated_failing_call",
                 f"same failing call repeated {best} times",
+                seq=error_results[0].seq,
+                tool=str(error_results[0].payload.get("tool") or "") or None,
             )
         first = error_results[0].payload
         err_text = str(first.get("error", ""))
         if "timeout" in err_text.lower():
-            return Classification(FailureReason.timeout, "subprocess_timeout", err_text[:200])
+            return Classification(
+                FailureReason.timeout,
+                "subprocess_timeout",
+                err_text[:200],
+                seq=error_results[0].seq,
+                tool=str(first.get("tool") or "") or None,
+            )
         if "spawn error" in err_text or "[spawn error]" in err_text:
-            return Classification(FailureReason.environment, "spawn_error", err_text[:200])
+            return Classification(
+                FailureReason.environment,
+                "spawn_error",
+                err_text[:200],
+                seq=error_results[0].seq,
+                tool=str(first.get("tool") or "") or None,
+            )
         if "must be" in err_text.lower() or "invalid" in err_text.lower():
-            return Classification(FailureReason.bad_arguments, "bad_arguments", err_text[:200])
+            return Classification(
+                FailureReason.bad_arguments,
+                "bad_arguments",
+                err_text[:200],
+                seq=error_results[0].seq,
+                tool=str(first.get("tool") or "") or None,
+            )
         if first.get("data", {}).get("injected"):
             return Classification(
                 FailureReason.execution,
                 "unrecovered_injected_fault",
                 err_text[:200],
+                seq=error_results[0].seq,
+                tool=str(first.get("tool") or "") or None,
             )
-        return Classification(FailureReason.execution, "tool_error", err_text[:200])
+        return Classification(
+            FailureReason.execution,
+            "tool_error",
+            err_text[:200],
+            seq=error_results[0].seq,
+            tool=str(first.get("tool") or "") or None,
+        )
 
     if finish_reason == "max_steps":
         return Classification(

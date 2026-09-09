@@ -92,6 +92,7 @@ Every run's trace is turned into a trajectory report by
 | `policy_violating_runs` | Runs with a denied call or an undeclared side effect |
 | `unverified_success_runs` | Runs that declared success without running a check after their last mutating call |
 | `failure_taxonomy` | How many runs ended in each failure class |
+| `failure_steps` | *Where* each failure happened: the seq, the tool, the rule that matched |
 
 **What these do not measure.** They describe the shape of a trajectory, not its
 correctness — an agent can take an efficient, non-stagnating, policy-compliant
