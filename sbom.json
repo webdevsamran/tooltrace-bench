@@ -4,7 +4,7 @@
   "serialNumber": "urn:uuid:196b9e33-6b39-5b60-8025-57dbd8d56d31",
   "version": 1,
   "metadata": {
-    "timestamp": "2026-09-07T06:38:49Z",
+    "timestamp": "2026-09-09T15:47:25Z",
     "tools": [
       {
         "vendor": "tooltrace-bench",
@@ -21,12 +21,6 @@
   "components": [
     {
       "type": "library",
-      "name": "annotated-doc",
-      "version": "0.0.5",
-      "purl": "pkg:pypi/annotated-doc@0.0.5"
-    },
-    {
-      "type": "library",
       "name": "annotated-types",
       "version": "0.8.0",
       "purl": "pkg:pypi/annotated-types@0.8.0"
@@ -34,20 +28,26 @@
     {
       "type": "library",
       "name": "anyio",
-      "version": "4.15.1",
-      "purl": "pkg:pypi/anyio@4.15.1"
+      "version": "4.14.2",
+      "purl": "pkg:pypi/anyio@4.14.2"
     },
     {
       "type": "library",
       "name": "ast-serialize",
-      "version": "0.9.0",
-      "purl": "pkg:pypi/ast-serialize@0.9.0"
+      "version": "0.8.0",
+      "purl": "pkg:pypi/ast-serialize@0.8.0"
     },
     {
       "type": "library",
       "name": "attrs",
       "version": "26.1.0",
       "purl": "pkg:pypi/attrs@26.1.0"
+    },
+    {
+      "type": "library",
+      "name": "build",
+      "version": "1.5.0",
+      "purl": "pkg:pypi/build@1.5.0"
     },
     {
       "type": "library",
@@ -64,14 +64,20 @@
     {
       "type": "library",
       "name": "coverage",
-      "version": "7.16.0",
-      "purl": "pkg:pypi/coverage@7.16.0"
+      "version": "7.15.4",
+      "purl": "pkg:pypi/coverage@7.15.4"
     },
     {
       "type": "library",
       "name": "h11",
       "version": "0.16.0",
       "purl": "pkg:pypi/h11@0.16.0"
+    },
+    {
+      "type": "library",
+      "name": "hatchling",
+      "version": "1.32.0",
+      "purl": "pkg:pypi/hatchling@1.32.0"
     },
     {
       "type": "library",
@@ -88,8 +94,8 @@
     {
       "type": "library",
       "name": "hypothesis",
-      "version": "6.167.1",
-      "purl": "pkg:pypi/hypothesis@6.167.1"
+      "version": "6.165.10",
+      "purl": "pkg:pypi/hypothesis@6.165.10"
     },
     {
       "type": "library",
@@ -123,18 +129,6 @@
     },
     {
       "type": "library",
-      "name": "markdown-it-py",
-      "version": "4.2.0",
-      "purl": "pkg:pypi/markdown-it-py@4.2.0"
-    },
-    {
-      "type": "library",
-      "name": "mdurl",
-      "version": "0.1.2",
-      "purl": "pkg:pypi/mdurl@0.1.2"
-    },
-    {
-      "type": "library",
       "name": "mypy",
       "version": "2.3.1",
       "purl": "pkg:pypi/mypy@2.3.1"
@@ -148,8 +142,8 @@
     {
       "type": "library",
       "name": "packaging",
-      "version": "26.3",
-      "purl": "pkg:pypi/packaging@26.3"
+      "version": "24.2",
+      "purl": "pkg:pypi/packaging@24.2"
     },
     {
       "type": "library",
@@ -166,14 +160,14 @@
     {
       "type": "library",
       "name": "pydantic",
-      "version": "2.13.5",
-      "purl": "pkg:pypi/pydantic@2.13.5"
+      "version": "2.13.4",
+      "purl": "pkg:pypi/pydantic@2.13.4"
     },
     {
       "type": "library",
       "name": "pydantic-core",
-      "version": "2.46.5",
-      "purl": "pkg:pypi/pydantic-core@2.46.5"
+      "version": "2.46.4",
+      "purl": "pkg:pypi/pydantic-core@2.46.4"
     },
     {
       "type": "library",
@@ -183,15 +177,21 @@
     },
     {
       "type": "library",
+      "name": "pyproject-hooks",
+      "version": "1.2.0",
+      "purl": "pkg:pypi/pyproject-hooks@1.2.0"
+    },
+    {
+      "type": "library",
       "name": "pytest",
-      "version": "9.1.1",
-      "purl": "pkg:pypi/pytest@9.1.1"
+      "version": "8.4.2",
+      "purl": "pkg:pypi/pytest@8.4.2"
     },
     {
       "type": "library",
       "name": "pytest-cov",
-      "version": "7.1.0",
-      "purl": "pkg:pypi/pytest-cov@7.1.0"
+      "version": "5.0.0",
+      "purl": "pkg:pypi/pytest-cov@5.0.0"
     },
     {
       "type": "library",
@@ -207,12 +207,6 @@
     },
     {
       "type": "library",
-      "name": "rich",
-      "version": "15.0.0",
-      "purl": "pkg:pypi/rich@15.0.0"
-    },
-    {
-      "type": "library",
       "name": "rpds-py",
       "version": "2026.6.3",
       "purl": "pkg:pypi/rpds-py@2026.6.3"
@@ -220,14 +214,8 @@
     {
       "type": "library",
       "name": "ruff",
-      "version": "0.16.6",
-      "purl": "pkg:pypi/ruff@0.16.6"
-    },
-    {
-      "type": "library",
-      "name": "shellingham",
-      "version": "1.5.4",
-      "purl": "pkg:pypi/shellingham@1.5.4"
+      "version": "0.16.4",
+      "purl": "pkg:pypi/ruff@0.16.4"
     },
     {
       "type": "library",
@@ -237,15 +225,21 @@
     },
     {
       "type": "library",
-      "name": "typer",
-      "version": "0.27.2",
-      "purl": "pkg:pypi/typer@0.27.2"
+      "name": "tomlkit",
+      "version": "0.15.1",
+      "purl": "pkg:pypi/tomlkit@0.15.1"
+    },
+    {
+      "type": "library",
+      "name": "trove-classifiers",
+      "version": "2026.6.1.19",
+      "purl": "pkg:pypi/trove-classifiers@2026.6.1.19"
     },
     {
       "type": "library",
       "name": "types-pyyaml",
-      "version": "6.0.12.20260906",
-      "purl": "pkg:pypi/types-pyyaml@6.0.12.20260906"
+      "version": "6.0.12.20260815",
+      "purl": "pkg:pypi/types-pyyaml@6.0.12.20260815"
     },
     {
       "type": "library",
