@@ -96,6 +96,31 @@ def trajectory_report(
             ]
         ),
         "policy": policy_compliance(tool_events, task.allowed_tools, declared_side_effects),
+        # *Which* step broke, not only what class of failure it was. "A policy
+        # violation" is a category; "seq 5, calling shell" is something a reader
+        # can open. Surfaced in the summary rather than on EvalResult, which
+        # AGENTS.md marks do-not-touch.
+        "failure_step": _failure_step(result, events),
+    }
+
+
+def _failure_step(result: EvalResult, events: list[TraceEvent]) -> dict[str, Any] | None:
+    """The step a failure is attributed to, or None when nothing failed."""
+    from tooltrace.analysis.failures import classify
+
+    classification = classify(
+        events,
+        succeeded=bool(result.success),
+        score_total=result.score.total,
+    )
+    if classification.reason.value == "none":
+        return None
+    return {
+        "seq": classification.seq,
+        "tool": classification.tool,
+        "reason": classification.reason.value,
+        "rule": classification.rule,
+        "detail": classification.detail,
     }
 
 
@@ -130,8 +155,11 @@ def aggregate_trajectory(reports: list[dict[str, Any]]) -> dict[str, Any]:
         if (r.get("verification") or {}).get("claimed_success_without_verification")
     ]
 
+    attributed = [r["failure_step"] for r in reports if r.get("failure_step")]
     return {
         "runs": len(reports),
+        # Where failures happened, so a reader can go straight to the step.
+        "failure_steps": attributed,
         "efficiency_mean": efficiency,
         "stagnating_runs": stagnating,
         "hallucinated_resource_events": hallucinations,
