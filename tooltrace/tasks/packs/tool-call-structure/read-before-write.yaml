@@ -1,0 +1,44 @@
+id: tool-call-structure/read-before-write
+version: 1.0.0
+category: workflow
+difficulty: easy
+objective: >-
+  Correct the status line in status.txt so it reads "status: ready". Read the
+  file before you change it.
+max_steps: 6
+allowed_tools: [read_file, write_file]
+network_policy: disabled
+starting_workspace:
+  status.txt: "status: pendnig\n"
+assertions:
+  # Outcome: the workspace ends up right.
+  - type: file_contains
+    params: { path: status.txt, text: "status: ready" }
+    weight: 1.0
+    description: status corrected
+  # Trajectory: it got there by looking first, not by guessing.
+  - type: tool_call_match
+    params:
+      ordered: true
+      expected:
+        - tool: read_file
+          args: { path: "string" }
+        - tool: write_file
+          args: { path: "string", content: "string" }
+    weight: 1.0
+    description: read before write
+  - type: tools_used
+    params:
+      required: [read_file, write_file]
+    weight: 1.0
+    description: both tools used
+  - type: no_failed_calls
+    params: { allow: 0 }
+    weight: 1.0
+    description: no failed calls
+metadata:
+  scripted_script:
+    - tool: read_file
+      args: { path: status.txt }
+    - tool: write_file
+      args: { path: status.txt, content: "status: ready\n" }
