@@ -11,6 +11,31 @@ feature claims are taken only from each project's own README/docs/releases.
 We never claim a competitor lacks a feature without checking its docs; where we
 could not verify a feature we mark it "unverified" rather than asserting absence.
 
+
+<!-- landscape:generated -->
+## Landscape snapshot (fetched 2026-09-09)
+
+| Project | License | Stars | Last push | Latest release | Status |
+|---|---|---|---|---|---|
+| [browser-use/browser-use](https://github.com/browser-use/browser-use) | MIT | 113,853 | 2026-09-07 | 0.13.10 (2026-09-04) | active |
+| [langfuse/langfuse](https://github.com/langfuse/langfuse) | NOASSERTION | 34,392 | 2026-09-09 | v4.32.0 (2026-09-08) | active |
+| [promptfoo/promptfoo](https://github.com/promptfoo/promptfoo) | MIT | 24,964 | 2026-09-09 | code-scan-action-0.2.0 (2026-08-28) | active |
+| [openai/evals](https://github.com/openai/evals) | NOASSERTION | 19,414 | 2026-04-14 | — | active |
+| [confident-ai/deepeval](https://github.com/confident-ai/deepeval) | Apache-2.0 | 18,186 | 2026-09-08 | python-v4.2.0 (2026-08-24) | active |
+| [Arize-ai/phoenix](https://github.com/Arize-ai/phoenix) | NOASSERTION | 11,388 | 2026-09-09 | arize-phoenix-client-v3.5.0 (2026-09-08) | active |
+| [AgentOps-AI/agentops](https://github.com/AgentOps-AI/agentops) | MIT | 5,813 | 2026-06-25 | 0.4.21 (2025-08-29) | active |
+| [SWE-bench/SWE-bench](https://github.com/SWE-bench/SWE-bench) | MIT | 5,807 | 2026-09-02 | — | active |
+| [THUDM/AgentBench](https://github.com/THUDM/AgentBench) | Apache-2.0 | 3,717 | 2026-02-08 | — | active |
+| [xlang-ai/OSWorld](https://github.com/xlang-ai/OSWorld) | Apache-2.0 | 3,134 | 2026-08-30 | v0.1.16 (2024-06-26) | active |
+| [UKGovernmentBEIS/inspect_ai](https://github.com/UKGovernmentBEIS/inspect_ai) | MIT | 2,734 | 2026-09-09 | — | active |
+| [sierra-research/tau2-bench](https://github.com/sierra-research/tau2-bench) | MIT | 1,991 | 2026-09-07 | v1.0.1 (2026-07-22) | active |
+| [web-arena-x/webarena](https://github.com/web-arena-x/webarena) | Apache-2.0 | 1,606 | 2025-11-26 | v0.2.0 (2023-10-21) | active |
+| [sierra-research/tau-bench](https://github.com/sierra-research/tau-bench) | MIT | 1,427 | 2026-03-18 | — | active |
+| [microsoft/SWE-bench-Live](https://github.com/microsoft/SWE-bench-Live) | MIT | 234 | 2026-09-07 | v1.0-multi-language-multi-os-benchmarking (2026-03-08) | active |
+
+Rows are generated from `data/competitor-meta.json` by `scripts/fetch_competitor_meta.py`, which reads the GitHub API. Star counts and dates are facts about the repositories on the fetch date, not judgements. Nothing here claims a project lacks a feature: where a capability was not verified it is absent from this table rather than asserted as missing.
+<!-- /landscape:generated -->
+
 ## Landscape summary
 
 | Project | License | Activity (pushed) | Stars | Category |

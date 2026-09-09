@@ -275,6 +275,20 @@ These are independent projects: no shared library, no coupled releases, and each
 
 <!-- /related-projects -->
 
+## How this compares
+
+15 projects are tracked in [`docs/competitive-analysis.md`](docs/competitive-analysis.md),
+fetched from the GitHub API on 2026-09-09 and committed to
+[`data/competitor-meta.json`](data/competitor-meta.json). The table is generated from that
+file rather than typed, so it cannot drift from the data it cites.
+
+They divide into three groups that are easy to confuse: **task suites** (SWE-bench,
+tau-bench, OSWorld, WebArena) that define problems, **eval harnesses** (inspect_ai,
+promptfoo, DeepEval) that run and grade them, and **tracing platforms** (Langfuse, Phoenix,
+AgentOps) that record what happened. ToolTrace Bench spans the first two with a specific
+constraint: the score comes from the execution trace and the final workspace, never from a
+model's opinion of its own work.
+
 ## Citation
 
 See [CITATION.cff](CITATION.cff), or:
