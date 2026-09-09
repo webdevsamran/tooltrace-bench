@@ -34,6 +34,31 @@ class ExecutionStats:
         self._last_signature: str | None = None
 
 
+class SeqCounter:
+    """One monotonic event counter, shared by everything writing to one trace.
+
+    The runner and the executor used to keep separate counters. The runner
+    passed its current value as ``seq_start`` -- by value, at construction --
+    and both then advanced independently, so a twelve-event trace shipped with
+    five duplicated sequence numbers and no monotonic order. Anything
+    partitioning a trace on ``seq`` (``replay_from_checkpoint`` does) was
+    partitioning on an ambiguous key.
+    """
+
+    __slots__ = ("_value",)
+
+    def __init__(self, start: int = 0) -> None:
+        self._value = start
+
+    def next(self) -> int:
+        self._value += 1
+        return self._value
+
+    @property
+    def value(self) -> int:
+        return self._value
+
+
 class ToolExecutor:
     def __init__(
         self,
@@ -42,23 +67,32 @@ class ToolExecutor:
         emit_event: Callable[[TraceEvent], None],
         seq_start: int = 0,
         perturbation_hook: Callable[[str, dict[str, Any]], str | None] | None = None,
+        seq_counter: SeqCounter | None = None,
     ) -> None:
         """
         ``perturbation_hook(tool_name, args) -> error_message | None`` lets the
         runner inject controlled faults deterministically.
+
+        Pass ``seq_counter`` to share numbering with another writer to the same
+        trace -- the runner does, so one trace has one sequence. ``seq_start``
+        remains for callers that own their trace outright (replay does).
         """
         self.ctx = ctx
         self.allowed = set(allowed_tools)
         self.emit_event = emit_event
-        self.seq = seq_start
+        self._seq = seq_counter if seq_counter is not None else SeqCounter(seq_start)
         self.stats = ExecutionStats()
         self.perturbation_hook = perturbation_hook
+
+    @property
+    def seq(self) -> int:
+        """The last sequence number issued. Read-only: the counter owns it."""
+        return self._seq.value
 
     # -- internals ----------------------------------------------------------
 
     def _next_seq(self) -> int:
-        self.seq += 1
-        return self.seq
+        return self._seq.next()
 
     def _event(self, type_: str, payload: dict[str, Any]) -> TraceEvent:
         return TraceEvent(

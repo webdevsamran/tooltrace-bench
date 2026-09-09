@@ -129,7 +129,11 @@ def _task(tmp_path):
 def test_partial_replay_skips_prefix_and_notes_it(tmp_path):
     task = _task(tmp_path)
     report = replay_from_checkpoint(task, _events(), checkpoint_seq=2)
-    assert any(e.startswith("partial-replay:") for e in report.errors)
+    # The note is context, not a failure. It used to live in `errors`, which made
+    # `ok` permanently False -- a flawless partial replay reported failure.
+    assert any(n.startswith("partial-replay:") for n in report.notes)
+    assert not any(e.startswith("partial-replay:") for e in report.errors)
+    assert report.ok is True
     # only the suffix pair was re-executed
     assert report.total_requests == 1
 

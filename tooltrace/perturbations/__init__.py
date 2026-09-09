@@ -60,6 +60,27 @@ class PerturbationEngine:
             return self._message_for(spec)
         return None
 
+    def prime(self, tool_name: str, args: dict[str, object]) -> None:
+        """Consume one-shot state as if this call had happened, injecting nothing.
+
+        Partial replay skips a prefix of the trace, but the faults that fired in
+        that prefix are still spent. Without replaying their bookkeeping a
+        one-shot perturbation fires again on the first *replayed* call, and every
+        comparison after it is wrong -- which is how a faithful partial replay of
+        `failure-recovery/retry-after-tool-failure` reported a mismatch.
+
+        `injected_count` is deliberately not advanced: it counts faults this
+        replay actually injected, and priming injects none. `_message_for` is
+        never called either, so a primed `delay` spec does not sleep.
+        """
+        for i, spec in enumerate(self._specs):
+            if i in self._fired and not spec.params.get("every"):
+                continue
+            if not self._matches(spec, tool_name, args):
+                continue
+            self._fired.add(i)
+            return
+
     def _matches(self, spec: PerturbationSpec, tool_name: str, args: dict[str, object]) -> bool:
         target_tool = spec.params.get("tool")
         if target_tool and target_tool != tool_name:

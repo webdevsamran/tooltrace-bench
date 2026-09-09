@@ -38,6 +38,29 @@ versioning follows [Semantic Versioning](https://semver.org/).
   broken install is one line of diagnosis rather than a `TaskValidationError` on
   every task.
 
+### Fixed
+- **Every shipped trace carried duplicate `seq` values.** The runner and the tool
+  executor each kept an event counter; the runner passed its current value as
+  `seq_start` — by value, at construction — and both then advanced
+  independently. A twelve-event trace shipped with five duplicated sequence
+  numbers, and `seq` was not monotonic in file order. Since
+  `replay_from_checkpoint` partitions a trace on `e.seq >= checkpoint_seq`, it
+  was partitioning on an ambiguous key. Both writers now share one `SeqCounter`.
+  `tests/test_trace_seq_is_unique.py` checks the committed bundle corpus, which
+  is the test that would have caught this when the traces were authored.
+- **A flawless partial replay reported failure.** `replay_from_checkpoint` put
+  its informational "skipped the prefix" line into `ReplayReport.errors`, and
+  `ok` is `not mismatched and not errors`, so `ok` was unreachable. The note was
+  only ever meant to stop callers mistaking a partial replay for a full one; it
+  now lives in a separate `notes` field.
+- **Replay never injected the faults a task declares.** `replay_trace` built a
+  `PerturbationEngine` and prepared its workspace, but never passed `engine.hook`
+  to the executor, so any task carrying a perturbation replayed as a mismatch —
+  including this repository's own `failure-recovery/retry-after-tool-failure`.
+  Partial replay additionally now primes the engine over the skipped prefix
+  (`PerturbationEngine.prime`), so a one-shot fault already spent there is not
+  injected again on the first replayed call.
+
 ## [0.3.0] — Ecosystem, adoption and integrity pass (2026-09-07)
 
 ### Fixed — integrity pass

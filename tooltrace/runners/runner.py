@@ -31,7 +31,7 @@ from tooltrace.sandbox.local import TempWorkspaceSandbox
 from tooltrace.scoring.composite import is_partial_success, is_success, score_task
 from tooltrace.security.sanitize import sanitize_obj, summarize
 from tooltrace.tools.base import ToolContext
-from tooltrace.tools.executor import ToolExecutor
+from tooltrace.tools.executor import SeqCounter, ToolExecutor
 
 BACKSLASH = chr(92)
 
@@ -61,15 +61,16 @@ class TaskRunner:
         run_id = run_id or uuid.uuid4().hex[:12]
         started_at = _now_iso()
         events: list[TraceEvent] = []
-        seq = 0
+        # One counter for the whole trace. The executor shares this object
+        # rather than receiving a copy of its value, so `seq` stays unique and
+        # monotonic across both writers.
+        counter = SeqCounter()
 
         def emit(type_: str, payload: dict[str, object]) -> None:
-            nonlocal seq
-            seq += 1
             events.append(
                 TraceEvent(
                     timestamp=_now_iso(),
-                    seq=seq,
+                    seq=counter.next(),
                     type=type_,  # type: ignore[arg-type]
                     payload=sanitize_obj(payload),  # type: ignore[arg-type]
                 )
@@ -106,7 +107,7 @@ class TaskRunner:
                 ctx=tool_ctx,
                 allowed_tools=task.allowed_tools,
                 emit_event=lambda ev: events.append(ev),
-                seq_start=seq,
+                seq_counter=counter,
                 perturbation_hook=engine.hook if engine.active else None,
             )
 
