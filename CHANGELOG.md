@@ -65,6 +65,39 @@ versioning follows [Semantic Versioning](https://semver.org/).
   `label + group` string meant the entry for Experiments read "Experiments
   Workspace", which "wsx" cannot thread through, while the reverse order
   matched. Both orders are scored now.
+- **The capability matrix was 79% unverified, and four more rows were false.**
+  `docs/feature-status.md` grades 122 capabilities and calls itself the
+  project's verification artifact, but its path check only inspected
+  backtick-quoted tokens containing `/` or ending `.py` — and 97 rows cited bare
+  prose such as "clustering module" or "calibration sets module", so only 25
+  rows were ever checked. Re-auditing the whole table under a stricter rule
+  found four rows graded **I** with nothing behind them: #45 (multi-judge
+  adapters) and #46 (judge calibration datasets), now **D** — declared only,
+  since no file matching `judge*.py` or `calibrat*.py` has ever existed — and
+  #42 (abstention/calibration tasks) and #121 (backup/restore tooling), now
+  **N** — not implemented, since no code mentions abstention or clarification
+  and neither backup nor restore appears in the server or in the
+  `docs/self-hosting.md` the row cited.
+
+  Seventy further rows now cite a path and the symbols inside it. Every one of
+  those citations was verified against the file before being written.
+
+  Three checks stop it recurring: an `I`/`E`/`P` row must cite something
+  inspectable; a claim probe rejects any row claiming a capability whose
+  implementation is absent from disk (with a non-vacuity test asserting the
+  probe still matches rows 45 and 46, and still does *not* match row 44, which
+  legitimately claims independence *from* a judge); and the path resolver moved
+  to `scripts/check_doc_code_refs.py`, which runs in CI over all 25 documents
+  rather than one.
+- **`docs/differentiators.md` cited four modules that do not exist**
+  (`metrics/sideeffects.py`, `metrics/recovery.py`, `perturbations.py`, and
+  `scoring/judges.py`, which describes a capability that has never existed).
+  Its "judge-independent by default" section claimed multi-judge disagreement
+  reporting and calibration-drift datasets; it now says what is true, which is a
+  stronger claim: scoring is judge-*free*, so a score can be recomputed from the
+  bundle by a third party.
+- **`_resolves` used `lstrip("./")`**, which strips *characters*, so any dotfile
+  citation silently lost its leading dot. Now `removeprefix`.
 - **`mypy --strict` was claimed in three places and configured in none.**
   `CONTRIBUTING.md` (twice), `.github/PULL_REQUEST_TEMPLATE.md` and a pre-commit
   hook literally named "mypy (strict)" all asserted it while `[tool.mypy]` set

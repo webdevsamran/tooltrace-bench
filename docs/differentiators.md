@@ -9,14 +9,14 @@ Coding benchmarks grade the final patch. Observability platforms store traces
 but never score them against assertions. ToolTrace Bench scores **the whole
 trajectory**: outcome correctness (`scoring/composite.py`), tool behavior
 (`tools/executor.py` stats), forbidden-side-effect detection
-(`metrics/sideeffects.py`), change minimality, verification quality, loop
+(`tooltrace/metrics/policy.py`), change minimality, verification quality, loop
 detection and policy compliance — every one a deterministic, testable metric.
 
 ## 2. Recovery is measured, not assumed
 
 `tooltrace perturb` injects controlled faults (tool failures, moved files,
 malformed API responses, delays) and measures whether agents recover **without
-unsafe repeated side effects** (`perturbations.py`, `metrics/recovery.py`,
+unsafe repeated side effects** (`tooltrace/perturbations/`, `tooltrace/analysis/failures.py`,
 chaos suites). No other open benchmark harness ships fault injection as a
 core primitive.
 
@@ -29,12 +29,28 @@ re-verifies hashes and re-runs deterministically (`bundles.py`,
 invalidation/supersession records — results found flawed are marked, never
 silently deleted.
 
-## 4. Judge-independent by default
+## 4. Judge-free, not judge-optional
 
-Wherever an executable assertion exists, scoring is deterministic code — no
-model judge in the loop. When model judges are used (optional), their config
-is recorded separately, disagreement between judges is reported rather than
-averaged away, and calibration datasets measure drift (`scoring/judges.py`).
+Scoring is deterministic code. All fifteen registered scorers read the final
+workspace or a produced artifact and return a number a second run reproduces
+exactly; `tooltrace/scoring/` imports nothing that reaches a network. There is
+no model in the scoring loop, which is why a score here can be recomputed by a
+third party from the bundle alone.
+
+The type system reserves a place for a judge — `EvalResult.judge_config`,
+`ScoringContract.judge_required` in `tooltrace/tasks/v2.py`, and a
+`judge_not_needed` lint in `tooltrace/tasks/linting.py` — so a future adapter
+can declare its dependency rather than hide it. **No judge adapter ships
+today**, and `docs/feature-status.md` grades rows 45 and 46 `D` (declared only)
+for exactly that reason.
+
+> **Correction, 2026-09-09.** This section previously claimed that judge
+> disagreement was reported rather than averaged and that calibration datasets
+> measured drift, citing `scoring/judges.py` — a module that has never existed.
+> Three further citations in this file (`metrics/sideeffects.py`,
+> `metrics/recovery.py`, `perturbations.py`) were stale renames.
+> `scripts/check_doc_code_refs.py` now checks every document, not just
+> `docs/feature-status.md`.
 
 ## 5. Local-first, offline-capable, vendor-neutral
 

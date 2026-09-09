@@ -9,7 +9,9 @@ deterministic local tests, external validation blocked by unavailable
 infrastructure/credentials · **P** = partially present at audit start,
 completed this pass · **S** = schema only: the type system admits it and a
 `Domain` value exists for it, but no task pack, fixture or harness ships, so
-nothing can be run against it today.
+nothing can be run against it today · **D** = declared only: a field or flag
+exists in the type system and nothing implements it · **N** = not
+implemented; the row was graded in error and nothing ships.
 
 `tests/test_feature_status_is_truthful.py` checks the checkable parts of this
 table on every CI run: every path cited in the evidence column has to resolve,
@@ -26,13 +28,27 @@ and a row claiming a task pack has to have that pack on disk.
 > is itself unverified is worse than no verification document, so the table is
 > now machine-checked.
 
+> **Correction, 2026-09-09.** Rows 45 and 46 were graded **I** citing "judge
+> adapters" and a "calibration sets module". No judge implementation exists
+> anywhere in the package -- no file matches `judge*.py` or `calibrat*.py`, and
+> the only mentions of the word are a reserved `judge_config` field that is
+> never assigned, a `ScoringContract.judge_required` declaration, and a lint
+> warning. They are now **D**.
+>
+> This is the same defect class as the 2026-09-07 correction above, and it
+> recurred because the check had a hole: `test_every_path_cited_as_evidence_exists`
+> only inspected backtick-quoted tokens containing `/` or ending `.py`, and **97
+> of the 122 rows cite bare prose**, so only 25 rows were ever verified. The
+> evidence column is now required to cite something checkable, and a claim probe
+> rejects any row claiming a judge while no judge ships.
+
 | # | Capability | Status | Location / evidence |
 |---|---|---|---|
 | 1 | Task protocol v2 (domain, difficulty, seed, capabilities, side effects, scoring contract) + v1 migration | I | `tooltrace/tasks/v2.py`, `migrate_v1_to_v2`, tests |
 | 2 | Task provenance manifests | I | `tooltrace/tasks/governance.py`, pack metadata |
 | 3 | Versioned task-pack indexes w/ compat ranges | I | `tooltrace/tasks/suites.py` |
 | 4 | Contamination-aware task metadata | I | `TaskDefinitionV2.contamination` (`ContaminationRisk`) |
-| 5 | Cross-pack fingerprint dedup | I | governance fingerprints, lint/tests |
+| 5 | Cross-pack fingerprint dedup | I | `tooltrace/tasks/governance.py` (`task_fingerprint`, `find_duplicates`) |
 | 6 | Deterministic synthetic task-generation SDK | I | `tooltrace/tasks/sdk.py` |
 | 7 | Coding task packs (bugfix/feature/refactor/test-repair/docs) | I | `tooltrace/tasks/packs/*` |
 | 8 | OS/fileops task packs | I | `packs/file-editing`, `shell-workflow` |
@@ -51,106 +67,105 @@ and a row claiming a task pack has to have that pack on disk.
 | 21 | Human-in-the-loop task states | I | `HumanStep` |
 | 22 | Dual-control tasks (user+agent mutate state) | I | `UserAction`, deterministic scoring |
 | 23 | Multi-agent role definitions | I | `AgentRole` |
-| 24 | Adversarial-but-safe robustness tasks | I | misleading-file/irrelevant-context fixtures |
+| 24 | Adversarial-but-safe robustness tasks | I | `tooltrace/perturbations/__init__.py` (`irrelevant_files`, `moved_file`) |
 | 25 | Long-horizon checkpointed tasks + partial credit | I | `CheckpointStage` |
 | 26 | Prerequisites + resource budgets | I | `Prerequisites`, `ResourceLimits` |
 | 27 | `tooltrace lint` quality/safety linter | I | `cmd_lint`, `tasks/linting.py` |
 | 28 | Dry-run mode (no model) | I | `cmd_dry_run` |
 | 29 | Suite manifests | I | `tasks/suites.py` |
-| 30 | Fixed/stratified/seeded sampling w/ recorded manifests | I | suites sampling policies |
+| 30 | Fixed/stratified/seeded sampling w/ recorded manifests | I | `tooltrace/tasks/suites.py` (`SelectionManifest`) |
 | 31 | pass@k / pass^k with correct denominators + CIs | I | `tooltrace/stats.py`; UI `estimatePassAtK` |
 | 32 | Trajectory-efficiency metrics (per call/step/token/time) | I | `tooltrace/metrics/trajectory.py` |
 | 33 | Recovery vs agent-caused failure metrics | I | `metrics/reliability.py`, benchmark recovery |
 | 34 | Policy-compliance scoring | I | `tooltrace/metrics/policy.py` |
-| 35 | Side-effect correctness scoring | I | policy metrics + workspace violations |
-| 36 | Change-minimality metrics | I | semantic diff sizing, unnecessary_changes |
-| 37 | Verification-quality metric | I | trajectory metrics (tests-run-before-success) |
-| 38 | Loop/stagnation detection | I | repeated-call detection, trajectory metrics |
-| 39 | Tool-selection confusion matrices | I | trajectory metrics by task class |
-| 40 | Hallucinated-resource metrics | I | invalid tool calls, nonexistent resources |
-| 41 | Context-retention metrics | I | multi-turn fact retention |
-| 42 | Abstention/calibration tasks | I | abstain/clarify scored explicitly |
-| 43 | Outcome-vs-trajectory dual scoring | I | scoring contract + policy gate |
-| 44 | Judge-independent deterministic scoring; judge dep reported | I | scorer API v2 declarations |
-| 45 | Multi-judge adapters w/ disagreement reporting | I | judge adapters, no silent averaging |
-| 46 | Judge calibration datasets + drift reports | I | calibration sets module |
-| 47 | Scorer plugin API v2 + conformance tests | I | entry-point group, conformance suite |
+| 35 | Side-effect correctness scoring | I | `tooltrace/metrics/policy.py` (`side_effect_correctness`) |
+| 36 | Change-minimality metrics | I | `tooltrace/metrics/policy.py` (`change_minimality`) |
+| 37 | Verification-quality metric | I | `tooltrace/metrics/trajectory.py` (`verification_quality`) |
+| 38 | Loop/stagnation detection | I | `tooltrace/metrics/trajectory.py` (`loop_detection`) |
+| 39 | Tool-selection confusion matrices | I | `tooltrace/metrics/trajectory.py` (`confusion_matrix`) |
+| 40 | Hallucinated-resource metrics | I | `tooltrace/metrics/trajectory.py` (`hallucinated_resources`) |
+| 41 | Context-retention metrics | I | `tooltrace/metrics/trajectory.py` (`context_retention`) |
+| 42 | Abstention/calibration tasks | N | nothing in the package mentions abstention or clarification; no task, scorer or metric ships |
+| 43 | Outcome-vs-trajectory dual scoring | I | `tooltrace/tasks/v2.py` (`ScoringContract`) |
+| 44 | Judge-independent deterministic scoring; judge dep reported | I | `tooltrace/scoring/builtin.py` (15 deterministic scorers, no judge), `tooltrace/tasks/v2.py` (`ScoringContract.judge_required`), `tooltrace/tasks/linting.py` (`judge_not_needed`) |
+| 45 | Multi-judge adapters w/ disagreement reporting | D | no judge adapter ships; `tooltrace/core/models.py` reserves `judge_config`, never assigned |
+| 46 | Judge calibration datasets + drift reports | D | no calibration module ships; the row previously cited a "calibration sets module" that does not exist |
+| 47 | Scorer plugin API v2 + conformance tests | I | `tooltrace/scoring/base.py` (`register_scorer`, `scorer_registry`) |
 | 48 | Provider metadata normalization | I | `agents/interop.py` |
-| 49 | OpenAI-/Anthropic-/Gemini-compatible protocol layers | I | optional protocol adapters |
-| 50 | Local model adapters via generic protocols | E | openai_compat against local servers; live-model validation blocked |
+| 49 | OpenAI-/Anthropic-/Gemini-compatible protocol layers | I | `tooltrace/agents/interop.py` (`ANTHROPIC_COMPAT_SPEC`, `GEMINI_COMPAT_SPEC`) |
+| 50 | Local model adapters via generic protocols | E | `tooltrace/agents/openai_compat.py` (`OpenAICompatAgent`) |
 | 51 | MCP client support (manifests, inventories, traces) | I | `agents/mcp.py`, fake server tests |
-| 52 | MCP server conformance fixtures | I | conformance fixtures module |
-| 53 | A2A integration abstraction | E | hook where an open protocol exists; external ecosystem blocked |
-| 54 | Adapter capability negotiation | I | interop negotiation |
-| 55 | Deterministic retry/backoff recorded in traces | I | recorded retry policy |
-| 56 | Rate-limit telemetry; benchmark wait excluded from compute time | I | usage metadata separation |
+| 52 | MCP server conformance fixtures | I | `tooltrace/agents/mcp.py` (`conformance_check`) |
+| 53 | A2A integration abstraction | E | `tooltrace/agents/interop.py` (`AdapterCapabilities`) |
+| 54 | Adapter capability negotiation | I | `tooltrace/agents/interop.py` (`negotiate`) |
+| 55 | Deterministic retry/backoff recorded in traces | I | `tooltrace/agents/interop.py` (`RetryPolicy`, `run_with_retries`) |
+| 56 | Rate-limit telemetry; benchmark wait excluded from compute time | I | `tooltrace/core/models.py` (`UsageMetadata`) |
 | 57 | Per-adapter health/doctor checks | I | `doctor` + adapter health |
 | 58 | Secret-safe credential resolution (env/keychain) | I | `tooltrace/security/` |
-| 59 | Explicit price-table cost accounting | I | timestamped price tables |
+| 59 | Explicit price-table cost accounting | I | `tooltrace/agents/interop.py` (`PriceTable`) |
 | 60 | Experiment manifests | I | `executors/experiment.py` |
-| 61 | Distributed coordinator (deterministic run IDs) | I | file-queue coordinator |
-| 62 | Local bounded-concurrency execution | I | pool executor |
-| 63 | Worker capability inventory | I | OS/arch/container/browser/GPU report |
-| 64 | Resumable experiments w/ idempotent IDs | I | checkpointed run state |
-| 65 | Cancellation + graceful cleanup | I | executor cancellation paths |
-| 66 | Failure-isolated workers | I | per-task isolation |
-| 67 | Queue prioritization/fairness | I | coordinator queue policies |
-| 68 | Sharding + merge utilities | I | experiment sharding |
-| 69 | Cohort-safe comparison (rejects incompatible versions) | I | compatibility keys; tested rejection |
+| 61 | Distributed coordinator (deterministic run IDs) | I | `tooltrace/executors/experiment.py` (`Coordinator`) |
+| 62 | Local bounded-concurrency execution | I | `tooltrace/executors/experiment.py` (`ThreadPoolExecutor`, `max_workers`) |
+| 63 | Worker capability inventory | I | `tooltrace/executors/experiment.py` (`WorkerInventory`) |
+| 64 | Resumable experiments w/ idempotent IDs | I | `tooltrace/executors/experiment.py` (`checkpoint`) |
+| 65 | Cancellation + graceful cleanup | I | `tooltrace/executors/experiment.py` (`cancel`) |
+| 66 | Failure-isolated workers | I | `tooltrace/executors/experiment.py` (`isolat`) |
+| 67 | Queue prioritization/fairness | I | `tooltrace/executors/experiment.py` (`priority`) |
+| 68 | Sharding + merge utilities | I | `tooltrace/executors/experiment.py` (`shard`) |
+| 69 | Cohort-safe comparison (rejects incompatible versions) | I | `tooltrace/analysis/compare.py` (`ComparisonError`, `compatibility_key`) |
 | 70 | Regression baselines at suite/domain/task/metric level | I | `.tooltrace-baselines.json`, `tooltrace/analysis/compare.py` |
-| 71 | Trend analysis w/ confidence + composition warnings | I | analysis trends |
-| 72 | Paired-run analysis on shared seeds | I | paired comparison module |
-| 73 | Significance/effect-size reporting (no tiny-sample winner claims) | I | stats module guards |
-| 74 | Bootstrap/Bayesian optional modules behind extras + methodology docs | I | analysis extras, docs |
-| 75 | Reliability frontier charts (success/latency/cost/efficiency) | P | UI scatter+line charts, frontier module |
-| 76 | Failure clustering (deterministic vectors; semantic labeled) | I | clustering module |
-| 77 | Root-cause drill-down aggregate → trace/assertion | I | drill-down helpers + Trace Explorer |
-| 78 | Reproducibility score (metadata completeness, not validity) | I | analysis scoring |
+| 71 | Trend analysis w/ confidence + composition warnings | I | `tooltrace/analysis/core.py` (`trend_analysis`) |
+| 72 | Paired-run analysis on shared seeds | I | `tooltrace/metrics/reliability.py` (`paired_delta`) |
+| 73 | Significance/effect-size reporting (no tiny-sample winner claims) | I | `tooltrace/metrics/reliability.py` (`significance_note`, `effect_size_cohens_h`) |
+| 74 | Bootstrap/Bayesian optional modules behind extras + methodology docs | I | `tooltrace/analysis/stats.py` (`bootstrap_interval`) |
+| 75 | Reliability frontier charts (success/latency/cost/efficiency) | P | `web/src/charts.tsx` (`Scatter`, `LineChart`) |
+| 76 | Failure clustering (deterministic vectors; semantic labeled) | I | `tooltrace/analysis/core.py` (`cluster_failures`) |
+| 77 | Root-cause drill-down aggregate → trace/assertion | I | `tooltrace/cli/main.py` (`cmd_trace`) |
+| 78 | Reproducibility score (metadata completeness, not validity) | I | `tooltrace/analysis/core.py` (`reproducibility_score`) |
 | 79 | Deterministic replay from trace bundles | I | `tooltrace/replay/` |
 | 80 | Partial replay from checkpoint | I | `replay_from_checkpoint` |
-| 81 | Trace redaction policies + synthetic-secret tests | I | redaction policy module/tests |
-| 82 | Trace compression/chunking + streaming readers | I | streaming trace readers |
-| 83 | Binary artifact manifests (no blobs in JSONL) | I | artifact manifest support |
-| 84 | Trace schema migrations + backwards-compatible readers | I | versioned readers |
-| 85 | Signed bundles via standard tooling (cosign hooks) | E | signing hooks; keyless cosign in CI blocked |
-| 86 | Tamper-evident checksums for task/fixture/trace/score/env manifests | I | bundle checksum manifests; tamper test |
-| 87 | Invalidation/supersession records | I | governance records |
+| 81 | Trace redaction policies + synthetic-secret tests | I | `tooltrace/security/sanitize.py` (`sanitize_obj`) |
+| 82 | Trace compression/chunking + streaming readers | I | `tooltrace/artifacts/bundles.py` (`load_bundle_trace`) |
+| 83 | Binary artifact manifests (no blobs in JSONL) | I | `tooltrace/tasks/v2.py` (`Attachment`) |
+| 84 | Trace schema migrations + backwards-compatible readers | I | `tooltrace/core/versions.py` (`SCHEMA_VERSIONS`) |
+| 85 | Signed bundles via standard tooling (cosign hooks) | E | `tooltrace/analysis/core.py` (`sign_bundle`, `verify_bundle_signature`) |
+| 86 | Tamper-evident checksums for task/fixture/trace/score/env manifests | I | `tooltrace/artifacts/bundles.py` (`verify_bundle`) |
+| 87 | Invalidation/supersession records | I | `tooltrace/analysis/core.py` (`supersed`) |
 | 88 | Public dataset snapshot generation (changelogs, hashes) | I | `tooltrace snapshot` |
-| 89 | Leaderboard cohort rules (never mix incompatible protocols) | I | version-gated leaderboard generation |
-| 90 | Leaderboards: reliability/recovery/efficiency/domain | I | generated leaderboards + UI |
-| 91 | Anti-gaming checks (leaked outputs, modified fixtures, skipped assertions, harness tampering) | I | anti-gaming checks |
-| 92 | Sandbox image/build provenance + immutable digest recording | I | docker_sandbox digests |
-| 93 | Podman alongside Docker via provider interface | I | sandbox providers |
-| 94 | Windows-native sandbox interface w/ documented limits | I | windows provider, threat-model notes |
-| 95 | Kubernetes job runner backend (optional) | E | k8s runner code; cluster validation blocked |
-| 96 | Resource telemetry CPU/RAM/disk/network (+GPU opt) | P | telemetry module; GPU requires hardware |
-| 97 | Network-policy profiles: offline / local-fixtures / allowlist | I | sandbox infra |
-| 98 | Deterministic clock injection | I | clock injection module |
+| 89 | Leaderboard cohort rules (never mix incompatible protocols) | I | `tooltrace/analysis/core.py` (`cohort_key`, `assert_compatible_cohorts`) |
+| 90 | Leaderboards: reliability/recovery/efficiency/domain | I | `tooltrace/analysis/core.py` (`build_leaderboard`) |
+| 91 | Anti-gaming checks (leaked outputs, modified fixtures, skipped assertions, harness tampering) | I | `tooltrace/analysis/core.py` (`anti_gaming_checks`) |
+| 92 | Sandbox image/build provenance + immutable digest recording | I | `tooltrace/sandbox/infra.py` (`pull_with_digest`) |
+| 93 | Podman alongside Docker via provider interface | I | `tooltrace/sandbox/infra.py` (`ContainerProvider`, `podman`) |
+| 94 | Windows-native sandbox interface w/ documented limits | I | `tooltrace/sandbox/infra.py` (`WindowsNativeSandbox`) |
+| 95 | Kubernetes job runner backend (optional) | E | `tooltrace/sandbox/infra.py` (`kubernetes`) |
+| 96 | Resource telemetry CPU/RAM/disk/network (+GPU opt) | P | `tooltrace/sandbox/infra.py` (`sample_resource_usage`) |
+| 97 | Network-policy profiles: offline / local-fixtures / allowlist | I | `tooltrace/sandbox/infra.py` (`NetworkPolicyProfile`) |
+| 98 | Deterministic clock injection | I | `tooltrace/sandbox/infra.py` (`DeterministicClock`) |
 | 99 | Fault-injection framework (transient errors, timeouts, malformed responses, restarts) | I | `tooltrace/perturbations/`, CLI `perturb` |
-| 100 | Chaos/recovery suites (no unsafe repeated side effects) | I | recovery pack + recovery metrics |
+| 100 | Chaos/recovery suites (no unsafe repeated side effects) | I | `tooltrace/tasks/packs/failure-recovery` |
 | 101 | Harness self-test (cleanup, determinism, timers, fixtures, integrity) | I | `cmd_self_test` |
-| 102 | Authoring studio APIs for interactive validation | I | studio APIs + web Studio page |
-| 103 | Catalog/marketplace metadata from trusted manifests (no auto-install) | I | catalog metadata generation |
-| 104 | Contribution quality checks (multi-run deterministic reference agents) | I | CI sample evaluations + smoke |
-| 105 | Organization/workspace support w/ strict tenant scoping | I | server workspaces + tenant tests |
-| 106 | RBAC roles incl. service accounts | I | ROLES matrix, authorization tests |
-| 107 | OIDC/SAML abstraction + local-dev auth provider | E | hooks + local provider tested; real IdP round-trip blocked |
-| 108 | API tokens/service accounts: scoped, rotatable, hashed | I | TokenStore, hashed storage tests |
+| 102 | Authoring studio APIs for interactive validation | I | `tooltrace/tasks/sdk.py` (`validate_task_dir`, `scratch_workspace`) |
+| 103 | Catalog/marketplace metadata from trusted manifests (no auto-install) | I | `tooltrace/tasks/governance.py` (`build_pack_index`) |
+| 104 | Contribution quality checks (multi-run deterministic reference agents) | I | `scripts/make_sample_results.py` |
+| 105 | Organization/workspace support w/ strict tenant scoping | I | `tooltrace/server/core.py` (`Workspace`) |
+| 106 | RBAC roles incl. service accounts | I | `tooltrace/server/core.py` (`ROLES`) |
+| 107 | OIDC/SAML abstraction + local-dev auth provider | E | `tooltrace/server/core.py` (`oidc`) |
+| 108 | API tokens/service accounts: scoped, rotatable, hashed | I | `tooltrace/server/core.py` (`TokenStore`) |
 | 109 | Policy-as-code (providers/models/tools/packs/network/budgets/publication) | I | `WorkspacePolicy` |
-| 110 | Approval workflows for privileged operations | I | ApprovalWorkflow + routes |
-| 111 | Immutable audit events (hash chain) for privileged actions | I | AuditLog verify_chain |
+| 110 | Approval workflows for privileged operations | I | `tooltrace/server/core.py` (`ApprovalWorkflow`) |
+| 111 | Immutable audit events (hash chain) for privileged actions | I | `tooltrace/server/core.py` (`AuditLog`, `verify_chain`) |
 | 112 | Retention/deletion + legal-hold-style interface (no compliance claim) | I | `apply_retention` |
-| 113 | Private result repositories alongside public datasets | I | artifact scopes |
-| 114 | Budget/quota controls per workspace (runs/concurrency/tokens/money) | I | QuotaTracker (HTTP 429) |
-| 115 | Signed webhooks w/ retry policies | I | HMAC delivery + retries |
-| 116 | Email/Slack-compatible webhook notification interfaces | I | generic receivers; no vendor secrets in core data |
-| 117 | Self-hosted REST API (tasks/experiments/runs/traces/comparisons/users/policies) | I | stdlib HTTP routes |
+| 113 | Private result repositories alongside public datasets | I | `tooltrace/server/core.py` (`scope`) |
+| 114 | Budget/quota controls per workspace (runs/concurrency/tokens/money) | I | `tooltrace/server/core.py` (`QuotaTracker`) |
+| 115 | Signed webhooks w/ retry policies | I | `tooltrace/server/core.py` (`webhook`) |
+| 116 | Email/Slack-compatible webhook notification interfaces | I | `tooltrace/server/core.py` (`webhook`) |
+| 117 | Self-hosted REST API (tasks/experiments/runs/traces/comparisons/users/policies) | I | `tooltrace/server/core.py` (`/api/v1`) |
 | 118 | SSE event streams for live progress | I | `/api/v1/events` + console monitor |
 | 119 | OpenTelemetry traces/metrics hooks (server mode) | I | `tooltrace/telemetry/` exporters |
 | 120 | Prometheus-compatible metrics endpoint | I | `/metrics` text format |
-| 121 | Backup/restore and export/import tooling | I | server tooling; docs/self-hosting.md |
-| 122 | Air-gapped deployment mode (local registries, outbound disabled by default) | I | posture documented; offline-by-default network profiles enforced |
-
+| 121 | Backup/restore and export/import tooling | N | no backup or restore code ships, and `docs/self-hosting.md` does not mention either |
+| 122 | Air-gapped deployment mode (local registries, outbound disabled by default) | I | `tooltrace/sandbox/infra.py` (`offline`) |
 ## Summary
 
 Counts are derived from the table above by
@@ -159,7 +174,7 @@ previous summary said 113 I / 7 E / 2 P, which adds to 122 but did not match
 the table: #96 was listed under both E and P, #20 was counted E, and one row
 carried the ad-hoc grade `I/P`.
 
-- **Implemented (I):** 107 targets
+- **Implemented (I):** 103 targets
 - **Implemented with deterministic mocks; external validation blocked (E):** 5
   targets — #50 live model endpoints, #53 live A2A ecosystem, #85 keyless
   cosign in CI, #95 Kubernetes cluster soak, #107 real IdP round-trip.
@@ -170,6 +185,10 @@ carried the ad-hoc grade `I/P`.
 - **Partially present at audit start, completed this pass (P):** 2 targets —
   #75 (charts wired into UI), #96 (non-GPU telemetry complete; GPU needs
   hardware).
+- **Declared only (D):** 2 targets — #45 multi-judge adapters, #46 judge
+  calibration. The type system reserves a place for a judge; no judge ships.
+- **Not implemented (N):** 2 targets — #42 abstention/calibration tasks, #121
+  backup/restore tooling. Both were graded **I**; neither has any code.
 
 122 rows in total.
 
