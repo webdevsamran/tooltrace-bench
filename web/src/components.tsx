@@ -41,12 +41,35 @@ export function SuccessBadge({ ok, partial }: { ok: boolean; partial?: boolean }
 
 // ---------- sortable + paginated table ----------
 
+/**
+ * Render a measured number without lying about its precision.
+ *
+ * The leaderboard was printing `0.3333333333333333` for a mean — sixteen
+ * digits of false precision from a three-run average. Fixing it in the table
+ * rather than at one call site means every numeric column on every page is
+ * formatted once, and a new column cannot reintroduce it.
+ *
+ * Integers keep their exact value; fractions get more decimals the smaller
+ * they are, so a rate near zero stays legible.
+ */
+export function formatNumber(value: number): string {
+  if (!Number.isFinite(value)) return '—'
+  if (Number.isInteger(value)) return value.toLocaleString('en-US')
+  const abs = Math.abs(value)
+  const maximumFractionDigits = abs >= 100 ? 1 : abs >= 1 ? 2 : 3
+  return value.toLocaleString('en-US', { maximumFractionDigits })
+}
+
 export interface Column<T> {
   key: string
   header: string
   value: (row: T) => string | number
   render?: (row: T) => ReactNode
   numeric?: boolean
+}
+
+function formatCell(value: string | number, numeric?: boolean): string {
+  return numeric && typeof value === 'number' ? formatNumber(value) : String(value)
 }
 
 export function DataTable<T>({
@@ -112,7 +135,7 @@ export function DataTable<T>({
             <tr key={i}>
               {columns.map((c) => (
                 <td key={c.key} className={c.numeric ? 'num' : ''}>
-                  {c.render ? c.render(row) : String(c.value(row))}
+                  {c.render ? c.render(row) : formatCell(c.value(row), c.numeric)}
                 </td>
               ))}
             </tr>

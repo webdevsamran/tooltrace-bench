@@ -1,6 +1,7 @@
-import { Suspense, lazy, useEffect, useState } from 'react'
+import { Suspense, lazy, useCallback, useEffect, useMemo, useState } from 'react'
 import { NavLink, Route, Routes, useLocation } from 'react-router-dom'
 import { ErrorBoundary, Loading, OfflineBanner, useOnlineStatus } from './components'
+import { CommandPalette, usePaletteHotkey, type Command } from './palette'
 
 // Route-level code splitting keeps the initial bundle small; each page chunk
 // loads on first visit. Public dataset pages and the team console share the
@@ -43,162 +44,285 @@ const AuditLogPage = page(() => import('./pages/workspace/audit'), (m) => m.Audi
 const WebhooksPage = page(() => import('./pages/workspace/webhooks'), (m) => m.WebhooksPage)
 const RetentionSettingsPage = page(() => import('./pages/workspace/settings'), (m) => m.RetentionSettingsPage)
 
-
 function NotFound() {
   return <p className="state empty">Page not found.</p>
 }
 
-const NAV = [
-  ['/', 'Home'],
-  ['/leaderboard', 'Leaderboard'],
-  ['/agents', 'Agents'],
-  ['/models', 'Models'],
-  ['/tasks', 'Task Packs'],
-  ['/compare', 'Compare'],
-  ['/trends', 'Trends'],
-  ['/failures', 'Failures'],
-  ['/traces', 'Traces'],
-  ['/recovery', 'Recovery'],
-  ['/efficiency', 'Efficiency'],
-  ['/dataset', 'Dataset'],
-  ['/plugins', 'Plugins'],
+/**
+ * Navigation is grouped into four sections rather than three stacked bars.
+ *
+ * Every link used to be visible at once — thirteen in the top bar, four below
+ * it, twelve more for the workspace — which is twenty-nine competing targets
+ * before any page content. The top bar now carries the sections, the sidebar
+ * carries the current section's pages, and Cmd-K reaches anything directly.
+ */
+export interface NavSection {
+  id: string
+  label: string
+  home: string
+  items: readonly (readonly [string, string])[]
+}
+
+export const NAV_SECTIONS: readonly NavSection[] = [
+  {
+    id: 'explore',
+    label: 'Explore',
+    home: '/leaderboard',
+    items: [
+      ['/leaderboard', 'Leaderboard'],
+      ['/agents', 'Agents'],
+      ['/models', 'Models'],
+      ['/tasks', 'Task Packs'],
+      ['/dataset', 'Dataset'],
+      ['/plugins', 'Plugins'],
+    ],
+  },
+  {
+    id: 'analyze',
+    label: 'Analyze',
+    home: '/compare',
+    items: [
+      ['/compare', 'Compare'],
+      ['/trends', 'Trends'],
+      ['/failures', 'Failures'],
+      ['/recovery', 'Recovery'],
+      ['/efficiency', 'Efficiency'],
+      ['/traces', 'Traces'],
+    ],
+  },
+  {
+    id: 'workspace',
+    label: 'Workspace',
+    home: '/workspace',
+    items: [
+      ['/workspace', 'Dashboard'],
+      ['/workspace/experiments', 'Experiments'],
+      ['/workspace/experiments/new', 'Builder'],
+      ['/workspace/workers', 'Workers'],
+      ['/workspace/health', 'Health'],
+      ['/workspace/baselines', 'Baselines'],
+      ['/workspace/studio', 'Studio'],
+      ['/workspace/reviews', 'Reviews'],
+      ['/workspace/users', 'Users'],
+      ['/workspace/policies', 'Policies'],
+      ['/workspace/audit', 'Audit'],
+      ['/workspace/webhooks', 'Webhooks'],
+      ['/workspace/settings', 'Settings'],
+    ],
+  },
+  {
+    id: 'about',
+    label: 'About',
+    home: '/methodology',
+    items: [
+      ['/methodology', 'Methodology'],
+      ['/docs', 'Docs'],
+      ['/contributors', 'Contributors'],
+      ['/about', 'About'],
+    ],
+  },
 ] as const
 
-const NAV_MORE = [
-  ['/methodology', 'Methodology'],
-  ['/docs', 'Docs'],
-  ['/contributors', 'Contributors'],
-  ['/about', 'About'],
-] as const
+/** The section owning a path, by longest matching item prefix. */
+export function sectionFor(pathname: string): NavSection | null {
+  let best: NavSection | null = null
+  let bestLength = 0
+  for (const section of NAV_SECTIONS) {
+    for (const [path] of section.items) {
+      const matches = pathname === path || pathname.startsWith(`${path}/`)
+      if (matches && path.length > bestLength) {
+        best = section
+        bestLength = path.length
+      }
+    }
+  }
+  // Detail routes hang off their list page.
+  if (!best && pathname.startsWith('/tasks')) return NAV_SECTIONS[0]
+  if (!best && pathname.startsWith('/results')) return NAV_SECTIONS[1]
+  return best
+}
 
-const NAV_WORKSPACE = [
-  ['/workspace', 'Dashboard'],
-  ['/workspace/experiments', 'Experiments'],
-  ['/workspace/experiments/new', 'Builder'],
-  ['/workspace/workers', 'Workers'],
-  ['/workspace/baselines', 'Baselines'],
-  ['/workspace/studio', 'Studio'],
-  ['/workspace/reviews', 'Reviews'],
-  ['/workspace/users', 'Users'],
-  ['/workspace/policies', 'Policies'],
-  ['/workspace/audit', 'Audit'],
-  ['/workspace/webhooks', 'Webhooks'],
-  ['/workspace/settings', 'Settings'],
-  ['/workspace/health', 'Health'],
-] as const
+type ThemeChoice = 'light' | 'dark' | 'system'
 
-function GlobalSearch() {
-  const [q, setQ] = useState('')
-  const location = useLocation()
-  // Shareable filters: the query is mirrored into the URL hash fragment.
+const THEME_LABEL: Record<ThemeChoice, string> = {
+  light: 'Light',
+  dark: 'Dark',
+  system: 'System',
+}
+const THEME_GLYPH: Record<ThemeChoice, string> = { light: '☀', dark: '☾', system: '◐' }
+
+function useTheme(): [ThemeChoice, () => void] {
+  const [choice, setChoice] = useState<ThemeChoice>(() => {
+    const saved = localStorage.getItem('ttb-theme')
+    return saved === 'light' || saved === 'dark' || saved === 'system' ? saved : 'system'
+  })
+
   useEffect(() => {
-    if (q) window.history.replaceState(null, '', `#q=${encodeURIComponent(q)}`)
-    else if (window.location.hash.startsWith('#q=')) window.history.replaceState(null, '', window.location.pathname)
-  }, [q])
-  void location
-  return (
-    <input
-      className="search"
-      type="search"
-      placeholder="Search tasks, agents, results… (filters tables on data pages)"
-      value={q}
-      aria-label="Global search"
-      onChange={(e) => setQ(e.target.value)}
-    />
+    const media = window.matchMedia('(prefers-color-scheme: dark)')
+    const apply = () => {
+      const dark = choice === 'dark' || (choice === 'system' && media.matches)
+      document.documentElement.dataset.theme = dark ? 'dark' : 'light'
+    }
+    apply()
+    localStorage.setItem('ttb-theme', choice)
+    // Following the OS while set to "system" is the whole point of the option.
+    if (choice !== 'system') return undefined
+    media.addEventListener('change', apply)
+    return () => media.removeEventListener('change', apply)
+  }, [choice])
+
+  const cycle = useCallback(
+    () => setChoice((c) => (c === 'system' ? 'light' : c === 'light' ? 'dark' : 'system')),
+    [],
   )
+  return [choice, cycle]
 }
 
 export default function App() {
-  const [dark, setDark] = useState(() => {
-    const saved = localStorage.getItem('ttb-theme')
-    return saved ? saved === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches
-  })
+  const [theme, cycleTheme] = useTheme()
+  const [paletteOpen, setPaletteOpen] = useState(false)
   const online = useOnlineStatus()
-  useEffect(() => {
-    document.documentElement.dataset.theme = dark ? 'dark' : 'light'
-    localStorage.setItem('ttb-theme', dark ? 'dark' : 'light')
-  }, [dark])
+  const location = useLocation()
+  const section = sectionFor(location.pathname)
+
+  const openPalette = useCallback(() => setPaletteOpen(true), [])
+  usePaletteHotkey(openPalette)
+
+  const commands = useMemo<Command[]>(() => {
+    const routes: Command[] = NAV_SECTIONS.flatMap((s) =>
+      s.items.map(([to, label]) => ({ id: to, label, group: s.label, to })),
+    )
+    return [
+      { id: '/', label: 'Home', group: 'Overview', to: '/' },
+      ...routes,
+      {
+        id: 'theme',
+        label: `Theme: ${THEME_LABEL[theme]} — switch`,
+        group: 'Appearance',
+        keywords: 'dark light system colour color',
+        run: cycleTheme,
+      },
+    ]
+  }, [theme, cycleTheme])
 
   return (
     <div className="app">
       <a href="#main" className="skip-link">Skip to content</a>
       <OfflineBanner online={online} />
+
       <header className="topbar">
-        <NavLink to="/" className="brand">ToolTrace<span> Bench</span></NavLink>
+        <NavLink to="/" className="brand">ToolTrace<span>Bench</span></NavLink>
         <nav aria-label="Primary">
-          {NAV.map(([to, label]) => (
-            <NavLink key={to} to={to} end={to === '/'} className={({ isActive }) => (isActive ? 'active' : '')}>
-              {label}
+          <NavLink to="/" end className={({ isActive }) => (isActive ? 'active' : '')}>
+            Home
+          </NavLink>
+          {NAV_SECTIONS.map((s) => (
+            <NavLink
+              key={s.id}
+              to={s.home}
+              className={section?.id === s.id ? 'active' : ''}
+              aria-current={section?.id === s.id ? 'page' : undefined}
+            >
+              {s.label}
             </NavLink>
           ))}
         </nav>
         <div className="topbar-actions">
-          <GlobalSearch />
-          <button type="button" className="theme-toggle" onClick={() => setDark(!dark)}
-            aria-label={dark ? 'Switch to light mode' : 'Switch to dark mode'}>
-            {dark ? '☀' : '☾'}
+          <button type="button" className="search" onClick={openPalette}>
+            <span aria-hidden="true">⌕</span>
+            <span className="search-text">Search pages…</span>
+            <kbd>⌘K</kbd>
+          </button>
+          <button
+            type="button"
+            className="theme-toggle"
+            onClick={cycleTheme}
+            aria-label={`Theme: ${THEME_LABEL[theme]}. Activate to change.`}
+          >
+            <span aria-hidden="true">{THEME_GLYPH[theme]}</span>
           </button>
         </div>
       </header>
-      <nav className="subbar" aria-label="About and documentation">
-        {NAV_MORE.map(([to, label]) => (
-          <NavLink key={to} to={to} className={({ isActive }) => (isActive ? 'active' : '')}>{label}</NavLink>
-        ))}
-      </nav>
-      <nav className="subbar workspace" aria-label="Workspace console">
-        <span className="subbar-label">Workspace</span>
-        {NAV_WORKSPACE.map(([to, label]) => (
-          <NavLink key={to} to={to} end={to === '/workspace'} className={({ isActive }) => (isActive ? 'active' : '')}>
-            {label}
-          </NavLink>
-        ))}
-      </nav>
-      <main id="main" className="content">
-        <ErrorBoundary>
-          <Suspense fallback={<Loading />}>
-            <Routes>
-              {/* Public dataset & analysis console */}
-              <Route path="/" element={<HomePage />} />
-              <Route path="/methodology" element={<MethodologyPage />} />
-              <Route path="/docs" element={<DocsPage />} />
-              <Route path="/contributors" element={<ContributorsPage />} />
-              <Route path="/about" element={<AboutPage />} />
-              <Route path="/leaderboard" element={<LeaderboardPage />} />
-              <Route path="/agents" element={<AgentsPage />} />
-              <Route path="/models" element={<ModelsPage />} />
-              <Route path="/tasks" element={<TaskPacksPage />} />
-              <Route path="/tasks/:taskId" element={<TaskDetailPage />} />
-              <Route path="/results/:bundle" element={<ResultDetailPage />} />
-              <Route path="/compare" element={<ComparePage />} />
-              <Route path="/trends" element={<ReliabilityTrendsPage />} />
-              <Route path="/failures" element={<FailureAnalysisPage />} />
-              <Route path="/traces" element={<TraceExplorerPage />} />
-              <Route path="/recovery" element={<RecoveryAnalysisPage />} />
-              <Route path="/efficiency" element={<CostEfficiencyPage />} />
-              <Route path="/dataset" element={<DatasetBrowserPage />} />
-              <Route path="/plugins" element={<PluginCatalogPage />} />
-              {/* Self-hosted team / operations console */}
-              <Route path="/workspace" element={<WorkspaceDashboardPage />} />
-              <Route path="/workspace/experiments" element={<ExperimentsPage />} />
-              <Route path="/workspace/experiments/new" element={<ExperimentBuilderPage />} />
-              <Route path="/workspace/workers" element={<WorkersPage />} />
-              <Route path="/workspace/health" element={<SystemHealthPage />} />
-              <Route path="/workspace/baselines" element={<BaselinesPage />} />
-              <Route path="/workspace/studio" element={<TaskStudioPage />} />
-              <Route path="/workspace/reviews" element={<ReviewQueuePage />} />
-              <Route path="/workspace/users" element={<UsersPage />} />
-              <Route path="/workspace/policies" element={<PoliciesBudgetsPage />} />
-              <Route path="/workspace/audit" element={<AuditLogPage />} />
-              <Route path="/workspace/webhooks" element={<WebhooksPage />} />
-              <Route path="/workspace/settings" element={<RetentionSettingsPage />} />
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </Suspense>
-        </ErrorBoundary>
-      </main>
+
+      <div className="shell">
+        {section && (
+          <nav className="sidebar" aria-label={`${section.label} section`}>
+            <div className="sidebar-group">
+              {/* Deliberately not a heading: the <nav> already carries an
+                  accessible name, and a heading here would inject a duplicate
+                  "Workspace"/"Explore" into every page's document outline. */}
+              <p className="sidebar-label">{section.label}</p>
+              <ul>
+                {section.items.map(([to, label]) => (
+                  <li key={to}>
+                    <NavLink
+                      to={to}
+                      end={to === '/workspace' || to === '/tasks'}
+                      className={({ isActive }) => (isActive ? 'active' : '')}
+                    >
+                      {label}
+                    </NavLink>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </nav>
+        )}
+
+        <main id="main" className="content">
+          <ErrorBoundary>
+            <Suspense fallback={<Loading />}>
+              <Routes>
+                {/* Public dataset & analysis console */}
+                <Route path="/" element={<HomePage />} />
+                <Route path="/methodology" element={<MethodologyPage />} />
+                <Route path="/docs" element={<DocsPage />} />
+                <Route path="/contributors" element={<ContributorsPage />} />
+                <Route path="/about" element={<AboutPage />} />
+                <Route path="/leaderboard" element={<LeaderboardPage />} />
+                <Route path="/agents" element={<AgentsPage />} />
+                <Route path="/models" element={<ModelsPage />} />
+                <Route path="/tasks" element={<TaskPacksPage />} />
+                <Route path="/tasks/:taskId" element={<TaskDetailPage />} />
+                <Route path="/results/:bundle" element={<ResultDetailPage />} />
+                <Route path="/compare" element={<ComparePage />} />
+                <Route path="/trends" element={<ReliabilityTrendsPage />} />
+                <Route path="/failures" element={<FailureAnalysisPage />} />
+                <Route path="/traces" element={<TraceExplorerPage />} />
+                <Route path="/recovery" element={<RecoveryAnalysisPage />} />
+                <Route path="/efficiency" element={<CostEfficiencyPage />} />
+                <Route path="/dataset" element={<DatasetBrowserPage />} />
+                <Route path="/plugins" element={<PluginCatalogPage />} />
+                {/* Self-hosted team / operations console */}
+                <Route path="/workspace" element={<WorkspaceDashboardPage />} />
+                <Route path="/workspace/experiments" element={<ExperimentsPage />} />
+                <Route path="/workspace/experiments/new" element={<ExperimentBuilderPage />} />
+                <Route path="/workspace/workers" element={<WorkersPage />} />
+                <Route path="/workspace/health" element={<SystemHealthPage />} />
+                <Route path="/workspace/baselines" element={<BaselinesPage />} />
+                <Route path="/workspace/studio" element={<TaskStudioPage />} />
+                <Route path="/workspace/reviews" element={<ReviewQueuePage />} />
+                <Route path="/workspace/users" element={<UsersPage />} />
+                <Route path="/workspace/policies" element={<PoliciesBudgetsPage />} />
+                <Route path="/workspace/audit" element={<AuditLogPage />} />
+                <Route path="/workspace/webhooks" element={<WebhooksPage />} />
+                <Route path="/workspace/settings" element={<RetentionSettingsPage />} />
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </Suspense>
+          </ErrorBoundary>
+        </main>
+      </div>
+
       <footer className="footer">
         <span>Apache-2.0 · Created by @webdevsamran · Data: validated repository bundles only</span>
       </footer>
+
+      <CommandPalette
+        open={paletteOpen}
+        onClose={() => setPaletteOpen(false)}
+        commands={commands}
+      />
     </div>
   )
 }
