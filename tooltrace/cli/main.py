@@ -1050,6 +1050,42 @@ def cmd_evidence(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def cmd_mcp_conformance(args: argparse.Namespace) -> int:
+    """Check an MCP server against the protocol, over stdio.
+
+    MCP has effectively won the agent-to-tool layer, which makes "does this
+    server behave correctly" a question many people now have. Exit is non-zero
+    only on a *required* failure: a missing tool description is a real
+    usability problem and not a protocol violation, and conflating them would
+    make this an opinion rather than a measurement.
+    """
+    from tooltrace.agents.mcp import fake_server_command
+    from tooltrace.agents.mcp_conformance import report
+
+    command = list(args.command) if args.command else fake_server_command()
+    result = report(command)
+
+    if not args.json:
+        for check in result["checks"]:
+            mark = "pass" if check["passed"] else "FAIL"
+            print(f"  [{mark:>4}] {check['severity']:<11} {check['name']}: {check['detail']}")
+    _emit(result, args.json)
+
+    if result["required_failures"]:
+        print(
+            f"required conformance failures: {result['required_failures']}",
+            file=sys.stderr,
+        )
+        return EXIT_RUN
+    if result["recommended_failures"]:
+        print(
+            f"note: server works, but misses recommended behaviour: "
+            f"{result['recommended_failures']}",
+            file=sys.stderr,
+        )
+    return EXIT_OK
+
+
 def cmd_server(args: argparse.Namespace) -> int:
     """Run the self-hosted team/enterprise API server."""
     from tooltrace.server.core import serve
@@ -1223,6 +1259,13 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="TASK_ID",
         help="score the ingested trajectory against a task's trace assertions; "
         "assertions needing a workspace are reported as skipped",
+    )
+
+    mc = add("mcp-conformance", cmd_mcp_conformance, "check an MCP server against the protocol")
+    mc.add_argument(
+        "command",
+        nargs="*",
+        help="command that starts the MCP server over stdio; put `--` first if it takes flags, e.g. `mcp-conformance -- python -m my_server` (default: the bundled deterministic fixture)",
     )
 
     ev = add("evidence", cmd_evidence, "assemble an evidence dossier from bundles")

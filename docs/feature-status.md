@@ -95,7 +95,7 @@ and a row claiming a task pack has to have that pack on disk.
 | 49 | OpenAI-/Anthropic-/Gemini-compatible protocol layers | I | `tooltrace/agents/interop.py` (`ANTHROPIC_COMPAT_SPEC`, `GEMINI_COMPAT_SPEC`) |
 | 50 | Local model adapters via generic protocols | E | `tooltrace/agents/openai_compat.py` (`OpenAICompatAgent`) |
 | 51 | MCP client support (manifests, inventories, traces) | I | `agents/mcp.py`, fake server tests |
-| 52 | MCP server conformance fixtures | I | `tooltrace/agents/mcp.py` (`conformance_check`) |
+| 52 | MCP server conformance fixtures | I | `tooltrace/agents/mcp_conformance.py` (required/recommended severities), CLI `mcp-conformance`, `tooltrace/agents/mcp.py` (`fake_server_command`) |
 | 53 | A2A integration abstraction | E | `tooltrace/agents/interop.py` (`AdapterCapabilities`) |
 | 54 | Adapter capability negotiation | I | `tooltrace/agents/interop.py` (`negotiate`) |
 | 55 | Deterministic retry/backoff recorded in traces | I | `tooltrace/agents/interop.py` (`RetryPolicy`, `run_with_retries`) |
