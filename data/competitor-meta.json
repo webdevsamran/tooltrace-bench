@@ -1,0 +1,171 @@
+{
+  "fetched_utc": "2026-09-09T10:16:15+00:00",
+  "tool": "gh api (authenticated)",
+  "repos": {
+    "SWE-bench/SWE-bench": {
+      "repo": "SWE-bench/SWE-bench",
+      "license_spdx": "MIT",
+      "stars": 5807,
+      "pushed_at": "2026-09-02T01:51:01Z",
+      "archived": false,
+      "description": "SWE-bench: Can Language Models Resolve Real-world Github Issues?",
+      "latest_release": null
+    },
+    "microsoft/SWE-bench-Live": {
+      "repo": "microsoft/SWE-bench-Live",
+      "license_spdx": "MIT",
+      "stars": 234,
+      "pushed_at": "2026-09-07T23:24:48Z",
+      "archived": false,
+      "description": "[NeurIPS 2025 D&B] \ud83d\ude80 SWE-bench Goes Live!",
+      "latest_release": {
+        "tag": "v1.0-multi-language-multi-os-benchmarking",
+        "published_at": "2026-03-08T11:23:25Z"
+      }
+    },
+    "sierra-research/tau-bench": {
+      "repo": "sierra-research/tau-bench",
+      "license_spdx": "MIT",
+      "stars": 1427,
+      "pushed_at": "2026-03-18T17:36:06Z",
+      "archived": false,
+      "description": "Code and Data for Tau-Bench",
+      "latest_release": null
+    },
+    "sierra-research/tau2-bench": {
+      "repo": "sierra-research/tau2-bench",
+      "license_spdx": "MIT",
+      "stars": 1991,
+      "pushed_at": "2026-09-07T23:46:37Z",
+      "archived": false,
+      "description": "\u03c4-Bench: A Benchmark for Tool-Agent-User Interaction in Real-World Domains",
+      "latest_release": {
+        "tag": "v1.0.1",
+        "published_at": "2026-07-22T21:22:42Z"
+      }
+    },
+    "THUDM/AgentBench": {
+      "repo": "THUDM/AgentBench",
+      "license_spdx": "Apache-2.0",
+      "stars": 3717,
+      "pushed_at": "2026-02-08T17:01:05Z",
+      "archived": false,
+      "description": "A Comprehensive Benchmark to Evaluate LLMs as Agents (ICLR'24)",
+      "latest_release": null
+    },
+    "xlang-ai/OSWorld": {
+      "repo": "xlang-ai/OSWorld",
+      "license_spdx": "Apache-2.0",
+      "stars": 3134,
+      "pushed_at": "2026-08-30T09:41:51Z",
+      "archived": false,
+      "description": "[NeurIPS 2024] OSWorld: Benchmarking Multimodal Agents for Open-Ended Tasks in Real Computer Environments",
+      "latest_release": {
+        "tag": "v0.1.16",
+        "published_at": "2024-06-26T04:22:29Z"
+      }
+    },
+    "web-arena-x/webarena": {
+      "repo": "web-arena-x/webarena",
+      "license_spdx": "Apache-2.0",
+      "stars": 1606,
+      "pushed_at": "2025-11-26T21:16:00Z",
+      "archived": false,
+      "description": "Code repo for \"WebArena: A Realistic Web Environment for Building Autonomous Agents\"",
+      "latest_release": {
+        "tag": "v0.2.0",
+        "published_at": "2023-10-21T04:35:19Z"
+      }
+    },
+    "browser-use/browser-use": {
+      "repo": "browser-use/browser-use",
+      "license_spdx": "MIT",
+      "stars": 113853,
+      "pushed_at": "2026-09-07T19:55:36Z",
+      "archived": false,
+      "description": "Agents that use the browser.",
+      "latest_release": {
+        "tag": "0.13.10",
+        "published_at": "2026-09-04T03:28:53Z"
+      }
+    },
+    "UKGovernmentBEIS/inspect_ai": {
+      "repo": "UKGovernmentBEIS/inspect_ai",
+      "license_spdx": "MIT",
+      "stars": 2734,
+      "pushed_at": "2026-09-09T09:02:44Z",
+      "archived": false,
+      "description": "Inspect: A framework for large language model evaluations",
+      "latest_release": null
+    },
+    "promptfoo/promptfoo": {
+      "repo": "promptfoo/promptfoo",
+      "license_spdx": "MIT",
+      "stars": 24964,
+      "pushed_at": "2026-09-09T09:43:10Z",
+      "archived": false,
+      "description": "Test your prompts, agents, and RAGs. Red teaming/pentesting/vulnerability scanning for AI. Compare performance of GPT, Claude, Gemini, DeepSeek, and more. Simple declarative configs with command line and CI/CD integration.  Used by OpenAI and Anthropic.",
+      "latest_release": {
+        "tag": "code-scan-action-0.2.0",
+        "published_at": "2026-08-28T07:34:11Z"
+      }
+    },
+    "confident-ai/deepeval": {
+      "repo": "confident-ai/deepeval",
+      "license_spdx": "Apache-2.0",
+      "stars": 18186,
+      "pushed_at": "2026-09-08T07:08:59Z",
+      "archived": false,
+      "description": "The LLM Evaluation Framework",
+      "latest_release": {
+        "tag": "python-v4.2.0",
+        "published_at": "2026-08-24T21:56:54Z"
+      }
+    },
+    "AgentOps-AI/agentops": {
+      "repo": "AgentOps-AI/agentops",
+      "license_spdx": "MIT",
+      "stars": 5813,
+      "pushed_at": "2026-06-25T08:25:03Z",
+      "archived": false,
+      "description": "Python SDK for AI agent monitoring, LLM cost tracking, benchmarking, and more. Integrates with most LLMs and agent frameworks including CrewAI, Agno, OpenAI Agents SDK, Langchain, Autogen, AG2, and CamelAI",
+      "latest_release": {
+        "tag": "0.4.21",
+        "published_at": "2025-08-29T06:36:28Z"
+      }
+    },
+    "Arize-ai/phoenix": {
+      "repo": "Arize-ai/phoenix",
+      "license_spdx": "NOASSERTION",
+      "stars": 11388,
+      "pushed_at": "2026-09-09T05:22:55Z",
+      "archived": false,
+      "description": "AI Observability & Evaluation",
+      "latest_release": {
+        "tag": "arize-phoenix-client-v3.5.0",
+        "published_at": "2026-09-08T22:22:38Z"
+      }
+    },
+    "langfuse/langfuse": {
+      "repo": "langfuse/langfuse",
+      "license_spdx": "NOASSERTION",
+      "stars": 34392,
+      "pushed_at": "2026-09-09T10:06:57Z",
+      "archived": false,
+      "description": "\ud83e\udea2 Open source AI engineering platform: LLM evals, observability, metrics, prompt management, playground, datasets. Integrates with OpenTelemetry, LangChain, OpenAI SDK, LiteLLM, and more. \ud83c\udf4aYC W23 ",
+      "latest_release": {
+        "tag": "v4.32.0",
+        "published_at": "2026-09-08T12:53:51Z"
+      }
+    },
+    "openai/evals": {
+      "repo": "openai/evals",
+      "license_spdx": "NOASSERTION",
+      "stars": 19414,
+      "pushed_at": "2026-04-14T15:29:57Z",
+      "archived": false,
+      "description": "Evals is a framework for evaluating LLMs and LLM systems, and an open-source registry of benchmarks.",
+      "latest_release": null
+    }
+  }
+}
