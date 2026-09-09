@@ -160,11 +160,19 @@ def plan(
         result.notes.append(
             f"task {task!r} is not currently installed; `tooltrace tasks` lists {len(tasks)} available"
         )
-    if adapter == "subprocess" and "{objective}" not in result.agent_config["command"]:
-        result.notes.append(
-            "the command has no {objective} placeholder, so your agent will not "
-            "receive the task description"
-        )
+    if adapter == "subprocess":
+        command = str(result.agent_config["command"])
+        if "{objective}" not in command:
+            result.notes.append(
+                "the command has no {objective} placeholder, so your agent will not "
+                "receive the task description"
+            )
+        # Checked before the run, because "not on PATH" and "the agent failed the
+        # task" produce the same score and mean entirely different things. A
+        # first run that fails for a spelling mistake teaches nothing.
+        probe = probe_command(command)
+        if not probe.get("found"):
+            result.notes.append(f"the command will not start: {probe.get('reason')}")
     if adapter == "openai_compat":
         result.notes.append(
             f"set {result.agent_config['api_key_env']} in your environment; "
@@ -362,9 +370,18 @@ def render(plan_: InitPlan, environment: dict[str, Any], run: dict[str, Any] | N
                 f"{_config_flag(plan_)} --runs 20 --summary",
             ]
         else:
+            # A run that failed because the binary is missing is not a
+            # measurement of the agent, and calling it one would send the reader
+            # to debug an agent that never started. The probe already knows.
+            cannot_start = any("will not start" in note for note in plan_.notes)
             lines += [
                 f"  failed | {run['failure_reason']} | score {run['score']:.2f}",
-                "  That is a real measurement, not a setup problem. Inspect it:",
+                (
+                    "  The command above never started, so this measures the config, "
+                    "not the agent. Fix the command, then:"
+                    if cannot_start
+                    else "  That is a real measurement, not a setup problem. Inspect it:"
+                ),
                 f"    tooltrace run --task {plan_.task} --agent {plan_.adapter}"
                 f"{_config_flag(plan_)} --out runs",
             ]

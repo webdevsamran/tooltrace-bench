@@ -198,8 +198,46 @@ def _no_failed_calls(params: dict[str, Any], trace: TraceView) -> ScorerOutcome:
     legitimately expect some).
     """
     allowed = int(params.get("allow", 0))
-    failed = [c for c in trace.calls if not c.ok]
+    # By seq against the view's own reader, rather than re-filtering on `ok`
+    # here: two definitions of "a call that succeeded" would drift the first
+    # time `ok` changed meaning, and the drift would be silent.
+    succeeded = {c.seq for c in trace.succeeded_calls()}
+    failed = [c for c in trace.calls if c.seq not in succeeded]
     if len(failed) <= allowed:
         return ScorerOutcome(1.0, f"{len(failed)} failed call(s), {allowed} allowed")
     detail = ", ".join(f"{c.tool}@{c.seq}: {c.status}" for c in failed[:3])
     return ScorerOutcome(0.0, f"{len(failed)} failed call(s) (allowed {allowed}): {detail}")
+
+
+@register_trace_scorer("tool_call_count")
+def _tool_call_count(params: dict[str, Any], trace: TraceView) -> ScorerOutcome:
+    """How many times a tool was called, with optional bounds.
+
+    Exists because "did it retry" and "did it thrash" are both count questions
+    and neither was expressible. `tools_used` answers whether a tool appears at
+    all, which cannot distinguish one call from twenty -- and twenty identical
+    calls is the signature of an agent stuck in a loop.
+
+    params: tool: name, min: int (default 0), max: int (optional),
+            successful_only: bool (default false)
+    """
+    tool = str(params.get("tool") or "")
+    if not tool:
+        return ScorerOutcome(0.0, "no tool named")
+
+    calls = trace.calls_to(tool)
+    if params.get("successful_only"):
+        succeeded = {c.seq for c in trace.succeeded_calls()}
+        calls = [c for c in calls if c.seq in succeeded]
+
+    count = len(calls)
+    minimum = int(params.get("min", 0))
+    maximum = params.get("max")
+    problems = []
+    if count < minimum:
+        problems.append(f"called {count} time(s), at least {minimum} expected")
+    if maximum is not None and count > int(maximum):
+        problems.append(f"called {count} time(s), at most {maximum} allowed")
+    if problems:
+        return ScorerOutcome(0.0, f"{tool}: " + "; ".join(problems))
+    return ScorerOutcome(1.0, f"{tool}: {count} call(s) within bounds")

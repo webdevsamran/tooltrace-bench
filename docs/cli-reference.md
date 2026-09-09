@@ -8,7 +8,7 @@ Exit codes: `0` ok · `2` usage · `3` task/validation · `4` agent · `5` run f
 
 | Command | Purpose |
 |---|---|
-| `doctor` | Environment, registries, plugin discovery health check |
+| `doctor` | Environment, all four registries (tools, agents, scorers, sandboxes) and plugin discovery |
 | `init [--agent A] [--command CMD] [--dir D] [--task ID] [--no-ci] [--no-run] [--force]` | Set up this project against **your** agent: writes `tooltrace.config.json` and a CI workflow, then runs one real task and reports the outcome. Overwrites nothing without `--force`, and never writes a credential — `openai_compat` gets the *name* of an env var. A failing first run is still a successful init: that is a measurement, not a setup problem |
 | `tasks [--category]` | List bundled tasks |
 | `run --task ID --agent A [--agent-config JSON] [--out DIR]` | One deterministic task against one agent; writes a bundle |
@@ -20,7 +20,7 @@ Exit codes: `0` ok · `2` usage · `3` task/validation · `4` agent · `5` run f
 | `regression --baseline B --current C --thresholds JSON` | CI gate for score/tool/latency regressions |
 | `mcp-conformance [-- COMMAND...]` | Check an MCP server against the protocol over stdio. Exits non-zero only on a *required* failure; a missing tool description is reported as recommended, not a violation. Defaults to the bundled fixture |
 | `evidence --bundles DIRS [--out DIR]` | Assemble an evidence dossier for a regulated review: runs, verification status, and what each obligation is and is not evidenced by. Never a compliance determination |
-| `verify BUNDLE [--no-schema] [--no-integrity]` | Check a bundle's checksums, schema conformance and anti-gaming integrity (dropped assertions, a task modified after publication, an expected answer visible in the prompt); read-only, exits 5 on any problem |
+| `verify BUNDLE [--no-schema] [--no-integrity] [--signature F]` | Check a bundle's checksums, schema conformance and anti-gaming integrity (dropped assertions, a task modified after publication, an expected answer visible in the prompt); read-only, exits 5 on any problem. `--signature` additionally verifies a cosign signature: checksums are tamper-*evident* (they detect a change), a signature establishes *who* produced the bundle |
 | `reproduce BUNDLE [--out DIR] [--no-rerun]` | Verify hashes and optionally re-run |
 | `perturb --task ID [--perturbation kind:tool] [--runs N] [--min-recovery-rate R]` | Inject safe faults and measure recovery rate; `--out` writes bundles |
 | `trace BUNDLE [--filter SUBSTR] [--assertions] [--limit N]` | Inspect a bundle trace in the terminal (checksum-verified) |

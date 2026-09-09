@@ -7,6 +7,43 @@ versioning follows [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- **`tool_call_count` trace scorer.** `tools_used` answers whether a tool appears
+  at all, which cannot tell one call from twenty — and twenty identical calls is
+  the signature of an agent stuck in a loop. Takes `min`, `max` and
+  `successful_only`, so "did it retry" and "did it thrash" are both expressible.
+
+- **`verify --signature`.** `verify_bundle_signature` shipped reachable from
+  Python only, so the distinction the docs draw could not be exercised by a user:
+  checksums are tamper-*evident* (they detect a change), a signature establishes
+  *who* produced the bundle. Asking about a signature and getting no answer now
+  fails; not asking is not a failure.
+
+### Fixed
+- **`doctor` never reported the sandbox providers.** It imported agents, scoring
+  and tools by hand and omitted sandbox, so `sandbox_registry` was always empty
+  and a command documented as a registry health check silently skipped one of its
+  four registries. `load_all_registries` — written to import all four, and with no
+  caller anywhere — is now what it calls, so a fifth registry cannot be forgotten
+  the same way.
+
+- **`perturb` never stated that `api_error` faults are simulated.**
+  `environment_note()` says plainly that they are injected at the HTTP-tool layer
+  and generate no real traffic. It had no caller, so a reader of "injected
+  api_error" could reasonably have concluded a network fault was reproduced. It
+  travels in the payload now.
+
+- **`tooltrace init` ran a command it had not checked existed.** "Not on PATH"
+  and "the agent failed the task" both produce a score of zero, and the report
+  called the first one "a real measurement, not a setup problem" — sending the
+  reader to debug an agent that never started. `probe_command` (added alongside
+  `init` and immediately orphaned) now runs before the first task, and the report
+  distinguishes the two cases.
+
+- **A trace scorer re-implemented `TraceView.succeeded_calls` inline.** Two
+  definitions of "a call that succeeded" would drift the first time `ok` changed
+  meaning, and silently.
+
+### Added
 - **`tooltrace pr-report` — a pull-request gate that does not fire on noise.**
   `compare` and `regression` take two *single-run* bundles. For latency on a
   deterministic task that is defensible; for a success rate it is not. One run is
