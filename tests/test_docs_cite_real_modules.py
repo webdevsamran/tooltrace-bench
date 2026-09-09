@@ -58,3 +58,17 @@ def test_corrections_and_code_blocks_are_exempt() -> None:
     module = _checker()
     text = "> it cited `tooltrace/gone/old.py`\n\n```\n`tooltrace/also/gone.py`\n```\nlive text\n"
     assert module.iter_refs(module.strip_uncheckable(text)) == []
+
+
+def test_runtime_workspace_paths_are_declared_not_silently_widened() -> None:
+    """The egress log lives in a sandbox workspace, never in the repository.
+
+    Declaring that category is honest. Loosening `looks_like_path` until
+    nothing fails would have hidden real broken citations along with it.
+    """
+    module = _checker()
+    assert module.RUNTIME_PREFIXES, "the exemption list must be explicit"
+    assert not module.looks_like_path(".tooltrace_egress/requests.jsonl")
+    # ...and the loosening must not have swallowed ordinary repository paths.
+    assert module.looks_like_path("tooltrace/tools/sink.py")
+    assert not module.resolves("tooltrace/nope/missing.py")

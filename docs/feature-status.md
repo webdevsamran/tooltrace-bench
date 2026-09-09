@@ -59,7 +59,7 @@ and a row claiming a task pack has to have that pack on disk.
 | 13 | Spreadsheet/data-transformation packs | I | `packs/json-csv-transform`, `data-analysis` |
 | 14 | Git workflow packs | I | `packs/git-workflow`, git tool |
 | 15 | DevOps packs (CI config/container builds) | S | `Domain.devops` only; no devops pack ships |
-| 16 | Defensive-security packs | S | `Domain.security` only; no config-review pack ships |
+| 16 | Defensive-security packs | I | `tooltrace/tasks/packs/security` (indirect prompt injection: exfiltration and direct harm), `tooltrace/tools/sink.py`, `tooltrace/metrics/security.py` |
 | 17 | Multimodal attachment schema | I | `TaskDefinitionV2.Attachment` |
 | 18 | Voice-agent fixture interface (prerecorded audio) | S | `Domain.voice` + `Attachment.media_type` can name an audio file; no timing metadata and no voice fixture ship |
 | 19 | Desktop/GUI abstractions + deterministic harness | S | `Domain.desktop` only; no abstraction layer and no harness ship |
@@ -174,12 +174,12 @@ previous summary said 113 I / 7 E / 2 P, which adds to 122 but did not match
 the table: #96 was listed under both E and P, #20 was counted E, and one row
 carried the ad-hoc grade `I/P`.
 
-- **Implemented (I):** 103 targets
+- **Implemented (I):** 104 targets
 - **Implemented with deterministic mocks; external validation blocked (E):** 5
   targets — #50 live model endpoints, #53 live A2A ecosystem, #85 keyless
   cosign in CI, #95 Kubernetes cluster soak, #107 real IdP round-trip.
-- **Schema only (S):** 8 targets — #9 database, #11 browser/web, #12
-  knowledge retrieval, #15 devops, #16 defensive security, #18 voice, #19
+- **Schema only (S):** 7 targets — #9 database, #11 browser/web, #12
+  knowledge retrieval, #15 devops, #18 voice, #19
   desktop/GUI, #20 mobile. Each has a `Domain` value and nothing else: no pack,
   no fixture, no harness. They are declarable, not runnable.
 - **Partially present at audit start, completed this pass (P):** 2 targets —

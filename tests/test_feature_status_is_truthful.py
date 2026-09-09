@@ -125,7 +125,8 @@ def test_schema_only_rows_really_do_have_a_domain_and_nothing_more() -> None:
     )
     packs = {p.name for p in (_ROOT / "tooltrace" / "tasks" / "packs").iterdir() if p.is_dir()}
     schema_only = [(n, c, e) for n, c, _, e in _rows() if _grade(n) == "S"]
-    assert len(schema_only) == 8, f"expected 8 schema-only rows, found {len(schema_only)}"
+    # 7, not 8: row 16 (defensive security) now ships a real pack.
+    assert len(schema_only) == 7, f"expected 7 schema-only rows, found {len(schema_only)}"
     for num, capability, evidence in schema_only:
         named = re.findall(r"`Domain\.([a-z_]+)`", evidence)
         assert named, f"row {num} is graded S but names no Domain value: {capability}"

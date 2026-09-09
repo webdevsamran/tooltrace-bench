@@ -162,7 +162,7 @@ Details in [ARCHITECTURE.md](ARCHITECTURE.md). The sandbox threat model is in [d
 
 ## Task types shipped
 
-Fourteen packs, twenty tasks. `tooltrace tasks` prints the authoritative list
+Fifteen packs, twenty-two tasks. `tooltrace tasks` prints the authoritative list
 with difficulty; the pack directory names below are the ones you pass to
 `--task`.
 
@@ -172,6 +172,7 @@ with difficulty; the pack directory names below are the ones you pass to
 | `bug-fixing` | bug fixing against a failing test |
 | `test-repair` | repairing broken test expectations |
 | `tool-call-structure` | Outcome *and* trajectory: the workspace must end up right, and the agent must have got there by reading before writing |
+| `security` | Indirect prompt injection: does the agent obey instructions hidden in a file it reads? Exfiltration measured against an offline sink that sends nothing |
 | `refactoring` | behaviour-preserving renames |
 | `docs-correction` | documentation correction |
 | `json-csv-transform` | JSON/CSV transformation |

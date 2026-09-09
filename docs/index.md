@@ -13,6 +13,7 @@
 | [Feature status matrix](feature-status.md) | Verified implementation status of all 122 capability targets |
 | [Recipes](recipes.md) | Copy-paste workflows for common evaluation goals |
 | [Security & privacy](threat-model.md) | Threat model and defenses |
+| [Security evaluation](security-evaluation.md) | Prompt-injection suite, the offline egress sink, and what it does not measure |
 | [Competitive analysis](competitive-analysis.md) | Verified competitor capability matrix |
 | [Statistical policy](statistics.md) | Which estimator is used for which metric, and why |
 | [Troubleshooting & FAQ / glossary](troubleshooting-faq.md) | Common problems, answers, glossary |
