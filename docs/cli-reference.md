@@ -16,7 +16,7 @@ Exit codes: `0` ok · `2` usage · `3` task/validation · `4` agent · `5` run f
 | `compare --baseline B --current C [--metrics m1,m2]` | Metric-by-metric bundle comparison |
 | `baseline --name N --bundle PATH` | Record a named baseline |
 | `regression --baseline B --current C --thresholds JSON` | CI gate for score/tool/latency regressions |
-| `verify BUNDLE [--no-schema]` | Check a bundle's checksums and schema conformance; read-only, exits 5 on any problem |
+| `verify BUNDLE [--no-schema] [--no-integrity]` | Check a bundle's checksums, schema conformance and anti-gaming integrity (dropped assertions, a task modified after publication, an expected answer visible in the prompt); read-only, exits 5 on any problem |
 | `reproduce BUNDLE [--out DIR] [--no-rerun]` | Verify hashes and optionally re-run |
 | `perturb --task ID [--perturbation kind:tool] [--runs N] [--min-recovery-rate R]` | Inject safe faults and measure recovery rate; `--out` writes bundles |
 | `trace BUNDLE [--filter SUBSTR] [--assertions] [--limit N]` | Inspect a bundle trace in the terminal (checksum-verified) |

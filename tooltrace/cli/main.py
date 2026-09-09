@@ -536,7 +536,8 @@ def cmd_verify(args: argparse.Namespace) -> int:
     reasons: checksums catch a file that changed after it was written; schema
     validation catches a bundle that never matched the published format.
     """
-    from tooltrace.artifacts.bundles import read_manifest, verify_bundle
+    from tooltrace.analysis.integrity import check_bundle_integrity, installed_task_for
+    from tooltrace.artifacts.bundles import load_bundle_result, read_manifest, verify_bundle
     from tooltrace.artifacts.validation import validate_bundle_artifacts
 
     bundle = Path(args.bundle)
@@ -547,17 +548,29 @@ def cmd_verify(args: argparse.Namespace) -> int:
         return EXIT_RUN
 
     schema_problems = [] if args.no_schema else validate_bundle_artifacts(bundle)
+
+    integrity: dict[str, object] = {"ok": True, "problems": [], "skipped": True}
+    if not args.no_integrity:
+        installed = None
+        with contextlib.suppress(Exception):
+            installed = installed_task_for(load_bundle_result(bundle).task_id)
+        integrity = check_bundle_integrity(bundle, installed)
+    raw_problems = integrity.get("problems")
+    integrity_problems = list(raw_problems) if isinstance(raw_problems, list) else []
+
     manifest: dict[str, object] = {}
     with contextlib.suppress(BundleError, ValueError):
         manifest = read_manifest(bundle)
 
     payload = {
         "bundle": str(bundle),
-        "ok": not checksum_problems and not schema_problems,
+        "ok": not checksum_problems and not schema_problems and not integrity_problems,
         "checksums_ok": not checksum_problems,
         "schema_ok": not schema_problems,
+        "integrity_ok": not integrity_problems,
         "checksum_problems": checksum_problems,
         "schema_problems": schema_problems,
+        "integrity": integrity,
         "framework_version": manifest.get("framework_version"),
         "compatibility_key": manifest.get("compatibility_key"),
         "trust_state": manifest.get("trust_state"),
@@ -1057,6 +1070,11 @@ def build_parser() -> argparse.ArgumentParser:
     v.add_argument("bundle")
     v.add_argument(
         "--no-schema", action="store_true", help="check checksums only, skip schema validation"
+    )
+    v.add_argument(
+        "--no-integrity",
+        action="store_true",
+        help="skip the anti-gaming checks (skipped assertions, modified task, leaked answers)",
     )
 
     rep = add("report", cmd_report, "aggregate bundles into a report")

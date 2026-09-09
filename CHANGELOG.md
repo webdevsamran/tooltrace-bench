@@ -66,6 +66,26 @@ versioning follows [Semantic Versioning](https://semver.org/).
   Workspace", which "wsx" cannot thread through, while the reverse order
   matched. Both orders are scored now.
 ### Added
+- **Anti-gaming checks that inspect something.** `anti_gaming_checks` has
+  shipped since 0.2.0 reading `assertion_results`, `declared_assertions`,
+  `task_hashes` and `harness_sha256` off the result it is given — fields
+  `EvalResult` does not have. On a real result it returned
+  `{"ok": true, "problems": []}` having performed **zero** checks. Wiring it up
+  as-is would have been worse than leaving it unwired: a permanently passing
+  integrity check is the "CI step named for a validation it never performed"
+  this repository has already had to correct once.
+
+  `tooltrace/analysis/integrity.py` rebuilds the checks against data a bundle
+  really contains, and `tooltrace verify` runs them: a declared assertion missing
+  from the score, a task whose assertions or fixtures differ from the published
+  task of the same id, and an expected answer visible in the objective or the
+  starting workspace (which makes the score measure transcription). Each check is
+  tested against an artifact that must fail it.
+
+  Row 91 of the capability matrix loses "harness tampering" from its text: no
+  harness hash is recorded in a bundle, so that check cannot run.
+  `verify` reports `harness_hash_recorded: false` so an unperformed check never
+  reads as a passed one.
 - **A GitHub Action (`action.yml`).** There was none, which is most of why the
   CI integration this project is built for did not happen: telling someone to
   write their own workflow is a much higher bar than pointing at one line. It
