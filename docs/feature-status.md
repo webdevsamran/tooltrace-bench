@@ -134,7 +134,7 @@ and a row claiming a task pack has to have that pack on disk.
 | 88 | Public dataset snapshot generation (changelogs, hashes) | I | `tooltrace snapshot` |
 | 89 | Leaderboard cohort rules (never mix incompatible protocols) | I | `tooltrace/analysis/core.py` (`cohort_key`, `assert_compatible_cohorts`) |
 | 90 | Leaderboards: reliability/recovery/efficiency/domain | I | `tooltrace/analysis/core.py` (`build_leaderboard`) |
-| 91 | Anti-gaming checks (leaked outputs, modified fixtures, skipped assertions, harness tampering) | I | `tooltrace/analysis/core.py` (`anti_gaming_checks`) |
+| 91 | Anti-gaming checks (leaked outputs, modified fixtures, skipped assertions) | I | `tooltrace/analysis/integrity.py` (`check_bundle_integrity`), surfaced by `tooltrace verify` |
 | 92 | Sandbox image/build provenance + immutable digest recording | I | `tooltrace/sandbox/infra.py` (`pull_with_digest`) |
 | 93 | Podman alongside Docker via provider interface | I | `tooltrace/sandbox/infra.py` (`ContainerProvider`, `podman`) |
 | 94 | Windows-native sandbox interface w/ documented limits | I | `tooltrace/sandbox/infra.py` (`WindowsNativeSandbox`) |
