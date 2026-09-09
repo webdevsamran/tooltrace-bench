@@ -53,18 +53,24 @@ def _emit(data: object, as_json: bool) -> None:
 def cmd_doctor(args: argparse.Namespace) -> int:
     import platform
 
-    import tooltrace.agents
-    import tooltrace.scoring
-    import tooltrace.tools  # noqa: F401 - registers tools
     from tooltrace.core.registry import (
         ENTRY_POINT_GROUPS,
         agent_registry,
         discover_plugins,
+        load_all_registries,
+        sandbox_registry,
         scorer_registry,
         tool_registry,
     )
     from tooltrace.core.schemas import load_all_schemas, schema_source
     from tooltrace.tasks import load_all_tasks
+
+    # This imported agents, scoring and tools by hand and omitted sandbox, so
+    # `sandbox_registry` was always empty and a command described as a registry
+    # health check never reported the sandbox providers at all. The helper
+    # written to load all four had no caller; using it is the fix, and it means
+    # a fifth registry cannot be forgotten here again.
+    load_all_registries()
 
     checks: dict[str, object] = {
         "python": sys.version.split()[0],
@@ -72,6 +78,7 @@ def cmd_doctor(args: argparse.Namespace) -> int:
         "tools": sorted(tool_registry.names()),
         "agents": sorted(agent_registry.names()),
         "scorers": sorted(scorer_registry.names()),
+        "sandboxes": sorted(sandbox_registry.names()),
         "plugins": {
             kind: sorted(discover_plugins(group)) for kind, group in ENTRY_POINT_GROUPS.items()
         },
@@ -681,6 +688,16 @@ def cmd_verify(args: argparse.Namespace) -> int:
 
     schema_problems = [] if args.no_schema else validate_bundle_artifacts(bundle)
 
+    # A signature is optional and separate from the checksums: checksums are
+    # tamper-*evident* (they detect a change) while a signature establishes who
+    # produced the bundle. `verify_bundle_signature` shipped with no caller
+    # outside the test suite, so the distinction the docs draw was unreachable.
+    signature: dict[str, object] = {"checked": False}
+    if args.signature:
+        from tooltrace.analysis.core import verify_bundle_signature
+
+        signature = {"checked": True, **verify_bundle_signature(bundle, Path(args.signature))}
+
     integrity: dict[str, object] = {"ok": True, "problems": [], "skipped": True}
     if not args.no_integrity:
         installed = None
@@ -696,13 +713,21 @@ def cmd_verify(args: argparse.Namespace) -> int:
 
     payload = {
         "bundle": str(bundle),
-        "ok": not checksum_problems and not schema_problems and not integrity_problems,
+        "ok": (
+            not checksum_problems
+            and not schema_problems
+            and not integrity_problems
+            # An unverifiable signature the caller explicitly asked about is a
+            # failure. Not asking is not a failure.
+            and (not signature.get("checked") or bool(signature.get("verified")))
+        ),
         "checksums_ok": not checksum_problems,
         "schema_ok": not schema_problems,
         "integrity_ok": not integrity_problems,
         "checksum_problems": checksum_problems,
         "schema_problems": schema_problems,
         "integrity": integrity,
+        "signature": signature,
         "framework_version": manifest.get("framework_version"),
         "compatibility_key": manifest.get("compatibility_key"),
         "trust_state": manifest.get("trust_state"),
@@ -906,9 +931,16 @@ def cmd_perturb(args: argparse.Namespace) -> int:
 
     successes = sum(1 for r in runs if r["recovered"])
     recovery_rate = successes / len(runs)
+    # `environment_note()` states that api_error faults are injected at the
+    # tool layer and generate no real traffic. It existed with no caller, so a
+    # reader of "injected api_error" could reasonably have believed a network
+    # fault was simulated. It travels with the result now.
+    from tooltrace.perturbations import environment_note
+
     payload = {
         "task": task.id,
         "agent": args.agent,
+        "environment_note": environment_note(),
         "perturbations": [
             {"kind": s.kind, **({"tool": s.params["tool"]} if "tool" in s.params else {})}
             for s in specs
@@ -1377,6 +1409,13 @@ def build_parser() -> argparse.ArgumentParser:
     v.add_argument("bundle")
     v.add_argument(
         "--no-schema", action="store_true", help="check checksums only, skip schema validation"
+    )
+    v.add_argument(
+        "--signature",
+        help=(
+            "cosign signature file to verify against. Checksums are tamper-evident; "
+            "a signature establishes who produced the bundle"
+        ),
     )
     v.add_argument(
         "--no-integrity",

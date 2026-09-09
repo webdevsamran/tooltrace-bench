@@ -135,7 +135,7 @@ and a row claiming a task pack has to have that pack on disk.
 | 82 | Trace compression/chunking + streaming readers | I | `tooltrace/artifacts/bundles.py` (`load_bundle_trace`) |
 | 83 | Binary artifact manifests (no blobs in JSONL) | I | `tooltrace/tasks/v2.py` (`Attachment`) |
 | 84 | Trace schema migrations + backwards-compatible readers | I | `tooltrace/core/versions.py` (`SCHEMA_VERSIONS`) |
-| 85 | Signed bundles via standard tooling (cosign hooks) | E | `tooltrace/analysis/core.py` (`sign_bundle`, `verify_bundle_signature`) |
+| 85 | Signed bundles via standard tooling (cosign hooks) | E | `tooltrace/analysis/core.py` (`sign_bundle`, `verify_bundle_signature`), `tooltrace/cli/main.py` (`verify --signature`) |
 | 86 | Tamper-evident checksums for task/fixture/trace/score/env manifests | I | `tooltrace/artifacts/bundles.py` (`verify_bundle`) |
 | 87 | Invalidation/supersession records | I | `tooltrace/analysis/core.py` (`supersed`) |
 | 88 | Public dataset snapshot generation (changelogs, hashes) | I | `tooltrace snapshot` |
