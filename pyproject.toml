@@ -49,6 +49,9 @@ dev = [
   "mypy>=1.10,<3",
   "ruff>=0.4,<1",
   "types-PyYAML>=6.0",
+  # so scripts/wheel_check.py can build a wheel offline (--no-isolation)
+  "build>=1.2,<2",
+  "hatchling>=1.24,<2",
 ]
 
 [project.scripts]
@@ -122,6 +125,13 @@ tooltrace = "tooltrace.pytest_plugin"
 
 [tool.hatch.build.targets.wheel]
 packages = ["tooltrace"]
+
+# The schemas are authored once at the repository root, and copied into the
+# wheel so an installed package carries its own. Without this the wheel shipped
+# no schemas at all and every task load raised "task.schema.json not found";
+# scripts/wheel_check.py builds a wheel and proves the copy arrives.
+[tool.hatch.build.targets.wheel.force-include]
+"schemas" = "tooltrace/schema_data"
 
 [tool.hatch.build.targets.sdist]
 include = ["tooltrace", "schemas", "tests", "docs", "README.md", "LICENSE", "NOTICE"]

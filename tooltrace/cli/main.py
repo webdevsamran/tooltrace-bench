@@ -53,6 +53,7 @@ def cmd_doctor(args: argparse.Namespace) -> int:
         scorer_registry,
         tool_registry,
     )
+    from tooltrace.core.schemas import load_all_schemas, schema_source
     from tooltrace.tasks import load_all_tasks
 
     checks: dict[str, object] = {
@@ -64,6 +65,10 @@ def cmd_doctor(args: argparse.Namespace) -> int:
         "plugins": {
             kind: sorted(discover_plugins(group)) for kind, group in ENTRY_POINT_GROUPS.items()
         },
+        # A broken install should say so here rather than as a TaskValidationError
+        # on every single task; see tooltrace/core/schemas.py.
+        "schema_source": str(schema_source() or ""),
+        "schemas_loaded": sorted(load_all_schemas()),
     }
     try:
         tasks = load_all_tasks()

@@ -39,6 +39,11 @@ jobs:
           python -m json.tool schemas/result.schema.json > /dev/null
           python -m json.tool schemas/bundle-manifest.schema.json > /dev/null
           tooltrace validate --path tooltrace/tasks/packs --json
+      - name: Built wheel is self-contained
+        # The wheel shipped without schemas/, so every task load in an installed
+        # package raised "task.schema.json not found". A source-tree test cannot
+        # see that: this builds a wheel and runs it away from the checkout.
+        run: python scripts/wheel_check.py
       - name: Deterministic sample evaluation
         run: python scripts/make_sample_results.py
       - name: CLI smoke test

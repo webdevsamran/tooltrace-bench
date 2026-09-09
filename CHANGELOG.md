@@ -4,6 +4,40 @@ All notable changes to ToolTrace Bench are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versioning follows [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Fixed
+- **A built wheel could not load a single task.** `[tool.hatch.build.targets.wheel]`
+  packaged only `tooltrace`, so the JSON Schemas authored at the repository root
+  never entered the distribution. `tasks/loader.py` looked for a repo-root
+  `schemas/` directory and otherwise fell back to
+  `resources.files("tooltrace") / "schema_data"` — a directory that did not exist
+  either — on a branch annotated `# pragma: no cover`, so no test ever executed
+  it. Every `pip install` of a wheel produced a package where
+  `validate_task_document` raised `task.schema.json not found` for *every* task:
+  no `tooltrace tasks`, no `tooltrace run`, nothing. It stayed invisible because
+  the documented quickstart installs editable from a checkout, where the repo
+  copy resolves and the broken branch never runs, and because PyPI publishing is
+  gated off so nobody had installed one.
+
+  The schemas are now copied into the wheel by a hatch `force-include`, and
+  resolution moved to `tooltrace/core/schemas.py`, which prefers the packaged
+  copy so an installed package can never silently depend on a checkout being
+  nearby. The `pragma: no cover` is gone: both roots are ordinary arguments to
+  `load_schemas_from`, so each is unit-tested.
+
+  Checking a source tree could not have caught this, so `scripts/wheel_check.py`
+  builds a real wheel, extracts it outside the repository, asserts the import
+  actually came from the extract (otherwise the check would pass vacuously), and
+  runs the call that used to raise. It runs in CI and is covered by
+  `tests/test_wheel_ships_schemas.py`, including a test that stripping the
+  schemas back out is detected.
+
+### Added
+- `tooltrace doctor` now reports `schema_source` and `schemas_loaded`, so a
+  broken install is one line of diagnosis rather than a `TaskValidationError` on
+  every task.
+
 ## [0.3.0] — Ecosystem, adoption and integrity pass (2026-09-07)
 
 ### Fixed — integrity pass
