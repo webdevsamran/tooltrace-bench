@@ -13,6 +13,7 @@
 | [Feature status matrix](feature-status.md) | Verified implementation status of all 122 capability targets |
 | [Recipes](recipes.md) | Copy-paste workflows for common evaluation goals |
 | [Security & privacy](threat-model.md) | Threat model and defenses |
+| [Evidence dossier](evidence-dossier.md) | Assemble audit evidence from bundles; what it records and what it refuses to claim |
 | [Scoring production traces](production-traces.md) | Score a real agent's OTel GenAI trace, and export results to Langfuse/Phoenix/Datadog |
 | [Security evaluation](security-evaluation.md) | Prompt-injection suite, the offline egress sink, and what it does not measure |
 | [Competitive analysis](competitive-analysis.md) | Verified competitor capability matrix |

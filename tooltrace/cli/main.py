@@ -981,6 +981,75 @@ def cmd_ingest(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def cmd_evidence(args: argparse.Namespace) -> int:
+    """Assemble an evidence dossier from bundles for a regulated review.
+
+    This produces *inputs* to a compliance determination and never makes one.
+    Whether a system meets its legal obligations is an organisational judgement
+    about that system in its deployment context, made by people accountable for
+    it. Emitting a "compliant" verdict from a benchmark run would be actively
+    misleading in a domain carrying eight-figure penalties, and the fact that a
+    machine produced it would lend it unearned authority.
+    """
+    from tooltrace.analysis.evidence import build_dossier, render_markdown, verify_chain
+    from tooltrace.runners.runner import _now_iso
+
+    bundles: list[Path] = []
+    for pattern in args.bundles:
+        path = Path(pattern)
+        bundles.extend(sorted(path.glob("*.tooltrace")) if path.is_dir() else [path])
+    bundles = [b for b in bundles if b.is_dir()]
+    if not bundles:
+        print("error: no .tooltrace bundles found", file=sys.stderr)
+        return EXIT_USAGE
+
+    try:
+        dossier = build_dossier(bundles, generated_at=_now_iso())
+    except BundleError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_RUN
+
+    problems = verify_chain(dossier)
+    if problems:
+        print(f"error: the dossier's own hash chain does not verify: {problems}", file=sys.stderr)
+        return EXIT_RUN
+
+    if args.out:
+        out = Path(args.out)
+        out.mkdir(parents=True, exist_ok=True)
+        (out / "evidence.json").write_text(json.dumps(dossier, indent=2), encoding="utf-8")
+        (out / "evidence.md").write_text(render_markdown(dossier), encoding="utf-8")
+
+    unverified = [r["bundle"] for r in dossier["runs"] if not r["verified"]]
+    if unverified:
+        print(
+            f"warning: {len(unverified)} bundle(s) failed checksum verification and are "
+            "recorded as unverified in the dossier",
+            file=sys.stderr,
+        )
+
+    _emit(
+        {
+            "generated_at": dossier["generated_at"],
+            "runs": len(dossier["runs"]),
+            "unverified": unverified,
+            "chain_head": dossier["chain_head"],
+            "obligations": [
+                {
+                    "article": o["article"],
+                    "evidence": len(o["evidence"]),
+                    "gaps": len(o["gaps"]),
+                }
+                for o in dossier["obligations"]
+            ],
+            "out": str(args.out) if args.out else None,
+            "is_compliance_determination": False,
+        },
+        args.json,
+    )
+    return EXIT_OK
+
+
 def cmd_server(args: argparse.Namespace) -> int:
     """Run the self-hosted team/enterprise API server."""
     from tooltrace.server.core import serve
@@ -1155,6 +1224,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="score the ingested trajectory against a task's trace assertions; "
         "assertions needing a workspace are reported as skipped",
     )
+
+    ev = add("evidence", cmd_evidence, "assemble an evidence dossier from bundles")
+    ev.add_argument(
+        "--bundles", nargs="+", required=True, help="bundle dirs or a directory of them"
+    )
+    ev.add_argument("--out", help="write evidence.json and evidence.md here")
 
     ln = add("lint", cmd_lint, "lint task packs for scoring/safety/determinism issues")
     ln.add_argument("--path", help="lint a specific pack directory instead of all packs")

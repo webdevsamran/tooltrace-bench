@@ -117,6 +117,26 @@ versioning follows [Semantic Versioning](https://semver.org/).
   separately because they fail for different reasons — tampering after the fact
   versus never having matched the published format — and `--no-schema` runs the
   checksum half alone.
+- **`tooltrace evidence` — an audit dossier from bundles.** The remaining EU AI
+  Act provisions became applicable 2 August 2026, and every compliance guide
+  repeats that an organisation must *demonstrate* compliance rather than claim
+  it. A checksummed, reproducible bundle is already evidence for that; nothing
+  gathered bundles into the shape a reviewer reads.
+
+  **It is not a compliance determination and refuses to become one.** A
+  "compliant" verdict emitted by a benchmark would be actively misleading in a
+  domain carrying €35M penalties, and a machine producing it would lend it
+  unearned authority. Every obligation carries `evidence` *and* `gaps`, the gaps
+  are never empty by construction, the payload reports
+  `is_compliance_determination: false`, and a test asserts no rendering contains
+  a bare claim of compliance.
+
+  Runs are hash-chained, so a **removed or reordered** run is detectable and not
+  only a modified one; the tests break the chain three ways. A bundle too
+  damaged to parse is recorded as unreadable and unverified rather than crashing
+  the report — an audit most needs to see the corrupt artifact. The timestamp is
+  injected rather than read from the clock, so two dossiers over the same
+  bundles are byte-identical and can be diffed.
 - **Score a real production trace (`ingest --score-against TASK_ID`).** GitHub
   Copilot, Codex and Claude Code emit OpenTelemetry GenAI spans directly, and
   `ingest` could already read them — it just could not *score* them, so a real
