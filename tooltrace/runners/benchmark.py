@@ -20,6 +20,7 @@ from tooltrace.metrics.aggregate import (
     failure_taxonomy,
     trajectory_report,
 )
+from tooltrace.metrics.economics import cost_summary
 from tooltrace.runners.runner import TaskRunner
 
 
@@ -94,6 +95,9 @@ def run_benchmark(
 
         summary = summarize_reliability(task_rows)
         summary["trajectory"] = aggregate_trajectory(task_trajectories)
+        summary["cost"] = cost_summary(
+            [r.model_dump(mode="json") for r in all_results[-len(task_rows) :]]
+        )
         per_task_summary[task.id] = summary
 
     overall = summarize_reliability(
@@ -112,6 +116,9 @@ def run_benchmark(
     )
     overall["trajectory"] = aggregate_trajectory(all_trajectories)
     overall["failure_taxonomy"] = failure_taxonomy(all_results)
+    # "Which model resolves the most tasks per dollar" is the question teams
+    # actually decide on, and evaluations rarely answer it.
+    overall["cost"] = cost_summary([r.model_dump(mode="json") for r in all_results])
     return BenchmarkRun(
         run_id=run_id,
         created_at=datetime.now(UTC).isoformat(),
