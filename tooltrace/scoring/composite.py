@@ -76,3 +76,49 @@ def is_success(score: Score) -> bool:
 
 def is_partial_success(score: Score) -> bool:
     return not is_success(score) and score.total >= 0.5
+
+
+def score_trace_only(
+    task: TaskDefinition, trace: TraceView
+) -> tuple[Score, dict[str, str], list[str]]:
+    """Score only the assertions a trajectory alone can answer.
+
+    A production trace — from Claude Code, Copilot, Codex, or anything else
+    emitting OTel GenAI spans — has no workspace. The end state of the
+    filesystem is gone, so every `(params, workspace)` assertion is
+    unanswerable. The trace-aware assertions are not, which is what makes
+    scoring a real production run possible at all.
+
+    Returns the score, the per-assertion detail, and **the names of the
+    assertions that were skipped**. That third value is the point: a partial
+    score presented as a full one would be the worst possible output here, so
+    the caller is handed the omission explicitly rather than having to infer it
+    from a component count.
+    """
+    components: dict[str, float] = {}
+    weights: dict[str, float] = {}
+    details: dict[str, str] = {}
+    skipped: list[str] = []
+
+    for i, assertion in enumerate(task.assertions):
+        key = assertion.description or f"{assertion.type}#{i}"
+        if assertion.type not in TRACE_SCORERS:
+            skipped.append(key)
+            continue
+        try:
+            outcome = TRACE_SCORERS[assertion.type](assertion.params, trace)
+        except Exception as exc:
+            components[key] = 0.0
+            details[key] = f"scorer error: {type(exc).__name__}: {exc}"
+        else:
+            components[key] = max(0.0, min(1.0, outcome.score))
+            details[key] = outcome.detail
+        weights[key] = assertion.weight
+
+    total_weight = sum(weights.values()) or 1.0
+    total = sum(components[k] * weights[k] for k in components) / total_weight
+    return (
+        Score(total=round(total, 6), components=components, weights=weights),
+        details,
+        skipped,
+    )

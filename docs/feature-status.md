@@ -162,7 +162,7 @@ and a row claiming a task pack has to have that pack on disk.
 | 116 | Email/Slack-compatible webhook notification interfaces | I | `tooltrace/server/core.py` (`webhook`) |
 | 117 | Self-hosted REST API (tasks/experiments/runs/traces/comparisons/users/policies) | I | `tooltrace/server/core.py` (`/api/v1`) |
 | 118 | SSE event streams for live progress | I | `/api/v1/events` + console monitor |
-| 119 | OpenTelemetry traces/metrics hooks (server mode) | I | `tooltrace/telemetry/` exporters |
+| 119 | OpenTelemetry traces/metrics hooks (server mode) | I | `tooltrace/telemetry/`, `tooltrace/exporters/otel.py` (GenAI span export), `tooltrace/ingest/external.py` (import) |
 | 120 | Prometheus-compatible metrics endpoint | I | `/metrics` text format |
 | 121 | Backup/restore and export/import tooling | N | no backup or restore code ships, and `docs/self-hosting.md` does not mention either |
 | 122 | Air-gapped deployment mode (local registries, outbound disabled by default) | I | `tooltrace/sandbox/infra.py` (`offline`) |

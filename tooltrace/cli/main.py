@@ -933,19 +933,51 @@ def cmd_ingest(args: argparse.Namespace) -> int:
 
     reason = classify(events)
     summary_reason = getattr(reason, "reason", reason)  # Classification → FailureReason
-    _emit(
-        {
-            "task_id": args.task_id,
-            "format": args.format,
-            "agent": agent_name,
-            "events": len(events),
-            "counts": format_counts(events),
-            "failure_rule": str(getattr(reason, "rule", "")),
-            "failure_reason": str(getattr(summary_reason, "value", summary_reason)),
-            "out": str(args.out) if args.out else None,
-        },
-        args.json,
-    )
+    payload: dict[str, object] = {
+        "task_id": args.task_id,
+        "format": args.format,
+        "agent": agent_name,
+        "events": len(events),
+        "counts": format_counts(events),
+        "failure_rule": str(getattr(reason, "rule", "")),
+        "failure_reason": str(getattr(summary_reason, "value", summary_reason)),
+        "out": str(args.out) if args.out else None,
+    }
+
+    if args.score_against:
+        from tooltrace.scoring.composite import score_trace_only
+        from tooltrace.scoring.trace_view import TraceView
+        from tooltrace.tasks import load_all_tasks
+
+        task = next((t for t in load_all_tasks() if t.id == args.score_against), None)
+        if task is None:
+            print(f"error: unknown task {args.score_against!r}", file=sys.stderr)
+            return EXIT_TASK
+
+        score, details, skipped = score_trace_only(task, TraceView.from_events(events))
+        payload["scored_against"] = task.id
+        payload["score"] = score.model_dump(mode="json")
+        payload["score_details"] = details
+        # A production trace has no workspace, so every `(params, workspace)`
+        # assertion is unanswerable. Naming them is the whole point: a partial
+        # score presented as a complete one would be the worst output here.
+        payload["skipped_assertions"] = skipped
+        payload["is_partial_score"] = bool(skipped)
+        if not score.components:
+            print(
+                f"note: {task.id} declares no trajectory assertions, so an ingested "
+                "trace cannot be scored against it",
+                file=sys.stderr,
+            )
+        elif skipped:
+            print(
+                f"note: scored {len(score.components)} of "
+                f"{len(score.components) + len(skipped)} assertions; "
+                f"{len(skipped)} need a workspace an ingested trace does not have",
+                file=sys.stderr,
+            )
+
+    _emit(payload, args.json)
     return EXIT_OK
 
 
@@ -1117,6 +1149,12 @@ def build_parser() -> argparse.ArgumentParser:
     ing.add_argument("--out", help="write the JSONL trace to this path")
     ing.add_argument("--task-id", default="ingested/external")
     ing.add_argument("--agent", help="override the agent name recorded in the trace")
+    ing.add_argument(
+        "--score-against",
+        metavar="TASK_ID",
+        help="score the ingested trajectory against a task's trace assertions; "
+        "assertions needing a workspace are reported as skipped",
+    )
 
     ln = add("lint", cmd_lint, "lint task packs for scoring/safety/determinism issues")
     ln.add_argument("--path", help="lint a specific pack directory instead of all packs")
