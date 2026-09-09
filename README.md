@@ -62,6 +62,20 @@ tooltrace benchmark --task file-editing/fix-config-typo,bug-fixing/fix-off-by-on
 tooltrace compare runs/run-A.tooltrace runs/run-B.tooltrace
 ```
 
+### Or run it in a container
+
+```bash
+docker build -t tooltrace-bench .
+docker run --rm tooltrace-bench tasks
+```
+
+The image installs a **built wheel** into a clean container with no repository
+beside it, and the build fails if that wheel cannot load its own task packs.
+That is deliberate: this project once shipped a wheel whose JSON Schemas were
+never packaged, and the defect stayed invisible for three releases because every
+install anyone tried was editable, with the source tree sitting next to it.
+
+
 `--out` takes a *directory*; the bundle inside it is named from the task, agent
 and run id, and `tooltrace run` prints that name.
 

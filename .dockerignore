@@ -1,0 +1,20 @@
+# Keep the build context to what the wheel is built from. `results/` and `web/`
+# are large and irrelevant to the image, and a stale `tooltrace/schema_data/`
+# (written by a local hatch build) must never be copied in -- the wheel builds
+# its own copy from `schemas/`.
+.git/
+.venv/
+__pycache__/
+*.pyc
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.hypothesis/
+htmlcov/
+.coverage
+node_modules/
+web/
+results/
+tests/
+docs/
+tooltrace/schema_data/

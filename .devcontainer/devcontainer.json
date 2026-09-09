@@ -1,0 +1,23 @@
+{
+  "name": "tooltrace-bench",
+  "image": "mcr.microsoft.com/devcontainers/python:3.12",
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": { "version": "22" }
+  },
+  "postCreateCommand": "pip install -e '.[dev]' && cd web && npm ci",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "charliermarsh.ruff",
+        "ms-python.mypy-type-checker",
+        "ms-python.python"
+      ],
+      "settings": {
+        "python.testing.pytestEnabled": true,
+        "editor.formatOnSave": true,
+        "[python]": { "editor.defaultFormatter": "charliermarsh.ruff" }
+      }
+    }
+  },
+  "remoteUser": "vscode"
+}
