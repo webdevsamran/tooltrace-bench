@@ -194,7 +194,15 @@ export function Heatmap({
     .map((r, ri) => `${r}: ${cols.map((c, ci) => `${c}=${cells[ri * cols.length + ci]}`).join(', ')}`)
     .join('; ')
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`${rowLabel} heatmap. ${summary}`} style={{ width: '100%' }}>
+    // width:100% on a narrow viewBox scaled the whole drawing up — with one
+    // agent the 248-unit box stretched across ~630px, so 10px labels rendered
+    // at ~25px. Cap the rendered width at the intrinsic size so it stays 1:1.
+    <svg
+      viewBox={`0 0 ${W} ${H}`}
+      role="img"
+      aria-label={`${rowLabel} heatmap. ${summary}`}
+      style={{ width: '100%', maxWidth: W, height: 'auto' }}
+    >
       {cols.map((c, ci) => (
         <text key={c} x={148 + ci * cw + cw / 2} y={14} textAnchor="middle" fontSize="10" fill="var(--muted)">
           {c.length > 9 ? `${c.slice(0, 8)}…` : c}

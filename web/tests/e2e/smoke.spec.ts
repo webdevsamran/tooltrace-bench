@@ -67,7 +67,7 @@ test.describe('keyboard navigation', () => {
     await page.goto('/')
     await page.keyboard.press('Tab')
     await page.keyboard.insertText('')
-    const toggle = page.getByRole('button', { name: /switch to (light|dark) mode/i })
+    const toggle = page.getByRole('button', { name: /^theme:/i })
     await toggle.focus()
     await page.keyboard.press('Enter')
     await expect(toggle).toBeFocused()

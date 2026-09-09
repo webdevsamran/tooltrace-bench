@@ -38,7 +38,33 @@ versioning follows [Semantic Versioning](https://semver.org/).
   broken install is one line of diagnosis rather than a `TaskValidationError` on
   every task.
 
+### Added
+- **Frontend design system.** The stylesheet grew from 187 lines covering
+  seventeen pages to a full token set: an OKLCH neutral ramp and status
+  palette (perceptually even in both themes), a fluid type scale, spacing,
+  radii, elevation and motion tokens, and light/dark/system theming. Motion
+  durations live in three custom properties that `prefers-reduced-motion`
+  collapses to zero, so animation is disabled in exactly one place and no
+  component can opt out by accident.
+- **Command palette (Cmd/Ctrl-K)** with subsequence matching, arrow-key
+  navigation and the combobox/listbox ARIA pattern. It replaces a search box
+  that never searched — it wrote the query to the URL hash and nothing read it
+  back — and lets navigation collapse from twenty-nine always-visible links
+  (thirteen in the top bar, four below, twelve for the workspace) to four
+  sections plus a contextual sidebar.
+
 ### Fixed
+- **`DataTable` printed sixteen digits of false precision.** The leaderboard
+  showed `0.3333333333333333` for a three-run mean because numeric cells were
+  rendered with `String()`. Formatting now lives in the table, so every numeric
+  column on every page is covered and a new column cannot reintroduce it.
+- **The domain heatmap rendered at 2.5x.** `width: 100%` on a narrow viewBox
+  stretched a 248-unit drawing across ~630px, so 10px labels painted at ~25px.
+  The SVG is now capped at its intrinsic width.
+- **Command-palette matching depended on word order.** Scoring a single
+  `label + group` string meant the entry for Experiments read "Experiments
+  Workspace", which "wsx" cannot thread through, while the reverse order
+  matched. Both orders are scored now.
 - **Every shipped trace carried duplicate `seq` values.** The runner and the tool
   executor each kept an event counter; the runner passed its current value as
   `seq_start` — by value, at construction — and both then advanced
