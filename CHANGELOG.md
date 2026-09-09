@@ -117,6 +117,24 @@ versioning follows [Semantic Versioning](https://semver.org/).
   separately because they fail for different reasons — tampering after the fact
   versus never having matched the published format — and `--no-schema` runs the
   checksum half alone.
+- **`tooltrace mcp-conformance` — check an MCP server against the protocol.**
+  MCP has effectively won the agent-to-tool layer (roughly 97M monthly SDK
+  downloads by February 2026, adopted by every major provider), so "does this
+  server behave correctly" is a question many people now have.
+
+  `conformance_check` already existed but was reachable only from Python, and it
+  graded every check as equally fatal: a server missing a tool *description*
+  failed identically to one that never completed a handshake. Those are not the
+  same finding. Checks now carry a severity — `required` (a client cannot
+  proceed) or `recommended` (the spec asks for it and a good client copes) — and
+  `ok` means required only, so a cosmetic gap cannot read as a protocol
+  violation and a real violation cannot hide behind a passing total.
+
+  Eleven checks, including the one that matters most: a server that fabricates a
+  result for a tool it does not have fails `required`, because a client cannot
+  distinguish that from a real answer. A deliberately non-conforming server is
+  run in the tests to prove each class of failure is detected — a conformance
+  suite that passes everything it is pointed at measures nothing.
 - **A Dockerfile and a devcontainer.** The image installs a **built wheel** into
   a clean container with no repository beside it, and the build fails if that
   wheel cannot load its own task packs. That shape is deliberate: this project
