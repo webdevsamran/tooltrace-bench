@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { getAgents, getResults, getTasks, useAsync } from '../api'
+import { assetUrl, getAgents, getResults, getTasks, useAsync } from '../api'
 import type { AgentRow, ResultRow } from '../api'
-import { BarChart, DataTable, ErrorState, Loading } from '../components'
+import { BarChart, CopyableSnippet, DataTable, ErrorState, Loading } from '../components'
 import type { Column } from '../components'
 import { Heatmap } from '../charts'
 
@@ -175,7 +175,39 @@ export function LeaderboardPage() {
           <Heatmap rows={domains} cols={heatAgents} cells={cells} rowLabel="domain success" />
         </>
       )}
+      <BadgeEmbed />
     </div>
+  )
+}
+
+/**
+ * The badge, and the snippet that embeds it.
+ *
+ * A README cannot render an iframe, so a badge is the only thing that actually
+ * works in the place people want to put a reliability number. It is generated
+ * from the same bundles this page lists, and its colour comes from the
+ * confidence interval's *lower bound* rather than the rate — so a badge can
+ * never claim more than the sample supports. That rule is worth stating here
+ * rather than hiding in the generator, because someone copying the snippet is
+ * about to publish the number.
+ */
+function BadgeEmbed() {
+  const svg = assetUrl('badge/reliability.svg')
+  const page = typeof window === 'undefined' ? '' : `${window.location.origin}${assetUrl('')}`
+  const snippet = `[![Agent reliability](${page}${svg.replace(/^\//, '')})](${page}leaderboard)`
+  return (
+    <section>
+      <h2>Embed this</h2>
+      <p className="muted">
+        Generated from the runs above. The colour follows the confidence interval&apos;s lower
+        bound, not the success rate, so a small sample never renders as a green badge — 10 of 10
+        runs is 100% with a lower bound near 72%, and shows amber.
+      </p>
+      <p>
+        <img src={svg} alt="Agent reliability badge generated from this dataset" />
+      </p>
+      <CopyableSnippet label="Markdown for a README" text={snippet} />
+    </section>
   )
 }
 

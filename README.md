@@ -32,6 +32,27 @@ Most agent benchmarks optimize for headline scores. They rarely answer the quest
 
 ToolTrace Bench is a **reliability laboratory**, not a leaderboard hype machine. It emphasizes repeatability, tool behavior, failure recovery, complete traces, and CI regression gates — locally and offline by default.
 
+## Point it at your own agent
+
+```bash
+pip install -e ".[dev]"
+tooltrace init --agent subprocess --command "my-agent --task {objective}"
+```
+
+`init` writes `tooltrace.config.json` and a CI workflow, then **runs one real
+task with your agent and tells you what happened**. A failing first run is a
+successful init: that is a measurement of your agent, not a setup problem, and
+the report says which. It overwrites nothing without `--force`, and it never
+writes a credential — `--agent-config` for an API endpoint takes the *name* of an
+environment variable, never a key.
+
+One passing run is wiring, not reliability. For a number with an interval around
+it:
+
+```bash
+tooltrace benchmark --agent subprocess --agent-config @tooltrace.config.json --runs 20 --summary
+```
+
 ## 60-second quickstart
 
 ```bash
@@ -60,7 +81,15 @@ tooltrace benchmark --task file-editing/fix-config-typo,bug-fixing/fix-off-by-on
 
 # 8. Compare two runs (only identical task/protocol versions compare)
 tooltrace compare runs/run-A.tooltrace runs/run-B.tooltrace
+
+# 9. Put the number in your own README
+tooltrace badge --bundles runs/ --out badges/reliability.svg
 ```
+
+The badge always carries its sample size, and its colour comes from the
+confidence interval's **lower bound** rather than the success rate. 10 of 10 runs
+is 100% with a lower bound near 72%, so it renders amber. A green badge should
+mean the sample supports the claim, not that the point estimate landed high.
 
 ### Or run it in a container
 

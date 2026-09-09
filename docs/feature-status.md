@@ -121,6 +121,8 @@ and a row claiming a task pack has to have that pack on disk.
 | 75 | Reliability frontier charts (success/latency/cost/efficiency) | P | `web/src/charts.tsx` (`Scatter`, `LineChart`) |
 | 75a | Security-posture view: ASR per attack class, with intervals | I | `web/src/pages/assurance.tsx` (`SecurityPosturePage`, `RateReadout`), `scripts/generate_web_data.py` (`_security_posture`) |
 | 75b | Evidence view for a compliance reviewer (no compliance claim) | I | `web/src/pages/assurance.tsx` (`EvidencePage`), `tooltrace/analysis/evidence.py`, `web/src/__tests__/assurance.test.tsx` |
+| 75c | Onboarding wizard against the user's own agent | I | `tooltrace/cli/init.py` (`run_init`, `verify`), `tests/test_init_command.py` |
+| 75d | Embeddable reliability badge (SVG + shields endpoint) | I | `tooltrace/reports/badge.py`, `web/src/pages/browse.tsx` (`BadgeEmbed`), `tests/test_badge.py` |
 | 76 | Failure clustering (deterministic vectors; semantic labeled) | I | `tooltrace/analysis/core.py` (`cluster_failures`) |
 | 77 | Root-cause drill-down aggregate → trace/assertion | I | `tooltrace/analysis/failures.py` (`Classification.seq`), `tooltrace/metrics/aggregate.py` (`failure_step`), `tooltrace/cli/main.py` (`cmd_trace`), `web/src/lib/clusters.ts` (`clusterFailures`, `stepLink`) |
 | 78 | Reproducibility score (metadata completeness, not validity) | I | `tooltrace/analysis/core.py` (`reproducibility_score`) |

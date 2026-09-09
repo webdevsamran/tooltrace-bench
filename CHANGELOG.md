@@ -7,6 +7,51 @@ versioning follows [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- **`tooltrace init` — an on-ramp, not a scaffold.** Getting from "installed" to
+  "learned something about my agent" previously meant reading the adapter docs,
+  discovering that `subprocess` takes a `command` with an `{objective}`
+  placeholder, hand-writing JSON, quoting it correctly for your shell and
+  guessing a task id. Every step is a place to give up and none of them teaches
+  anything about the agent.
+
+  `init` writes `tooltrace.config.json` and a CI workflow, then **runs one real
+  task with the configured agent and reports what happened**. A command that
+  stops at writing files leaves the user to find out their config is wrong on
+  their own time. A failing first run is still a successful init — that is a
+  measurement of the agent, not a setup problem, and the report says which.
+
+  It overwrites nothing without `--force` and reports every collision at once
+  rather than one `--force` at a time. It never writes a credential:
+  `openai_compat` gets the *name* of an environment variable, because a
+  generated file gets committed. It never blocks on a prompt without a tty, so
+  it is safe in CI. And the command it prints omits `--agent-config` when the
+  written config would break the run — `scripted` takes its script from each
+  task, so passing an empty one overrides it. A generated command that fails is
+  the exact defect shape this project keeps finding.
+
+- **`--agent-config @path`** on `run`, `benchmark`, `showdown` and `perturb`.
+  Inline JSON still works. `@path` exists so the file `init` writes is a file the
+  other commands can read; a missing or malformed file is a message naming it,
+  not a traceback.
+
+- **`tooltrace badge` — an embeddable reliability badge.** A badge is the
+  most-quoted surface a project has: screenshotted, pasted into decks, read by
+  people who will never open the run behind it. So this one differs from the
+  usual coverage badge in two ways. The **sample size is always in the message**,
+  because `92% (n=25)` and `92% (n=2)` are different claims. And the **colour
+  comes from the confidence interval's lower bound, not the rate** — 10 of 10
+  runs is 100% with a lower bound near 72%, so it renders amber. A green badge
+  should mean the sample supports the claim, not that the point estimate landed
+  high.
+
+  Self-contained SVG: no dependency, no network, no script, nothing external for
+  a host page to load. The interval and the small-sample caveat travel in the
+  accessible name, where the picture cannot carry them. A shields.io `endpoint`
+  JSON is written beside it, deriving its colour from the same rule so a
+  shields-rendered badge cannot be greener than ours. The site publishes one at
+  `badge/reliability.svg`, and the leaderboard offers the markdown to embed it.
+
+### Added
 - **Security-posture view, and the sample dataset now actually attacks something.**
   Two security packs shipped, and no security run appeared in the published
   dataset, so the leaderboard's security axis read "not measured" for every

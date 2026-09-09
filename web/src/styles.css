@@ -840,6 +840,31 @@ tbody tr:hover { background: var(--bg-sunken); }
 .evidence-table td.bad { color: var(--bad); font-weight: 700; }
 .mono-sm { font-family: var(--mono); font-size: 0.8em; }
 
+/* Snippet with a copy affordance. The text stays selectable, so the button is
+   a convenience and never the only way to get the content out. */
+.snippet {
+  border: 1px solid var(--border); border-radius: var(--r-3);
+  background: var(--bg-sunken); margin-bottom: var(--s-4); overflow: hidden;
+}
+.snippet-head {
+  display: flex; justify-content: space-between; align-items: center; gap: var(--s-3);
+  padding: var(--s-2) var(--s-3); border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+.snippet-label { font-size: var(--step--1); color: var(--muted); font-weight: 550; }
+.snippet-copy {
+  font: inherit; font-size: var(--step--1); cursor: pointer;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--r-2); padding: 0.15rem 0.6rem; color: var(--text);
+  transition: border-color var(--t-micro) var(--ease), background-color var(--t-micro) var(--ease);
+}
+.snippet-copy:hover { border-color: var(--border-strong); background: var(--bg-sunken); }
+.snippet-copy:active { transform: translateY(1px); }
+.snippet-body {
+  margin: 0; padding: var(--s-3); overflow-x: auto;
+  font-family: var(--mono); font-size: 0.78rem; line-height: 1.6;
+}
+
 /* --- 14. Responsive ------------------------------------------------------ */
 
 @media (max-width: 1080px) {
