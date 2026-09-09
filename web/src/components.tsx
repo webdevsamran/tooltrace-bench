@@ -528,3 +528,44 @@ export function VirtualList<T>({
     </div>
   )
 }
+
+// ---------- copy to clipboard ----------
+
+/**
+ * A snippet with a copy button, and a fallback that assumes nothing.
+ *
+ * `navigator.clipboard` is unavailable on an insecure origin, in some embedded
+ * webviews, and whenever the user denies permission. In all three the text is
+ * still selectable, so the failure path is "select it yourself" rather than a
+ * button that silently does nothing — which is the worst of the options because
+ * the user has no way to tell it failed.
+ */
+export function CopyableSnippet({ text, label }: { text: string; label: string }) {
+  const [state, setState] = _useState<'idle' | 'copied' | 'failed'>('idle')
+
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(text)
+      setState('copied')
+    } catch {
+      setState('failed')
+    }
+  }
+
+  return (
+    <div className="snippet">
+      <div className="snippet-head">
+        <span className="snippet-label">{label}</span>
+        <button type="button" className="snippet-copy" onClick={copy}>
+          {state === 'copied' ? 'Copied' : state === 'failed' ? 'Select and copy' : 'Copy'}
+        </button>
+      </div>
+      {/* aria-live so the outcome reaches a screen reader; the button's own
+          label changing is not announced on its own in every reader. */}
+      <p className="sr-only" aria-live="polite">
+        {state === 'copied' ? 'Copied to clipboard' : state === 'failed' ? 'Copying is unavailable here; select the text instead' : ''}
+      </p>
+      <pre className="snippet-body"><code>{text}</code></pre>
+    </div>
+  )
+}

@@ -181,3 +181,52 @@ describe('four-axis leaderboard', () => {
     await waitFor(() => expect(container.querySelector('.badge-ok')).toBeTruthy())
   })
 })
+
+/**
+ * The badge embed. A README is the one place a reliability number reaches people
+ * who will never open the run behind it, so the snippet has to work and the
+ * caveat has to travel with it.
+ */
+describe('badge embed', () => {
+  beforeEach(() => vi.unstubAllGlobals())
+
+  it('shows the badge generated from this dataset', async () => {
+    mockData(AGENT)
+    renderPage()
+    await screen.findByRole('heading', { name: /leaderboard/i })
+    const img = await screen.findByRole('img', { name: /reliability badge/i })
+    expect(img).toHaveAttribute('src', expect.stringContaining('badge/reliability.svg'))
+  })
+
+  it('offers a snippet that points at the badge, not at a placeholder', async () => {
+    mockData(AGENT)
+    renderPage()
+    await screen.findByRole('heading', { name: /leaderboard/i })
+    const snippet = await screen.findByText(/!\[Agent reliability\]/)
+    expect(snippet.textContent).toContain('badge/reliability.svg')
+    expect(snippet.textContent).toContain('leaderboard')
+  })
+
+  it('states the colour rule, because copying the snippet publishes the number', async () => {
+    mockData(AGENT)
+    renderPage()
+    await screen.findByRole('heading', { name: /leaderboard/i })
+    expect(await screen.findByText(/lower bound, not the success rate/i)).toBeInTheDocument()
+  })
+
+  it('falls back to "select and copy" when the clipboard is unavailable', async () => {
+    // Insecure origins, some webviews, and a denied permission. A button that
+    // silently fails is worse than one that says it cannot.
+    mockData(AGENT)
+    vi.stubGlobal('navigator', {
+      clipboard: { writeText: () => Promise.reject(new Error('denied')) },
+    })
+    renderPage()
+    await screen.findByRole('heading', { name: /leaderboard/i })
+    const button = await screen.findByRole('button', { name: 'Copy' })
+    button.click()
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /select and copy/i })).toBeInTheDocument(),
+    )
+  })
+})

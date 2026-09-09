@@ -37,6 +37,8 @@ from tooltrace.artifacts.bundles import (
 from tooltrace.core.versions import FRAMEWORK_VERSION
 from tooltrace.metrics.aggregate import failure_step
 from tooltrace.metrics.security import attack_class_of, attack_success_rate
+from tooltrace.reports.badge import from_bundles as badge_from_bundles
+from tooltrace.reports.badge import render_endpoint, render_svg
 
 ROOT = Path(__file__).resolve().parents[1]
 RESULTS = ROOT / "results"
@@ -287,6 +289,18 @@ def main() -> int:
             indent=2,
         ),
         encoding="utf-8",
+    )
+
+    # The reliability badge, so this project's own README can carry the number
+    # it publishes rather than a hand-typed one that drifts. Colour comes from
+    # the interval's lower bound, so a badge can never be greener than the
+    # sample supports.
+    badge_dir = WEB_PUBLIC / "badge"
+    badge_dir.mkdir(parents=True, exist_ok=True)
+    facts = badge_from_bundles(verified_bundles)
+    (badge_dir / "reliability.svg").write_text(render_svg(facts), encoding="utf-8")
+    (badge_dir / "reliability.json").write_text(
+        json.dumps(render_endpoint(facts), indent=2), encoding="utf-8"
     )
 
     # The evidence dossier, dated from the newest run rather than the clock, so

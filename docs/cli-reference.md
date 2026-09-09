@@ -9,6 +9,7 @@ Exit codes: `0` ok · `2` usage · `3` task/validation · `4` agent · `5` run f
 | Command | Purpose |
 |---|---|
 | `doctor` | Environment, registries, plugin discovery health check |
+| `init [--agent A] [--command CMD] [--dir D] [--task ID] [--no-ci] [--no-run] [--force]` | Set up this project against **your** agent: writes `tooltrace.config.json` and a CI workflow, then runs one real task and reports the outcome. Overwrites nothing without `--force`, and never writes a credential — `openai_compat` gets the *name* of an env var. A failing first run is still a successful init: that is a measurement, not a setup problem |
 | `tasks [--category]` | List bundled tasks |
 | `run --task ID --agent A [--agent-config JSON] [--out DIR]` | One deterministic task against one agent; writes a bundle |
 | `benchmark --agent A [--runs N] [--task ids] [--limit N] [--shuffle] [--seed S] [--context-sweep] [--min-success-rate]` | Repeated reliability runs with pass@k/pass^k-aware summaries and trajectory metrics. `--limit` runs a recorded subset for CI; the policy, seed and selected ids are reported and a subset announces itself on stderr |
@@ -28,8 +29,21 @@ Exit codes: `0` ok · `2` usage · `3` task/validation · `4` agent · `5` run f
 | Command | Purpose |
 |---|---|
 | `report --bundles DIR... [--format json\|csv\|md\|junit\|html] [--output F]` | Aggregate bundles into a report |
+| `badge (--summary F \| --bundles DIR) [--out F] [--svg-url U] [--link U]` | Render an embeddable reliability badge. The sample size is always in the message, and the colour comes from the confidence interval's **lower bound** rather than the rate — 10 of 10 runs is 100% with a lower bound near 72%, so it renders amber, not green. Writes a shields.io `endpoint` JSON beside the SVG |
 | `export --out DIR [--stdin]` | Run exporter plugins on a payload |
 | `serve --dir web/dist [--host] [--port]` | Serve the built frontend locally |
+
+## Agent config from a file
+
+`--agent-config` accepts inline JSON, or `@path` to read a JSON file:
+
+```bash
+tooltrace run --task file-editing/fix-config-typo --agent subprocess --agent-config @tooltrace.config.json
+```
+
+`@path` exists so that the file `tooltrace init` writes is a file the other
+commands can read. It also keeps a long config out of shell history and out of
+whichever shell's quoting rules you are subject to.
 
 ## Quality / safety gates
 

@@ -91,6 +91,99 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     return EXIT_OK if ok else EXIT_TASK
 
 
+def _agent_config(value: str | None) -> dict[str, object] | None:
+    """Adapter config from `--agent-config`: inline JSON, or `@path` to a file.
+
+    `@path` exists because `tooltrace init` writes a config file, and a
+    generated file that no command can read is a file that teaches the user
+    nothing. It also keeps a long config out of shell history and out of the
+    quoting rules of whichever shell the caller is in, which differ.
+    """
+    if not value:
+        return None
+    from tooltrace.cli.init import _agent_config_from
+
+    try:
+        return _agent_config_from(value)
+    except FileNotFoundError:
+        raise SystemExit(f"agent config file not found: {value[1:]}") from None
+    except json.JSONDecodeError as exc:
+        source = f"{value[1:]}: " if value.startswith("@") else ""
+        raise SystemExit(f"agent config is not valid JSON: {source}{exc}") from None
+
+
+def cmd_init(args: argparse.Namespace) -> int:
+    from tooltrace.cli.init import run_init
+
+    code, payload = run_init(
+        Path(args.dir),
+        adapter=args.agent,
+        command=args.command or "",
+        base_url=args.base_url or "",
+        model=args.model or "",
+        api_key_env=args.api_key_env or "",
+        task=args.task or "",
+        write_workflow=not args.no_ci,
+        force=args.force,
+        do_verify=not args.no_run,
+    )
+    if code != EXIT_OK:
+        for problem in payload.get("problems", []):
+            print(problem, file=sys.stderr)
+        _emit(payload, args.json)
+        return EXIT_USAGE
+    _emit(payload if args.json else payload["report"], args.json)
+    return EXIT_OK
+
+
+def cmd_badge(args: argparse.Namespace) -> int:
+    from tooltrace.reports.badge import (
+        embed_markdown,
+        from_bundles,
+        from_summary_file,
+        render_endpoint,
+        render_svg,
+    )
+
+    if args.summary:
+        facts = from_summary_file(Path(args.summary))
+    elif args.bundles:
+        facts = from_bundles(sorted(Path(args.bundles).glob("*.tooltrace")))
+    else:
+        print("badge needs --summary or --bundles", file=sys.stderr)
+        return EXIT_USAGE
+
+    svg = render_svg(facts)
+    endpoint = render_endpoint(facts)
+    written: list[str] = []
+    if args.out:
+        out = Path(args.out)
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(svg, encoding="utf-8")
+        written.append(str(out))
+        endpoint_path = out.with_suffix(".json")
+        endpoint_path.write_text(json.dumps(endpoint, indent=2), encoding="utf-8")
+        written.append(str(endpoint_path))
+
+    payload = {
+        "facts": facts,
+        "endpoint": endpoint,
+        "written": written,
+        "embed": embed_markdown(
+            args.svg_url or (written[0] if written else "badge.svg"), args.link or ""
+        ),
+        "svg": svg if not args.out else "",
+    }
+    if args.json:
+        _emit(payload, True)
+    elif args.out:
+        print(chr(10).join(written))
+        print(payload["embed"])
+    else:
+        print(svg)
+    return EXIT_OK
+
+
 def cmd_agents(args: argparse.Namespace) -> int:
     from tooltrace.agents import AgentAdapter  # noqa: F401
     from tooltrace.core.registry import agent_registry
@@ -163,7 +256,7 @@ def cmd_run(args: argparse.Namespace) -> int:
         print(f"skipped {task.id}: {state.reason}", file=sys.stderr)
         return EXIT_OK
 
-    agent_config = json.loads(args.agent_config) if args.agent_config else None
+    agent_config = _agent_config(args.agent_config)
     if agent_config is None and args.agent == "scripted":
         script = task.metadata.get("scripted_script")
         if isinstance(script, list):
@@ -276,7 +369,7 @@ def cmd_benchmark(args: argparse.Namespace) -> int:
     bench = run_benchmark(
         tasks,
         args.agent,
-        json.loads(args.agent_config) if args.agent_config else None,
+        _agent_config(args.agent_config),
         runs=args.runs,
         out_dir=Path(args.out) if args.out else None,
     )
@@ -309,7 +402,7 @@ def _cmd_context_sweep(args: argparse.Namespace, tasks: list[TaskDefinition]) ->
         sweep = context_sweep(
             family,
             args.agent,
-            json.loads(args.agent_config) if args.agent_config else None,
+            _agent_config(args.agent_config),
             runs=args.runs,
             out_dir=Path(args.out) if args.out else None,
         )
@@ -363,7 +456,7 @@ def cmd_showdown(args: argparse.Namespace) -> int:
     # vectors are genuinely paired and paired_delta is legitimate.
     outcomes: dict[str, list[bool]] = {}
     for index, agent in enumerate(agents):
-        config = json.loads(args.agent_config) if args.agent_config else None
+        config = _agent_config(args.agent_config)
         bench = run_benchmark(
             tasks, agent, config, runs=args.runs, out_dir=Path(args.out) if args.out else None
         )
@@ -1124,6 +1217,8 @@ def cmd_task_group(args: argparse.Namespace) -> int:
 
 
 def build_parser() -> argparse.ArgumentParser:
+    from tooltrace.cli.init import ADAPTERS as ADAPTERS_FOR_INIT
+
     p = argparse.ArgumentParser(prog="tooltrace", description=__doc__)
     p.add_argument("--version", action="store_true")
     sub = p.add_subparsers(dest="command")
@@ -1135,6 +1230,35 @@ def build_parser() -> argparse.ArgumentParser:
         return sp
 
     add("doctor", cmd_doctor, "environment and registry health check")
+
+    i = add("init", cmd_init, "set up this project against your own agent and run one task")
+    i.add_argument(
+        "--dir", default=".", help="where to write the config and workflow (default: here)"
+    )
+    i.add_argument(
+        "--agent",
+        choices=sorted(ADAPTERS_FOR_INIT),
+        help="adapter for your agent; prompted when interactive, else subprocess",
+    )
+    i.add_argument("--command", help="subprocess: how to invoke your agent, with {objective}")
+    i.add_argument("--base-url", help="openai_compat: endpoint, e.g. http://localhost:11434/v1")
+    i.add_argument("--model", help="openai_compat: model name")
+    i.add_argument(
+        "--api-key-env",
+        help="openai_compat: NAME of the env var holding the key. Never the key itself.",
+    )
+    i.add_argument("--task", help="task to run first (default: a short offline one)")
+    i.add_argument("--no-ci", action="store_true", help="do not write a GitHub Actions workflow")
+    i.add_argument("--no-run", action="store_true", help="write the files without running a task")
+    i.add_argument("--force", action="store_true", help="overwrite existing files")
+
+    bd = add("badge", cmd_badge, "render an embeddable reliability badge (SVG)")
+    bd.add_argument("--summary", help="a `benchmark --summary --json` payload")
+    bd.add_argument("--bundles", help="a directory of .tooltrace bundles")
+    bd.add_argument("--out", help="write the SVG here (and the shields endpoint beside it)")
+    bd.add_argument("--svg-url", help="URL the README should point at, for the embed snippet")
+    bd.add_argument("--link", help="URL the badge should link to")
+
     add("agents", cmd_agents, "list registered agent adapters")
 
     t = add("tasks", cmd_tasks, "list available tasks")
