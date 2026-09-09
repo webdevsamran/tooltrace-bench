@@ -86,7 +86,7 @@ and a row claiming a task pack has to have that pack on disk.
 | 40 | Hallucinated-resource metrics | I | `tooltrace/metrics/trajectory.py` (`hallucinated_resources`) |
 | 41 | Context-retention metrics | I | `tooltrace/metrics/trajectory.py` (`context_retention`) |
 | 42 | Abstention/calibration tasks | N | nothing in the package mentions abstention or clarification; no task, scorer or metric ships |
-| 43 | Outcome-vs-trajectory dual scoring | I | `tooltrace/tasks/v2.py` (`ScoringContract`) |
+| 43 | Outcome-vs-trajectory dual scoring | I | `tooltrace/scoring/trace_scorers.py` (`tool_call_match`, `tools_used`, `no_failed_calls`), `tooltrace/scoring/trace_view.py`, `tooltrace/tasks/packs/tool-call-structure` |
 | 44 | Judge-independent deterministic scoring; judge dep reported | I | `tooltrace/scoring/builtin.py` (15 deterministic scorers, no judge), `tooltrace/tasks/v2.py` (`ScoringContract.judge_required`), `tooltrace/tasks/linting.py` (`judge_not_needed`) |
 | 45 | Multi-judge adapters w/ disagreement reporting | D | no judge adapter ships; `tooltrace/core/models.py` reserves `judge_config`, never assigned |
 | 46 | Judge calibration datasets + drift reports | D | no calibration module ships; the row previously cited a "calibration sets module" that does not exist |

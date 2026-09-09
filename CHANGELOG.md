@@ -117,6 +117,30 @@ versioning follows [Semantic Versioning](https://semver.org/).
   separately because they fail for different reasons — tampering after the fact
   versus never having matched the published format — and `--no-schema` runs the
   checksum half alone.
+- **Trace-aware scorers, and BFCL-style tool-call matching.** All fifteen
+  original scorers take `(params, workspace)` and read the final state of the
+  filesystem. That is the right default — it is what lets a third party
+  recompute a score from a bundle — but it makes a whole class of question
+  inexpressible: "did the agent read the file before overwriting it?" cannot be
+  answered from the file.
+
+  A second scorer kind takes `(params, trace)`. Three ship: `tool_call_match`
+  (structural comparison of emitted calls by name, argument names and argument
+  types, executing nothing), `tools_used`, and `no_failed_calls`. The structural
+  approach is modelled on the Berkeley Function-Calling Leaderboard's, with
+  attribution, and `docs/tool-call-structure.md` states plainly that it is *not*
+  the headline metric here: BFCL scores the call, this project scores the run.
+
+  `tooltrace/tasks/packs/tool-call-structure/read-before-write.yaml` is the
+  demonstration, and the argument for the project in one task: an agent that
+  writes the correct answer without ever reading the file scores **1.0 on the
+  outcome assertion and fails overall**. A benchmark inspecting only the end
+  state would have called that a pass.
+
+  The `trace` argument is optional and defaults to `None`, so every existing
+  caller is unaffected. A trace assertion evaluated without a trace returns an
+  explicit refusal rather than a silent zero — "we could not look" and "we
+  looked and it failed" are different facts.
 - **Four-axis leaderboard.** The public leaderboard ranked on success rate
   alone. It now shows accuracy, cost per resolved task, p95 latency and attack
   success rate side by side — the combination no competing benchmark reports.

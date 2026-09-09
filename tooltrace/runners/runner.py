@@ -29,6 +29,7 @@ from tooltrace.perturbations import PerturbationEngine
 from tooltrace.sandbox.diff import changed_paths, snapshot, workspace_diff
 from tooltrace.sandbox.local import TempWorkspaceSandbox
 from tooltrace.scoring.composite import is_partial_success, is_success, score_task
+from tooltrace.scoring.trace_view import TraceView
 from tooltrace.security.sanitize import sanitize_obj, summarize
 from tooltrace.tools.base import ToolContext
 from tooltrace.tools.executor import SeqCounter, ToolExecutor
@@ -172,7 +173,9 @@ class TaskRunner:
             changed = changed_paths(before, after)
             emit("workspace_diff", {"changed_paths": changed, "diff_bytes": len(diff_text)})
 
-            score, details = score_task(task, workspace)
+            # The trajectory so far, so a trace-aware assertion can see which
+            # tools were called and with what arguments.
+            score, details = score_task(task, workspace, TraceView.from_events(events))
             success = is_success(score)
             partial = is_partial_success(score)
             emit(
