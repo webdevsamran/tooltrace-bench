@@ -144,7 +144,7 @@ and a row claiming a task pack has to have that pack on disk.
 | 98 | Deterministic clock injection | I | `tooltrace/sandbox/infra.py` (`DeterministicClock`) |
 | 99 | Fault-injection framework (transient errors, timeouts, malformed responses, restarts) | I | `tooltrace/perturbations/`, CLI `perturb` |
 | 100 | Chaos/recovery suites (no unsafe repeated side effects) | I | `tooltrace/tasks/packs/failure-recovery` |
-| 101 | Harness self-test (cleanup, determinism, timers, fixtures, integrity) | I | `cmd_self_test` |
+| 101 | Harness self-test (cleanup, determinism, timers, fixtures, integrity) | I | `cmd_self_test`, `tooltrace/sandbox/escape.py` (adversarial escape suite) |
 | 102 | Authoring studio APIs for interactive validation | I | `tooltrace/tasks/sdk.py` (`validate_task_dir`, `scratch_workspace`) |
 | 103 | Catalog/marketplace metadata from trusted manifests (no auto-install) | I | `tooltrace/tasks/governance.py` (`build_pack_index`) |
 | 104 | Contribution quality checks (multi-run deterministic reference agents) | I | `scripts/make_sample_results.py` |

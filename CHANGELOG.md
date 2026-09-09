@@ -117,6 +117,25 @@ versioning follows [Semantic Versioning](https://semver.org/).
   separately because they fail for different reasons — tampering after the fact
   versus never having matched the published format — and `--no-schema` runs the
   checksum half alone.
+- **An adversarial sandbox-escape suite.** `scripts/sandbox_check.py` calls
+  `resolve_in_workspace` with a few bad paths and checks some defaults. That is
+  a conformance check on a helper — it proves the function rejects what it is
+  handed, not that an agent cannot get out, because an agent never calls that
+  helper. It calls tools, through `ToolExecutor`.
+
+  `scripts/sandbox_escape_check.py` attacks that path with sixteen attempts:
+  traversal and absolute paths across every filesystem tool, network egress
+  under a disabled policy, the cloud metadata endpoint, and remote git
+  operations. It runs in CI and fails the build if anything the sandbox claims
+  to block gets through. Success is judged on **evidence** — a file appearing
+  outside the workspace — rather than on the tool's own report, because a write
+  that claims to have failed and still landed outside has still escaped.
+
+  The two documented limits of the local sandbox (`shell` can write outside the
+  workspace and read the environment) are attempted and reported as confirmed
+  rather than skipped: a suite that quietly omits the attacks it would fail
+  measures nothing. If either ever starts being blocked, the script says so, so
+  `docs/threat-model.md` can be tightened rather than left overstating the gap.
 - **Trace-aware scorers, and BFCL-style tool-call matching.** All fifteen
   original scorers take `(params, workspace)` and read the final state of the
   filesystem. That is the right default — it is what lets a third party
