@@ -53,6 +53,17 @@ versioning follows [Semantic Versioning](https://semver.org/).
   `ok` is `not mismatched and not errors`, so `ok` was unreachable. The note was
   only ever meant to stop callers mistaking a partial replay for a full one; it
   now lives in a separate `notes` field.
+- **`showdown` declared an order it could not support.** It sorted on the
+  success-rate point estimate, carried a confidence interval in its own output
+  and never consulted it, so two agents at `--runs 1` came back definitively
+  ranked. It now reports `verdict: "not distinguishable at this sample size"`
+  unless the sample clears `significance_note`'s threshold *and* the leader's
+  Wilson interval is disjoint from the runner-up's, and attaches `paired_delta`
+  and Cohen's *h* per challenger. `paired_delta`, `effect_size_cohens_h` and
+  `significance_note` had shipped since 0.2.0 with no caller outside the tests;
+  the per-agent `flakiness` block was computed and silently dropped. Output is
+  now an object rather than a bare list.
+
 - **Replay never injected the faults a task declares.** `replay_trace` built a
   `PerturbationEngine` and prepared its workspace, but never passed `engine.hook`
   to the executor, so any task carrying a perturbation replayed as a mismatch —

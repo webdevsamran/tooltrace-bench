@@ -159,8 +159,13 @@ class TestCLICommands:
             ]
         )
         assert code == 0
-        rows = json.loads(capsys.readouterr().out)
+        payload = json.loads(capsys.readouterr().out)
+        rows = payload["standings"]
         assert len(rows) == 2 and rows[0]["success_rate"] == 1.0
+        # Two runs cannot separate two agents, and the tool must say so rather
+        # than returning a confident order.
+        assert payload["ranking_is_provisional"] is True
+        assert payload["verdict"] == "not distinguishable at this sample size"
 
     def test_benchmark_summary_and_gate(self, capsys) -> None:
         from tooltrace.cli.main import main

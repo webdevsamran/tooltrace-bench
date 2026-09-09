@@ -12,7 +12,7 @@ Exit codes: `0` ok · `2` usage · `3` task/validation · `4` agent · `5` run f
 | `tasks [--category]` | List bundled tasks |
 | `run --task ID --agent A [--agent-config JSON] [--out DIR]` | One deterministic task against one agent; writes a bundle |
 | `benchmark --agent A [--runs N] [--task ids] [--context-sweep] [--min-success-rate]` | Repeated reliability runs with pass@k/pass^k-aware summaries |
-| `showdown --agents a,b [--runs N]` | Fair multi-agent ranking on identical cohorts |
+| `showdown --agents a,b [--runs N]` | Fair multi-agent ranking on identical cohorts. Emits `{standings, verdict, note, ranking_is_provisional}`; the verdict is `ranked` only when the sample is large enough *and* the leader's confidence interval clears the runner-up's, otherwise `not distinguishable at this sample size` |
 | `compare --baseline B --current C [--metrics m1,m2]` | Metric-by-metric bundle comparison |
 | `baseline --name N --bundle PATH` | Record a named baseline |
 | `regression --baseline B --current C --thresholds JSON` | CI gate for score/tool/latency regressions |
