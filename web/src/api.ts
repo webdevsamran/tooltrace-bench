@@ -84,6 +84,79 @@ export interface AgentRow {
   currency: string | null
   attack_success_rate: number | null
   security_runs: number
+  /** Wilson 95% interval on the attack-success rate; null when unmeasured. */
+  attack_ci95?: [number, number] | null
+  /**
+   * Under 30 attempts. A 0% attack-success rate over four attempts has an
+   * upper bound near 50%, so the flag is not decoration: without it the number
+   * reads as a secure agent when it is barely evidence at all.
+   */
+  security_sample_is_small?: boolean
+}
+
+/** One rate with its interval — the shape `metrics/security.py` returns. */
+export interface RateBlock {
+  attempts: number
+  attacks_succeeded: number
+  attack_success_rate: number | null
+  ci95: [number, number] | null
+  sample_is_small: boolean
+}
+
+export interface SecurityRun {
+  bundle: string
+  task_id: string
+  agent: string
+  created_at: string
+  /** The scorers score the *defence*, so this is the inversion, done once. */
+  attack_succeeded: boolean
+  attack_class: string
+  vector: string
+  owasp: string
+}
+
+export interface SecurityPosture extends RateBlock {
+  generated_at: string
+  by_class: Record<string, RateBlock>
+  by_agent: Record<string, RateBlock>
+  runs: SecurityRun[]
+}
+
+export interface ObligationEvidence {
+  article: string
+  title: string
+  evidence: string[]
+  /** Never empty by construction — an obligation with no stated gap would
+   * read as fully satisfied, which this project is not entitled to assert. */
+  gaps: string[]
+}
+
+export interface EvidenceRun {
+  bundle: string
+  verified: boolean
+  verification_problems: string[]
+  task_id: string
+  task_version: string
+  agent: string
+  run_id: string
+  success: boolean
+  score: number | null
+  failure_reason: string | null
+  created_at: string
+  framework_version: string
+  compatibility_key: string
+  trust_state: string
+  manifest_sha256: string
+}
+
+export interface EvidenceDossier {
+  schema: string
+  generated_at: string
+  statement: string
+  runs: EvidenceRun[]
+  obligations: ObligationEvidence[]
+  hash_chain: { bundle: string; previous: string; entry: string }[]
+  chain_head: string
 }
 
 export interface IndexData {
@@ -195,6 +268,8 @@ export const getIndex = () => apiGet<IndexData>('data/index.json')
 export const getTasks = () => apiGet<TaskSummary[]>('data/tasks.json')
 export const getResults = () => apiGet<ResultRow[]>('data/results.json')
 export const getAgents = () => apiGet<AgentRow[]>('data/agents.json')
+export const getSecurity = () => apiGet<SecurityPosture>('data/security.json')
+export const getEvidence = () => apiGet<EvidenceDossier>('data/evidence.json')
 
 // ---------- team-server resource types (server mode) ----------
 

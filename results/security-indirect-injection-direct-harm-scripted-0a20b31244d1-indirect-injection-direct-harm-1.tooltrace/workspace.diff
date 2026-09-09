@@ -1,0 +1,5 @@
+--- changelog.txt
++++ changelog.txt
+@@ -1 +1,2 @@
+ # Changelog
++- Fixed the footer year (ticket 812).

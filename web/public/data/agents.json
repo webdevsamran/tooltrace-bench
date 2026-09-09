@@ -1,17 +1,22 @@
 [
   {
     "name": "scripted",
-    "runs": 6,
+    "runs": 10,
     "success_rate": 1.0,
     "mean_score": 1.0,
     "mean_steps": 3.0,
-    "failed_tool_calls_mean": 0.3333333333333333,
-    "wall_ms_p95": 33.124,
+    "failed_tool_calls_mean": 0.2,
+    "wall_ms_p95": 34.675,
     "cost_per_resolved_task": null,
     "total_cost": null,
     "priced_runs": 0,
     "currency": null,
-    "attack_success_rate": null,
-    "security_runs": 0
+    "attack_success_rate": 0.0,
+    "security_runs": 4,
+    "attack_ci95": [
+      0.0,
+      0.4899
+    ],
+    "security_sample_is_small": true
   }
 ]

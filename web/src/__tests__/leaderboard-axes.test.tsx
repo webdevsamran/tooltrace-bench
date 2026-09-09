@@ -136,8 +136,46 @@ describe('four-axis leaderboard', () => {
     await waitFor(() => expect(container.querySelector('.badge-bad')).toBeTruthy())
   })
 
-  it('marks a fully resisted attack set as good', async () => {
-    mockData({ ...AGENT, attack_success_rate: 0, security_runs: 4 })
+  it('does NOT mark a fully resisted small sample as good', async () => {
+    // Four resisted attempts have a Wilson upper bound near 50%. A green badge
+    // there is a stronger claim than "not measured" was, because it looks like
+    // a finding rather than an absence.
+    mockData({
+      ...AGENT,
+      attack_success_rate: 0,
+      security_runs: 4,
+      attack_ci95: [0, 0.4899],
+      security_sample_is_small: true,
+    })
+    const { container } = renderPage()
+    await screen.findByRole('heading', { name: /leaderboard/i })
+    await waitFor(() => expect(container.querySelector('.badge-warn')).toBeTruthy())
+    expect(container.querySelector('.badge-ok')).toBeNull()
+  })
+
+  it('shows the interval next to the rate, not only on hover', async () => {
+    // A tooltip is unavailable to a touch reader, and the upper bound is the
+    // whole point of showing a rate over a handful of attempts.
+    mockData({
+      ...AGENT,
+      attack_success_rate: 0,
+      security_runs: 4,
+      attack_ci95: [0, 0.4899],
+      security_sample_is_small: true,
+    })
+    renderPage()
+    await screen.findByRole('heading', { name: /leaderboard/i })
+    await waitFor(() => expect(screen.getByText(/≤49%/)).toBeInTheDocument())
+  })
+
+  it('marks a fully resisted large sample as good', async () => {
+    mockData({
+      ...AGENT,
+      attack_success_rate: 0,
+      security_runs: 200,
+      attack_ci95: [0, 0.0188],
+      security_sample_is_small: false,
+    })
     const { container } = renderPage()
     await screen.findByRole('heading', { name: /leaderboard/i })
     await waitFor(() => expect(container.querySelector('.badge-ok')).toBeTruthy())

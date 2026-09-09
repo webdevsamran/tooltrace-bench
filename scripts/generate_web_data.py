@@ -19,20 +19,24 @@ a bar chart of categories into something a reader can open at the exact step.
 from __future__ import annotations
 
 import json
+import shutil
 import sys
 from collections import defaultdict
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from tooltrace.analysis.evidence import build_dossier
 from tooltrace.artifacts.bundles import (
     load_bundle_result,
+    load_bundle_task,
     load_bundle_trace,
     read_manifest,
     verify_bundle,
 )
 from tooltrace.core.versions import FRAMEWORK_VERSION
 from tooltrace.metrics.aggregate import failure_step
+from tooltrace.metrics.security import attack_class_of, attack_success_rate
 
 ROOT = Path(__file__).resolve().parents[1]
 RESULTS = ROOT / "results"
@@ -52,29 +56,106 @@ def _cost_axis(results: list) -> dict[str, object]:
     }
 
 
-def _security_axis(results: list) -> dict[str, object]:
-    """Attack-success rate, or null while no security pack ships.
+def _security_axis(results: list, metadata_by_task: dict[str, dict]) -> dict[str, object]:
+    """Attack-success rate, with the interval and the small-sample flag.
 
-    `docs/feature-status.md` row 16 is graded `S`: the security domain is
-    declarable and no pack ships, so there is nothing to measure yet. Reporting
-    `0.0` here would render as a perfect security score for an agent nobody has
-    attacked, which is the most misleading number this dashboard could show.
+    Derived by `tooltrace.metrics.security.attack_success_rate` rather than
+    recomputed here, so the dashboard and the CLI cannot disagree about how
+    resistant an agent is.
+
+    Null, never zero, when no security task ran: an unmeasured attack-success
+    rate rendered as 0% reads as a perfectly secure agent, which is the most
+    misleading number this dashboard could show.
     """
     security_runs = [r for r in results if str(r.task_id).startswith("security/")]
     if not security_runs:
-        return {"attack_success_rate": None, "security_runs": 0}
-    resisted = sum(1 for r in security_runs if r.success)
+        return {
+            "attack_success_rate": None,
+            "security_runs": 0,
+            "attack_ci95": None,
+            "security_sample_is_small": False,
+        }
+    block = attack_success_rate(
+        [r.model_dump(mode="json") for r in security_runs], metadata_by_task
+    )
     return {
-        "attack_success_rate": round(1 - resisted / len(security_runs), 6),
-        "security_runs": len(security_runs),
+        "attack_success_rate": block["attack_success_rate"],
+        "security_runs": block["attempts"],
+        "attack_ci95": block["ci95"],
+        # 0% over four attempts is not evidence of a secure agent, and the
+        # dashboard has to be able to say so.
+        "security_sample_is_small": block["sample_is_small"],
     }
 
 
+def _security_posture(
+    results_by_agent: dict[str, list], metadata_by_task: dict[str, dict], rows: list[dict]
+) -> dict[str, object]:
+    """The security-posture index: overall, per attack class, and per run.
+
+    Per-run records carry the timestamp so the view can show movement over time
+    rather than a single number, and the attack class and OWASP reference so a
+    reader can tell *what* was attempted, not only whether it worked.
+    """
+    security_rows = [r for r in rows if str(r["task_id"]).startswith("security/")]
+    all_runs = [r for rs in results_by_agent.values() for r in rs]
+    security_results = [r for r in all_runs if str(r.task_id).startswith("security/")]
+    if not security_results:
+        return {
+            "attempts": 0,
+            "attack_success_rate": None,
+            "by_class": {},
+            "by_agent": {},
+            "runs": [],
+        }
+
+    overall = attack_success_rate(
+        [r.model_dump(mode="json") for r in security_results], metadata_by_task
+    )
+    by_agent = {
+        agent: attack_success_rate(
+            [r.model_dump(mode="json") for r in rs if str(r.task_id).startswith("security/")],
+            metadata_by_task,
+        )
+        for agent, rs in sorted(results_by_agent.items())
+        if any(str(r.task_id).startswith("security/") for r in rs)
+    }
+    runs = []
+    for row in sorted(security_rows, key=lambda r: str(r["created_at"])):
+        metadata = metadata_by_task.get(str(row["task_id"]), {})
+        attack = metadata.get("attack") if isinstance(metadata.get("attack"), dict) else {}
+        runs.append(
+            {
+                "bundle": row["bundle"],
+                "task_id": row["task_id"],
+                "agent": row["agent"],
+                "created_at": row["created_at"],
+                # The scorers score the *defence*, so a failed run is a
+                # successful attack. Naming it this way round in the index
+                # means no reader has to remember the inversion.
+                "attack_succeeded": not row["success"],
+                "attack_class": attack_class_of(metadata),
+                "vector": str(attack.get("vector") or ""),
+                "owasp": str(attack.get("owasp") or ""),
+            }
+        )
+    return {**overall, "by_agent": by_agent, "runs": runs}
+
+
 def main() -> int:
+    # Published bundles are replaced, not accumulated. Appending left traces
+    # from deleted runs served alongside the current index, so the site could
+    # hand out a trace for a bundle that no longer appears in any result row.
+    shutil.rmtree(WEB_PUBLIC / "bundles", ignore_errors=True)
+
     bundles = sorted(RESULTS.glob("*.tooltrace"))
     results_rows: list[dict] = []
     tasks: dict[str, dict] = {}
     per_agent: dict[str, list] = defaultdict(list)
+    # Task metadata carries the declared attack class, which is what turns a
+    # failed security run into "an exfiltration attempt succeeded".
+    metadata_by_task: dict[str, dict] = {}
+    verified_bundles: list[Path] = []
     skipped = 0
 
     for bundle in bundles:
@@ -126,6 +207,14 @@ def main() -> int:
             },
         )
         per_agent[result.agent].append(result)
+        verified_bundles.append(bundle)
+        try:
+            metadata_by_task.setdefault(result.task_id, dict(load_bundle_task(bundle).metadata))
+        except Exception:
+            # A bundle whose task will not parse still counts as a run; it just
+            # has no declared attack class. Dropping the run would understate
+            # how many attacks were attempted.
+            metadata_by_task.setdefault(result.task_id, {})
 
         # raw per-bundle data for the result detail page
         out = WEB_PUBLIC / "bundles" / bundle.name
@@ -157,7 +246,7 @@ def main() -> int:
                 # security follow. Each is null when unmeasured rather than 0,
                 # so an axis nobody measured never reads as a perfect score.
                 **_cost_axis(rs),
-                **_security_axis(rs),
+                **_security_axis(rs, metadata_by_task),
             }
         )
 
@@ -187,6 +276,28 @@ def main() -> int:
     )
     (data_dir / "results.json").write_text(json.dumps(results_rows, indent=2), encoding="utf-8")
     (data_dir / "agents.json").write_text(json.dumps(agents_rows, indent=2), encoding="utf-8")
+
+    generated_at = max((r["created_at"] for r in results_rows), default="")
+    (data_dir / "security.json").write_text(
+        json.dumps(
+            {
+                "generated_at": generated_at,
+                **_security_posture(per_agent, metadata_by_task, results_rows),
+            },
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+
+    # The evidence dossier, dated from the newest run rather than the clock, so
+    # regenerating the site twice produces byte-identical output and the hash
+    # chain over it stays stable.
+    (data_dir / "evidence.json").write_text(
+        json.dumps(
+            build_dossier(verified_bundles, generated_at=generated_at or "unknown"), indent=2
+        ),
+        encoding="utf-8",
+    )
     print(
         f"web data: {len(results_rows)} results, {len(tasks)} tasks, "
         f"{len(agents_rows)} agents, {skipped} bundles skipped (failed verification)"

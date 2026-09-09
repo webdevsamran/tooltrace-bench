@@ -7,6 +7,71 @@ versioning follows [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- **Security-posture view, and the sample dataset now actually attacks something.**
+  Two security packs shipped, and no security run appeared in the published
+  dataset, so the leaderboard's security axis read "not measured" for every
+  agent, there was nothing to plot, and the evidence dossier recorded
+  "cybersecurity evidence is absent" as a gap. Those statements were honest
+  about a dataset that had never attacked anything — but the packs exist and
+  run, so `scripts/make_sample_results.py` now runs them.
+
+  The result is the reason this needed care rather than a chart. The scripted
+  agent resists all four attempts, and an attack-success rate of 0% over four
+  attempts has a Wilson upper bound near **49%**. Rendered as a bare green `0%`
+  that is *more* misleading than "not measured" was, because it looks like a
+  finding. So: every rate on the new `/security` page carries its attempt count
+  and its interval, a sample under 30 is labelled as one, and the leaderboard
+  badge for a fully-resisted small sample is a warning rather than a pass. The
+  page also refuses to generalise — what it measures is these payloads, on this
+  agent, in this dataset.
+
+- **Evidence view for a compliance reviewer.** `tooltrace evidence` produced a
+  hash-chained dossier mapping runs to EU AI Act Article 9/11/12/15 obligations,
+  and it was reachable from the CLI and nowhere else. `/evidence` renders it,
+  under the same constraint as the command: the disclaimer comes before any
+  number, gaps get a column of equal width and equal weight to evidence, an
+  unverified bundle is surfaced rather than dropped, and no rendering asserts
+  compliance. A machine-produced "compliant" verdict in a domain carrying €35M
+  penalties would borrow authority it has not earned.
+
+- **`changed_files` scorer** — the mirror of `protected_files`. Names each file
+  with the SHA-256 of its *starting* content and passes only if that hash no
+  longer matches. See the fix below for why it exists.
+
+### Fixed
+- **Every created or deleted file produced a corrupted workspace diff.**
+  `lines.extend(f"--- /dev/null{chr(10)}+++ {path}")` — `list.extend` iterates
+  its argument, and iterating a string yields characters, so the header was
+  spelled one letter per line: thirty-odd lines of single characters where two
+  lines belonged. `workspace.diff` is one of the six artifacts in a `.tooltrace`
+  bundle, checksummed into the manifest, rendered by the dashboard and cited by
+  the evidence dossier as the record of what a run changed.
+
+  It stayed invisible because all three tasks used to generate the sample
+  bundles *modify* an existing file, and that path goes through
+  `difflib.unified_diff`, which returns a list. Adding a task that creates one
+  surfaced it immediately. `workspace_diff` had no test of its own — the only
+  occurrences of the string in `tests/` were an event *type* in an ingest
+  fixture — so `tests/test_workspace_diff.py` now covers creation, deletion,
+  modification, ordering and a real directory.
+
+- **A security assertion could be satisfied by transcription.** The direct-harm
+  pack asserted `file_contains: "footer"` on the file the agent was asked to
+  append to, and `footer` is a word from `ticket.md`, which the agent reads. An
+  agent could earn that point by copying a word it was handed. This project's
+  own `leaked_expected_values` check flags exactly that pattern, and it fired on
+  a committed bundle as soon as the pack entered the sample dataset — which is
+  how it was found, and the check working as intended. The assertion is now
+  `changed_files` against the starting hash. A deleted file scores zero, because
+  deletion is the destructive act the pack exists to detect and rewarding it
+  would invert the measurement.
+
+- **Published bundles accumulated instead of being replaced.**
+  `scripts/generate_web_data.py` wrote into `web/public/bundles/` without
+  clearing it, so a local build served traces for runs that no longer appear in
+  any result row.
+
+### Added
 - **Failure-cluster explorer with drill-down to the exact failing step.** The
   failure page was a dropdown and a bar chart of the twelve failure *categories*.
   That view answers "how many runs hit `execution`" and cannot answer the

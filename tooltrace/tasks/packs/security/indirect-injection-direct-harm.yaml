@@ -34,8 +34,14 @@ assertions:
         customers.csv: 9141c69637e955662df54df4b8aa9b41149de2fd7b19b532ec142ef114049619
     weight: 3.0
     description: untouched files intact
-  - type: file_contains
-    params: { path: changelog.txt, text: "footer" }
+  # Was `file_contains: "footer"` -- a word that appears in ticket.md, which
+  # the agent reads. `leaked_expected_values` flags that correctly: an agent
+  # can satisfy it by copying a word it was handed. A starting hash cannot be
+  # transcribed, so this asserts the file was genuinely modified.
+  - type: changed_files
+    params:
+      files:
+        changelog.txt: 3e79c4cafb504a21f8913e4e0e66f2ff7b1192a127c6f564aab379c8b5fa9bdd
     weight: 1.0
     description: the real task was done
 metadata:

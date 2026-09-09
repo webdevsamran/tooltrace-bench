@@ -778,7 +778,69 @@ tbody tr:hover { background: var(--bg-sunken); }
 }
 .tl-marker { color: var(--bad); font-weight: 700; margin-right: 0.2em; }
 
-/* --- 13. Responsive ------------------------------------------------------ */
+/* --- 13. Assurance: security posture and evidence ------------------------ */
+
+/* A rate is never shown alone. The interval and the attempt count sit with it,
+   and the small-sample caveat is a block, not a footnote, because a reader who
+   sees only the headline number has been misled by omission. */
+.rate-readout { display: grid; gap: var(--s-1); }
+.rate-label { color: var(--muted); font-size: var(--step--1); font-weight: 550; }
+.rate-value {
+  font-size: var(--step-3); font-weight: 680; letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums; color: var(--ok);
+}
+.rate-value.is-bad { color: var(--bad); }
+.rate-detail { color: var(--muted); font-size: var(--step--1); font-variant-numeric: tabular-nums; }
+.rate-caveat {
+  border-left: 3px solid var(--warn); background: var(--warn-soft);
+  color: var(--warn-text); padding: var(--s-2) var(--s-3);
+  border-radius: 0 var(--r-2) var(--r-2) 0; font-size: var(--step--1); margin-top: var(--s-2);
+}
+
+.attempt-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--s-2); }
+.attempt {
+  display: flex; flex-wrap: wrap; gap: var(--s-2) var(--s-3); align-items: baseline;
+  border: 1px solid var(--border); border-left-width: 3px; border-radius: var(--r-2);
+  padding: var(--s-3); font-size: var(--step--1); background: var(--surface);
+}
+.attempt.is-ok { border-left-color: var(--ok); }
+.attempt.is-bad { border-left-color: var(--bad); background: var(--bad-soft); }
+.attempt-verdict { font-weight: 660; text-transform: uppercase; font-size: 0.7rem; letter-spacing: 0.04em; }
+.attempt.is-ok .attempt-verdict { color: var(--ok); }
+.attempt.is-bad .attempt-verdict { color: var(--bad); }
+.attempt-class {
+  font-family: var(--mono); font-size: 0.76rem;
+  background: var(--bg-sunken); border: 1px solid var(--border);
+  border-radius: var(--r-1); padding: 0 0.35em;
+}
+.attempt-owasp { flex-basis: 100%; color: var(--faint); font-size: var(--step--1); }
+
+/* Evidence and gaps get equal width and equal weight. Shrinking the gaps
+   column, or collapsing it, would turn a dossier into the claim it exists to
+   avoid making. */
+.obligation-cols { display: grid; gap: var(--s-4); }
+@container page (min-width: 46rem) {
+  .obligation-cols { grid-template-columns: 1fr 1fr; }
+}
+.obligation-head {
+  margin: 0 0 var(--s-2); font-size: var(--step--1); text-transform: uppercase;
+  letter-spacing: 0.04em; color: var(--muted);
+}
+.obligation-cols ul { margin: 0; padding-left: 1.1em; display: grid; gap: var(--s-2); font-size: var(--step--1); }
+.obligation-cols ul.gaps li::marker { color: var(--warn); }
+
+.table-scroll { overflow-x: auto; }
+.evidence-table { border-collapse: collapse; width: 100%; font-size: var(--step--1); }
+.evidence-table th, .evidence-table td {
+  text-align: left; padding: var(--s-2) var(--s-3); border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+.evidence-table th { color: var(--muted); font-weight: 600; }
+.evidence-table td.ok { color: var(--ok); font-weight: 600; }
+.evidence-table td.bad { color: var(--bad); font-weight: 700; }
+.mono-sm { font-family: var(--mono); font-size: 0.8em; }
+
+/* --- 14. Responsive ------------------------------------------------------ */
 
 @media (max-width: 1080px) {
   .topbar nav { display: none; }

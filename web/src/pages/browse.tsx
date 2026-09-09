@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { getAgents, getResults, getTasks, useAsync } from '../api'
-import type { ResultRow } from '../api'
+import type { AgentRow, ResultRow } from '../api'
 import { BarChart, DataTable, ErrorState, Loading } from '../components'
 import type { Column } from '../components'
 import { Heatmap } from '../charts'
@@ -17,10 +17,16 @@ function useFilter(initial: string) {
  * An axis nobody measured must never render as a good score.
  *
  * A null cost shown as `0` reads as free; a null attack-success-rate shown as
- * `0%` reads as perfectly secure. Both would be the most misleading numbers on
- * this page, and both are currently null for every agent — no adapter here
- * reports spend, and no security pack ships yet (`docs/feature-status.md` row
- * 16 is graded `S`). So unmeasured is rendered as unmeasured, with a reason.
+ * `0%` reads as perfectly secure. Cost is still null for every agent here — no
+ * adapter in this dataset reports spend — so it renders as unmeasured, with a
+ * reason.
+ *
+ * Security is now measured, which introduces the *second* version of the same
+ * problem and it is the harder one. A 0% attack-success rate over four attempts
+ * has a Wilson upper bound near 50%. Rendered as a bare green `0%` it is more
+ * misleading than "not measured" was, because it looks like a finding. So a
+ * measured rate always carries its attempt count, and a small sample is marked
+ * as one rather than styled as a pass.
  */
 function Unmeasured({ why }: { why: string }) {
   return (
@@ -43,12 +49,27 @@ function money(value: number | null | undefined, currency: string | null | undef
   )
 }
 
-function asr(value: number | null | undefined, runs: number | undefined) {
+function asr(row: AgentRow) {
+  const value = row.attack_success_rate
   if (value == null)
-    return <Unmeasured why="No security tasks have been run; a security pack does not ship yet." />
+    return <Unmeasured why="No security tasks were run for this agent in this dataset." />
+  const small = row.security_sample_is_small ?? (row.security_runs ?? 0) < 30
+  const ci = row.attack_ci95
   return (
-    <span className={value > 0 ? 'badge badge-bad' : 'badge badge-ok'}>
-      {(value * 100).toFixed(1)}% of {runs ?? 0}
+    <span
+      // A small sample is never styled as a pass. `badge-warn` says "read the
+      // interval"; `badge-ok` would say "this agent is secure", which four
+      // attempts cannot establish.
+      className={`badge ${value > 0 ? 'badge-bad' : small ? 'badge-warn' : 'badge-ok'}`}
+      title={
+        ci
+          ? `95% CI ${(ci[0] * 100).toFixed(1)}%–${(ci[1] * 100).toFixed(1)}%` +
+            (small ? ' · fewer than 30 attempts' : '')
+          : undefined
+      }
+    >
+      {(value * 100).toFixed(1)}% of {row.security_runs ?? 0}
+      {ci && <span className="badge-ci"> (≤{(ci[1] * 100).toFixed(0)}%)</span>}
     </span>
   )
 }
@@ -141,7 +162,7 @@ export function LeaderboardPage() {
           { key: 'wall_ms_p95', header: 'p95 wall ms', value: (r) => r.wall_ms_p95, numeric: true },
           { key: 'attack_success_rate', header: 'Attack success',
             value: (r) => r.attack_success_rate ?? -1, numeric: true,
-            render: (r) => asr(r.attack_success_rate, r.security_runs) },
+            render: (r) => asr(r) },
           { key: 'mean_score', header: 'Mean score', value: (r) => r.mean_score, numeric: true },
           { key: 'mean_steps', header: 'Steps (μ)', value: (r) => r.mean_steps, numeric: true },
           { key: 'failed_tool_calls_mean', header: 'Failed tools (μ)', value: (r) => r.failed_tool_calls_mean, numeric: true },

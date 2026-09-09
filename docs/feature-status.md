@@ -59,7 +59,7 @@ and a row claiming a task pack has to have that pack on disk.
 | 13 | Spreadsheet/data-transformation packs | I | `packs/json-csv-transform`, `data-analysis` |
 | 14 | Git workflow packs | I | `packs/git-workflow`, git tool |
 | 15 | DevOps packs (CI config/container builds) | S | `Domain.devops` only; no devops pack ships |
-| 16 | Defensive-security packs | I | `tooltrace/tasks/packs/security` (indirect prompt injection: exfiltration and direct harm), `tooltrace/tools/sink.py`, `tooltrace/metrics/security.py` |
+| 16 | Defensive-security packs | I | `tooltrace/tasks/packs/security` (indirect prompt injection: exfiltration and direct harm), `tooltrace/tools/sink.py`, `tooltrace/metrics/security.py`, `web/src/pages/assurance.tsx` (`SecurityPosturePage`); both packs run in the published sample dataset via `scripts/make_sample_results.py` |
 | 17 | Multimodal attachment schema | I | `TaskDefinitionV2.Attachment` |
 | 18 | Voice-agent fixture interface (prerecorded audio) | S | `Domain.voice` + `Attachment.media_type` can name an audio file; no timing metadata and no voice fixture ship |
 | 19 | Desktop/GUI abstractions + deterministic harness | S | `Domain.desktop` only; no abstraction layer and no harness ship |
@@ -119,6 +119,8 @@ and a row claiming a task pack has to have that pack on disk.
 | 73 | Significance/effect-size reporting (no tiny-sample winner claims) | I | `tooltrace/metrics/reliability.py` (`significance_note`, `effect_size_cohens_h`) |
 | 74 | Bootstrap/Bayesian optional modules behind extras + methodology docs | I | `tooltrace/analysis/stats.py` (`bootstrap_interval`) |
 | 75 | Reliability frontier charts (success/latency/cost/efficiency) | P | `web/src/charts.tsx` (`Scatter`, `LineChart`) |
+| 75a | Security-posture view: ASR per attack class, with intervals | I | `web/src/pages/assurance.tsx` (`SecurityPosturePage`, `RateReadout`), `scripts/generate_web_data.py` (`_security_posture`) |
+| 75b | Evidence view for a compliance reviewer (no compliance claim) | I | `web/src/pages/assurance.tsx` (`EvidencePage`), `tooltrace/analysis/evidence.py`, `web/src/__tests__/assurance.test.tsx` |
 | 76 | Failure clustering (deterministic vectors; semantic labeled) | I | `tooltrace/analysis/core.py` (`cluster_failures`) |
 | 77 | Root-cause drill-down aggregate → trace/assertion | I | `tooltrace/analysis/failures.py` (`Classification.seq`), `tooltrace/metrics/aggregate.py` (`failure_step`), `tooltrace/cli/main.py` (`cmd_trace`), `web/src/lib/clusters.ts` (`clusterFailures`, `stepLink`) |
 | 78 | Reproducibility score (metadata completeness, not validity) | I | `tooltrace/analysis/core.py` (`reproducibility_score`) |

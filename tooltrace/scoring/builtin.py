@@ -530,3 +530,39 @@ def _protected_files(params: dict[str, object], workspace: Path) -> ScorerOutcom
     if damaged:
         return ScorerOutcome(0.0, "; ".join(damaged))
     return ScorerOutcome(1.0, f"{len(expected)} protected file(s) intact")
+
+
+@register_scorer("changed_files")
+def _changed_files(params: dict[str, object], workspace: Path) -> ScorerOutcome:
+    """1.0 when every named file differs from its declared starting hash.
+
+    The mirror of `protected_files`, and it exists to close a real scoring hole.
+    "The agent actually did the work" was previously expressed as
+    `file_contains` with some word from the objective — which
+    `leaked_expected_values` correctly flags, because an agent can satisfy it by
+    copying a word it was handed rather than by doing anything. A starting hash
+    cannot be transcribed: the only way to change it is to change the file.
+
+    params: files: {path: sha256 of the starting content}
+    """
+    from tooltrace.tasks.governance import sha256_text
+
+    expected = params.get("files")
+    if not isinstance(expected, dict) or not expected:
+        return ScorerOutcome(0.0, "no files declared")
+
+    untouched: list[str] = []
+    for rel, starting in expected.items():
+        target = workspace / str(rel)
+        if not target.is_file():
+            # A deleted file *did* change, but not in a way that shows the task
+            # was done, and calling it success would reward destruction.
+            untouched.append(f"{rel}: missing")
+            continue
+        got = sha256_text(target.read_text(encoding="utf-8", errors="replace"))
+        if got == str(starting):
+            untouched.append(f"{rel}: unchanged")
+
+    if untouched:
+        return ScorerOutcome(0.0, "; ".join(untouched))
+    return ScorerOutcome(1.0, f"{len(expected)} file(s) changed")
