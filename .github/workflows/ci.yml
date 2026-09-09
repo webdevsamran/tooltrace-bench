@@ -50,6 +50,11 @@ jobs:
         run: python scripts/cli_smoke.py
       - name: Sandbox cleanup check
         run: python scripts/sandbox_check.py
+      - name: Sandbox escape attempts (adversarial)
+        # sandbox_check.py verifies a helper rejects bad paths. This attacks the
+        # path an agent actually uses -- ToolExecutor -> tools -- and fails the
+        # build if anything the sandbox claims to block gets through.
+        run: python scripts/sandbox_escape_check.py
       - name: Secret scan (publication gate)
         run: python scripts/secret_scan.py
       - name: Pinned actions match their version comments

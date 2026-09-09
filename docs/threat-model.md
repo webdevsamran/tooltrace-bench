@@ -39,6 +39,16 @@ not protect against. We never overclaim isolation strength.
 **Consequence:** treat locally-sandboxed agent runs as running code you have
 some trust in. For untrusted agents, use the Docker sandbox.
 
+These limits are not asserted from reading the code — they are **attempted on
+every CI run**. `scripts/sandbox_escape_check.py` runs sixteen escapes through
+`ToolExecutor` (traversal and absolute paths across every filesystem tool,
+network egress under a disabled policy, the cloud metadata endpoint, remote
+git operations) and fails the build if any of them succeeds. The two limits
+above are attempted too, and reported as confirmed rather than skipped: a
+suite that quietly omits the attacks it would fail measures nothing. If one of
+them ever starts being blocked, the script says so, so this section can be
+tightened rather than left overstating what an attacker can do.
+
 ## Docker sandbox (`DockerSandbox`, optional extra)
 
 Everything in this section is **exercised by `scripts/docker_sandbox_check.py`
