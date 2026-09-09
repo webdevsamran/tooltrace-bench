@@ -101,3 +101,47 @@ tooltrace trace runs/<bundle>.tooltrace --assertions --json
 
 # Or use Trace Explorer in the web UI: filter by type/tool/failure,
 # expand sanitized payloads, jump between events, download raw JSONL.
+
+
+## Gate a pull request on agent reliability
+
+The published composite action runs a trimmed benchmark and fails the step when
+the success rate drops below a floor. It installs no third-party actions, so set
+up Python with whatever pinning policy your repository already applies.
+
+```yaml
+name: Agent reliability
+on: [pull_request]
+
+jobs:
+  reliability:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - uses: webdevsamran/tooltrace-bench@v0.3.0
+        with:
+          agent: scripted
+          runs: "3"
+          limit: "8"
+          shuffle: "true"
+          seed: "0"
+          min-success-rate: "0.9"
+```
+
+`limit` is what makes this affordable on every pull request. The selection is
+recorded rather than silently cut: the job summary states how many of how many
+tasks ran, under which policy and seed, so a trimmed run is never mistaken for a
+full one, and the same seed selects the same tasks next time.
+
+The step warns when a threshold is met by a small sample. A success rate of 1.0
+over three runs has a wide confidence interval, and a green check should not
+imply more evidence than was collected.
+
+The equivalent by hand, if you would rather not use the action:
+
+```bash
+tooltrace benchmark --agent scripted --runs 3 --limit 8 --shuffle --seed 0 --min-success-rate 0.9 --json
+```

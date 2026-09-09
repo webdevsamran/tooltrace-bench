@@ -66,6 +66,21 @@ versioning follows [Semantic Versioning](https://semver.org/).
   Workspace", which "wsx" cannot thread through, while the reverse order
   matched. Both orders are scored now.
 ### Added
+- **A GitHub Action (`action.yml`).** There was none, which is most of why the
+  CI integration this project is built for did not happen: telling someone to
+  write their own workflow is a much higher bar than pointing at one line. It
+  runs a trimmed benchmark and fails the step below a success-rate floor,
+  writing a job summary with the interval and the failure taxonomy.
+
+  It deliberately pulls in **no third-party actions**. A composite action that
+  bundles `setup-python` inherits that action's supply chain on behalf of every
+  caller and pins it on their behalf — not a decision to make quietly for
+  downstream users. `scripts/check_action_pins.py` now scans `action.yml` too,
+  so that stays true.
+
+  Two honesty properties are tested: a trimmed run states that it was a subset,
+  and a threshold met by a small sample emits a warning rather than letting a
+  green check imply more evidence than was collected.
 - **`--limit`, `--shuffle` and `--seed` on `benchmark` and `showdown`.** Nobody
   runs a full benchmark on every pull request, and without a way to trim one the
   CI integration this project is built for could not be set up at all. The risk
