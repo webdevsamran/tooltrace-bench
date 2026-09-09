@@ -47,6 +47,12 @@ jobs:
         run: python scripts/sandbox_check.py
       - name: Secret scan (publication gate)
         run: python scripts/secret_scan.py
+      - name: Pinned actions match their version comments
+        # The CodeQL pin carried a `@v3` comment on the line above it while
+        # the SHA was v4.37.9.
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python scripts/check_action_pins.py
       - name: Docs link check
         run: python scripts/check_docs_links.py
       - name: Generate static web data
@@ -94,6 +100,11 @@ jobs:
       - run: npm run lint
       - run: npm run build
       - run: npm test
+      # This repo gated pip-audit but nothing on the npm side, while
+      # local-ai-hardware-bench did the reverse. Each had what the other
+      # lacked; both surfaces are gated now.
+      - name: npm audit (fail on high+)
+        run: npm audit --audit-level=high
       - name: Generate validated static data for e2e
         working-directory: .
         run: |
