@@ -72,11 +72,9 @@ describe('App routes', () => {
     expect(await screen.findByText('p/t1')).toBeInTheDocument()
   })
 
-  it('shows empty state on failure analysis when nothing failed', async () => {
+  it('shows empty state on failure clusters when nothing failed', async () => {
     renderAt('/failures')
-    expect(
-      await screen.findByText(/No failures recorded/i),
-    ).toBeInTheDocument()
+    expect(await screen.findByText(/nothing to cluster/i)).toBeInTheDocument()
   })
 
   it('renders methodology content (lazy-loaded)', async () => {

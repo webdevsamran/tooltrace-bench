@@ -19,6 +19,25 @@ export interface TaskSummary {
   perturbations: string[]
 }
 
+/**
+ * Where a failure happened, not just what class it was.
+ *
+ * A failure category tells a reader that something went wrong. It does not tell
+ * them where to look. `seq` and `tool` name the exact trace event the
+ * classification came from, which is what makes a cluster openable at the step
+ * that broke instead of at the top of a trace.
+ *
+ * Null on a run that did not fail — attributing a step on a passing run would
+ * invent a defect.
+ */
+export interface FailureStep {
+  seq: number | null
+  tool: string | null
+  reason: string
+  rule: string
+  detail: string
+}
+
 export interface ResultRow {
   bundle: string
   task_id: string
@@ -41,6 +60,8 @@ export interface ResultRow {
   trust_state: string
   run_id: string
   created_at: string
+  /** Absent on older generated indexes, null on a run that did not fail. */
+  failure_step?: FailureStep | null
 }
 
 export interface AgentRow {
@@ -107,9 +128,29 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
   return (await res.json()) as T
 }
 
+/**
+ * Resolve a path to a file shipped with the site.
+ *
+ * These were passed to `fetch` as bare relative strings — `data/results.json`,
+ * `bundles/<name>/trace.json` — which the browser resolves against the current
+ * route, not the site root. From `/results/<bundle>` that asks for
+ * `/results/data/results.json`. Every dataset load on every nested route was a
+ * 404, and the pages showed their empty state as if the dataset were empty.
+ *
+ * `import.meta.env.BASE_URL` is the deploy prefix Vite was built with and
+ * always ends in a slash, so this is correct at the root, under a GitHub Pages
+ * project subpath, and at any route depth.
+ */
+export function assetUrl(path: string): string {
+  return `${import.meta.env.BASE_URL}${path.replace(/^\/+/, '')}`
+}
+
 function withBase(path: string): string {
+  // Dataset files always come from the site itself, never from a connected
+  // team server: they are the published, checksummed artifacts.
+  if (path.startsWith('data/') || path.startsWith('bundles/')) return assetUrl(path)
   const base = getServerUrl()
-  if (!base || path.startsWith('data/') || path.startsWith('bundles/')) return path
+  if (!base) return path
   return `${base}${path}`
 }
 

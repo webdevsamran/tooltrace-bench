@@ -36,13 +36,24 @@ jobs:
           node-version: 22
           cache: npm
           cache-dependency-path: web/package-lock.json
+      # actions/configure-pages@v5
+      # Before the build, not after: it is what tells the build the project
+      # subpath. The site previously built with a relative asset base, so
+      # every nested route (a result, a task, a failing step) asked for its
+      # JavaScript from under that route, 404'd, and never booted.
+      - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d
+        id: pages
       - name: Build frontend
         working-directory: web
+        env:
+          TTB_BASE: ${{ steps.pages.outputs.base_path }}
         run: |
           npm ci
           npm run build
-      # actions/configure-pages@v5
-      - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d
+      - name: Fail if the SPA fallback is missing
+        # Pages has no router: without 404.html it answers its own 404 page and
+        # every deep link is dead, silently and only in production.
+        run: test -f web/dist/404.html
       # actions/upload-pages-artifact@v5
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9
         with:

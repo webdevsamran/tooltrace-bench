@@ -282,7 +282,18 @@ export interface TraceLine {
   summary?: string
 }
 
-export function TraceTimeline({ events }: { events: TraceLine[] }) {
+export function TraceTimeline({
+  events,
+  highlightSeq = null,
+}: {
+  events: TraceLine[]
+  /**
+   * The seq a failure was attributed to. The row is marked and scrolled to on
+   * open, so arriving from a failure cluster lands on the step that broke
+   * rather than at the top of a trace someone then has to search.
+   */
+  highlightSeq?: number | null
+}) {
   // Rows are a fixed height, so the window can be computed from scrollTop
   // arithmetic alone. That is the whole reason this needs no virtualization
   // dependency: a variable-height list would, a uniform one does not.
@@ -292,8 +303,22 @@ export function TraceTimeline({ events }: { events: TraceLine[] }) {
   // Below this, rendering everything is cheaper than the scroll bookkeeping.
   const VIRTUALIZE_ABOVE = 200
 
+  const highlightIndex =
+    highlightSeq === null ? -1 : events.findIndex((e) => e.seq === highlightSeq)
+
   const [scrollTop, setScrollTop] = _useState(0)
-  const [focused, setFocused] = _useState(0)
+  const [focused, setFocused] = _useState(Math.max(0, highlightIndex))
+  const highlightRef = _useRef<HTMLLIElement | null>(null)
+
+  // Bring the attributed step into view once it has rendered. Guarded because
+  // jsdom has no scrollIntoView, and a missing browser API must not take out
+  // the page that reports the failure.
+  _useEffect(() => {
+    const el = highlightRef.current
+    if (el && typeof el.scrollIntoView === 'function') {
+      el.scrollIntoView({ block: 'center', behavior: 'auto' })
+    }
+  }, [highlightSeq, events.length])
 
   if (events.length === 0) return <EmptyState hint="No trace events." />
 
@@ -332,14 +357,29 @@ export function TraceTimeline({ events }: { events: TraceLine[] }) {
   const row = (e: TraceLine, index: number) => (
     <li
       key={e.seq}
-      className={`tl-${e.type}`}
+      ref={index === highlightIndex ? highlightRef : undefined}
+      className={`tl-${e.type}${index === highlightIndex ? ' tl-attributed' : ''}`}
       role="option"
       aria-selected={index === focused}
+      // Colour alone would not carry this to a screen reader, and the marker
+      // below would not carry it to anyone navigating by row.
+      aria-label={index === highlightIndex ? `Step ${e.seq}, failure attributed here` : undefined}
+      data-attributed={index === highlightIndex ? 'true' : undefined}
       aria-setsize={events.length}
       aria-posinset={index + 1}
       style={virtual ? { position: 'absolute', top: index * ROW_PX, height: ROW_PX, left: 0, right: 0 } : undefined}
     >
-      <span className="tl-seq">#{e.seq}</span>
+      {/* The marker lives inside the seq cell rather than beside it: the row
+          is a fixed four-column grid, and a fifth child would shift every
+          other row's columns out of alignment. */}
+      <span className="tl-seq">
+        {index === highlightIndex && (
+          <span className="tl-marker" aria-hidden="true">
+            ▸
+          </span>
+        )}
+        #{e.seq}
+      </span>
       <span className="tl-type">{e.type}</span>
       {e.tool && <code>{e.tool}</code>}
       {e.status && <Badge kind={e.status === 'ok' ? 'ok' : e.status === 'denied' ? 'warn' : 'bad'}>{e.status}</Badge>}
@@ -379,7 +419,7 @@ export function TraceTimeline({ events }: { events: TraceLine[] }) {
 
 // ---------- resilience & access states ----------
 
-import { Component, useEffect as _useEffect, useState as _useState } from 'react'
+import { Component, useEffect as _useEffect, useRef as _useRef, useState as _useState } from 'react'
 import type { ErrorInfo } from 'react'
 
 /** Route-level error boundary: a crash in one page never blanks the app. */

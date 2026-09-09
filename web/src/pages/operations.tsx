@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { getIndex, getResults, useAsync, type IndexData, type ResultRow } from '../api'
+import { assetUrl, getIndex, getResults, useAsync, type IndexData, type ResultRow } from '../api'
 import { DataTable, DiffViewer, ErrorState, Loading, VirtualList, type Column } from '../components'
 import { Histogram, Scatter } from '../charts'
 
@@ -61,19 +61,17 @@ export function TraceExplorerPage() {
     setEvents(null)
     setTraceError(null)
     setDiffText(null)
-    fetch(`bundles/${selected}/trace.jsonl`)
-      .then((r) => (r.ok ? r.text() : Promise.reject(new Error(`HTTP ${r.status}`))))
-      .then((text) =>
-        setEvents(
-          text
-            .split('\n')
-            .filter((l) => l.trim())
-            .map((l) => JSON.parse(l) as TraceEvent),
-        ),
-      )
+    // These asked for `trace.jsonl` and `workspace.diff` -- the names inside a
+    // .tooltrace bundle. `scripts/generate_web_data.py` publishes them as
+    // `trace.json` (a JSON array) and `workspace.diff.txt`, so every fetch here
+    // 404'd and the Trace Explorer had never displayed a trace at all. The
+    // published names are the contract; the names inside the bundle are not.
+    fetch(assetUrl(`bundles/${selected}/trace.json`))
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
+      .then((events) => setEvents(events as TraceEvent[]))
       .catch((e) => setTraceError(String(e)))
     // Workspace diff is optional bundle content; absence is not an error.
-    fetch(`bundles/${selected}/workspace.diff`)
+    fetch(assetUrl(`bundles/${selected}/workspace.diff.txt`))
       .then((r) => (r.ok ? r.text() : ''))
       .then((text) => setDiffText(text || null))
       .catch(() => setDiffText(null))
@@ -177,8 +175,11 @@ export function TraceExplorerPage() {
                 </details>
               )}
               <p>
-                <a href={`bundles/${selected}/trace.jsonl`} download>
-                  Download raw JSONL trace
+                {/* Same correction as the fetch above: the published file is
+                    trace.json, and the link needs the site base or it points
+                    at a path relative to whatever route the reader is on. */}
+                <a href={assetUrl(`bundles/${selected}/trace.json`)} download>
+                  Download raw trace
                 </a>
               </p>
             </>

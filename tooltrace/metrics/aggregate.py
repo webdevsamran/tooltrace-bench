@@ -100,12 +100,18 @@ def trajectory_report(
         # violation" is a category; "seq 5, calling shell" is something a reader
         # can open. Surfaced in the summary rather than on EvalResult, which
         # AGENTS.md marks do-not-touch.
-        "failure_step": _failure_step(result, events),
+        "failure_step": failure_step(result, events),
     }
 
 
-def _failure_step(result: EvalResult, events: list[TraceEvent]) -> dict[str, Any] | None:
-    """The step a failure is attributed to, or None when nothing failed."""
+def failure_step(result: EvalResult, events: list[TraceEvent]) -> dict[str, Any] | None:
+    """The step a failure is attributed to, or None when nothing failed.
+
+    Public because the dashboard's failure-cluster explorer clusters on
+    exactly this shape. Two different definitions of "where it broke" -- one
+    for the summary, one for the web index -- would drift apart the first time
+    a rule changed, and the drift would be invisible.
+    """
     from tooltrace.analysis.failures import classify
 
     classification = classify(

@@ -368,6 +368,10 @@ ul, ol { padding-left: var(--s-5); }
   flex: 1; min-width: 0;
   padding: var(--s-5) var(--s-5) var(--s-7);
   max-width: 100rem; margin-inline: auto; width: 100%;
+  /* Named so page layouts can respond to the space they actually have, which
+     is the viewport minus the sidebar -- not the viewport. A container cannot
+     query itself, so this has to live on the region, not on the layout. */
+  container: page / inline-size;
 }
 
 .footer {
@@ -440,6 +444,21 @@ ul, ol { padding-left: var(--s-5); }
 .kv { display: grid; grid-template-columns: auto 1fr; gap: var(--s-2) var(--s-4); font-size: var(--step--1); }
 .kv dt { color: var(--muted); font-weight: 550; }
 .kv dd { margin: 0; font-variant-numeric: tabular-nums; }
+
+/* Callouts. Status is carried by an icon-weight left rule *and* the label
+   text, never by the background tint alone -- the tints are deliberately weak
+   enough that they cannot be relied on, which is the point. */
+.callout {
+  border-left: 3px solid var(--border-strong);
+  background: var(--bg-sunken);
+  padding: var(--s-3) var(--s-4);
+  border-radius: 0 var(--r-2) var(--r-2) 0;
+  font-size: var(--step--1);
+  margin-bottom: var(--s-4);
+}
+.callout code { font-size: 0.9em; }
+.callout-bad { border-left-color: var(--bad); background: var(--bad-soft); }
+.callout-warn { border-left-color: var(--warn); background: var(--warn-soft); }
 
 /* --- 5. Controls --------------------------------------------------------- */
 
@@ -699,7 +718,67 @@ tbody tr:hover { background: var(--bg-sunken); }
   to { opacity: 1; transform: none; }
 }
 
-/* --- 12. Responsive ------------------------------------------------------ */
+/* --- 12. Failure clusters ------------------------------------------------ */
+
+/* Two panes on a wide screen, stacked below it. A container query rather than
+   a media query: this layout depends on the width of the region it sits in,
+   which is not the width of the viewport once the sidebar is present. */
+.cluster-layout { display: grid; gap: var(--s-5); align-items: start; }
+@container page (min-width: 52rem) {
+  .cluster-layout { grid-template-columns: minmax(0, 22rem) minmax(0, 1fr); }
+}
+
+.cluster-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--s-2); }
+
+.cluster-card {
+  display: grid; grid-template-columns: auto 1fr; gap: var(--s-3);
+  width: 100%; text-align: left; align-items: start;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--r-3); padding: var(--s-3) var(--s-4);
+  font: inherit; color: inherit; cursor: pointer;
+  transition:
+    border-color var(--t-micro) var(--ease),
+    box-shadow var(--t-micro) var(--ease),
+    transform var(--t-micro) var(--ease);
+}
+.cluster-card:hover { border-color: var(--border-strong); box-shadow: var(--e-2); }
+.cluster-card:active { transform: translateY(1px); }
+/* The open cluster is marked by the accent rule and by aria-expanded, so the
+   state survives both a monochrome display and a screen reader. */
+.cluster-card.is-open { border-color: var(--accent); box-shadow: inset 3px 0 0 var(--accent); }
+
+.cluster-count {
+  font-size: var(--step-1); font-weight: 680; font-variant-numeric: tabular-nums;
+  color: var(--text-strong); min-width: 2ch; text-align: right;
+}
+.cluster-body { display: flex; flex-wrap: wrap; gap: var(--s-1) var(--s-2); align-items: baseline; }
+.cluster-body strong { font-size: var(--step-0); }
+.cluster-rule, .cluster-tool {
+  font-family: var(--mono); font-size: 0.76rem;
+  background: var(--bg-sunken); border: 1px solid var(--border);
+  border-radius: var(--r-1); padding: 0 0.35em;
+}
+.cluster-tool { border-color: var(--accent-soft); color: var(--accent); }
+.cluster-meta { flex-basis: 100%; color: var(--muted); font-size: var(--step--1); }
+
+.cluster-detail-text { font-size: var(--step--1); color: var(--text); }
+.cluster-runs { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--s-2); }
+.cluster-runs li {
+  border: 1px solid var(--border); border-radius: var(--r-2);
+  padding: var(--s-3); font-size: var(--step--1); background: var(--surface);
+}
+.cluster-runs a { display: inline-flex; gap: var(--s-2); align-items: baseline; flex-wrap: wrap; }
+.run-step { font-variant-numeric: tabular-nums; }
+
+/* The attributed step. A left rule and a caret, not only a tint: the row must
+   still be findable with colour removed. */
+.timeline li.tl-attributed {
+  background: var(--bad-soft);
+  box-shadow: inset 3px 0 0 var(--bad);
+}
+.tl-marker { color: var(--bad); font-weight: 700; margin-right: 0.2em; }
+
+/* --- 13. Responsive ------------------------------------------------------ */
 
 @media (max-width: 1080px) {
   .topbar nav { display: none; }

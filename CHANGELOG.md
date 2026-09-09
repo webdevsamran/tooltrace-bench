@@ -6,6 +6,68 @@ versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- **Failure-cluster explorer with drill-down to the exact failing step.** The
+  failure page was a dropdown and a bar chart of the twelve failure *categories*.
+  That view answers "how many runs hit `execution`" and cannot answer the
+  question a reader actually has, which is whether that is one bug or eleven —
+  and it left them to find the relevant step in a trace by hand afterwards.
+
+  Failed runs are now clustered on their *signature*: the failure class, the
+  rule that matched, and the tool the failure was attributed to. Two runs that
+  share a signature are usually one defect; the same class reached by different
+  rules usually is not. Clusters rank by size, ties breaking on how many tasks
+  they span, because between two equal-sized clusters the systemic one is the
+  better thing to open first. A cluster shows a step number only when every run
+  in it agrees on one — one run's step presented as the cluster's would be a
+  guess dressed as a fact.
+
+  Every run in a cluster links to `/results/<bundle>?seq=<n>`, and that page
+  opens with the attributed row marked and scrolled into view. The marking
+  carries in the accessible name and a caret, not only a tint, so it survives a
+  screen reader and a monochrome display.
+
+  `scripts/generate_web_data.py` now emits `failure_step` per run, computed by
+  the same `tooltrace.metrics.aggregate.failure_step` the benchmark summary
+  uses, so the dashboard and the CLI cannot drift about which step broke. Every
+  bundle committed to this repository passes, so the explorer renders its empty
+  state against the real dataset and says so plainly; the interactive markup is
+  covered by an end-to-end test that substitutes the response, because markup
+  that only appears when something went wrong is exactly the markup nobody
+  checks by hand.
+
+### Fixed
+- **Every deep link in the dashboard was dead.** The frontend built with a
+  relative asset base — annotated "so the built site works from GitHub Pages
+  project subpaths", which it does, for the root page only. Relative asset URLs
+  resolve against the *current route*, so opening `/results/<bundle>` asked for
+  `/results/assets/index-*.js`, received a 404, and left an empty
+  `<div id="root">`. Result detail, task detail and now the failing-step link
+  were unreachable as links, in a new tab, or after a refresh. Nothing in the
+  build reported it: it was true only in production.
+
+  The base is now the real deploy prefix, passed in by `actions/configure-pages`
+  (which had been running *after* the build, where it could not inform it), and
+  the build emits a `404.html` fallback — without it GitHub Pages answers its
+  own 404 page and an absolute base alone changes nothing. The workflow fails
+  if that file is missing, and an end-to-end test opens a nested route and
+  asserts no script or stylesheet 404s.
+
+- **Dataset fetches 404'd on every nested route.** `data/results.json` and
+  `bundles/<name>/trace.json` were passed to `fetch` as bare relative strings,
+  which a browser resolves against the current route. From `/results/<bundle>`
+  that is `/results/data/results.json`. The page then rendered its empty state,
+  because nothing in a UI distinguishes "no data" from "wrong URL". Both now go
+  through `assetUrl`, which resolves against the site base at any route depth.
+
+- **The Trace Explorer had never displayed a trace.** It fetched
+  `bundles/<name>/trace.jsonl` and `workspace.diff` — the names of the files
+  *inside* a `.tooltrace` bundle. `scripts/generate_web_data.py` publishes them
+  as `trace.json` (a JSON array) and `workspace.diff.txt`. Every fetch 404'd and
+  the page showed `HTTP 404` where a trace should be, on the live site, for as
+  long as the page has existed. The published names are the contract; the
+  bundle's internal names are not. The download link had the same mistake.
+
 ### Fixed
 - **A built wheel could not load a single task.** `[tool.hatch.build.targets.wheel]`
   packaged only `tooltrace`, so the JSON Schemas authored at the repository root

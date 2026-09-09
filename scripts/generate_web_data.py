@@ -9,6 +9,11 @@ Reads every *.tooltrace bundle under results/, verifies checksums, and writes:
     web/public/bundles/<name>/trace.json + workspace.diff.txt
 
 Only verified bundles are included — no fabricated data.
+
+Each failed run also carries `failure_step`: the seq and tool the failure is
+attributed to, computed by the same `tooltrace.metrics.aggregate.failure_step`
+the benchmark summary uses. It is what turns the dashboard's failure view from
+a bar chart of categories into something a reader can open at the exact step.
 """
 
 from __future__ import annotations
@@ -20,8 +25,14 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from tooltrace.artifacts.bundles import load_bundle_result, read_manifest, verify_bundle
+from tooltrace.artifacts.bundles import (
+    load_bundle_result,
+    load_bundle_trace,
+    read_manifest,
+    verify_bundle,
+)
 from tooltrace.core.versions import FRAMEWORK_VERSION
+from tooltrace.metrics.aggregate import failure_step
 
 ROOT = Path(__file__).resolve().parents[1]
 RESULTS = ROOT / "results"
@@ -72,6 +83,10 @@ def main() -> int:
             skipped += 1
             continue
         result = load_bundle_result(bundle)
+        # Where the failure happened, not just what class it was. Computed from
+        # the same helper the benchmark summary uses, so the dashboard and the
+        # CLI can never disagree about which step broke.
+        events = load_bundle_trace(bundle)
         results_rows.append(
             {
                 "bundle": bundle.name,
@@ -95,6 +110,7 @@ def main() -> int:
                 "trust_state": result.trust_state.value,
                 "run_id": result.run_id,
                 "created_at": result.finished_at,
+                "failure_step": failure_step(result, events),
             }
         )
         tasks.setdefault(
