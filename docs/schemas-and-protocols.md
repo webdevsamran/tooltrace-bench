@@ -42,7 +42,15 @@ and leaderboards **reject incompatible cohorts** instead of mixing them.
 
 ## Migration & invalidation rules
 
-- New readers accept old artifacts (forward compatibility is tested).
+- New readers accept old artifacts. A frozen bundle is committed at
+  `tests/fixtures/bundles/v1-frozen.tooltrace/` and
+  `tests/test_bundle_schema_enforcement.py` reads it with today's readers, so
+  this is a checked claim rather than an assertion. (Until that fixture existed
+  every bundle test wrote a bundle with the current code and read it straight
+  back, which tests a round trip, not compatibility with anything older.)
+- `result.json`, `trace.jsonl` and `manifest.json` are validated against
+  `schemas/` when a bundle is written, so an artifact that does not match the
+  published format never reaches disk.
 - Flawed published results are marked with invalidation/supersession records
   rather than silently deleted.
 - Canonical indexes are regenerated from bundles — manual duplication of

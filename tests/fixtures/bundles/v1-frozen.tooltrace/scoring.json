@@ -1,0 +1,18 @@
+{
+  "score": {
+    "total": 1.0,
+    "components": {
+      "typo removed": 1.0,
+      "correct key present": 1.0
+    },
+    "weights": {
+      "typo removed": 1.0,
+      "correct key present": 1.0
+    }
+  },
+  "details": {
+    "typo removed": "clean",
+    "correct key present": "matched 1/1 patterns"
+  },
+  "success": true
+}
