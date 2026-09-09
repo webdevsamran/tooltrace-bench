@@ -15,11 +15,14 @@ from __future__ import annotations
 import argparse
 import contextlib
 import json
+import random
 import sys
 import time
 from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
+
+from tooltrace.core.exceptions import BundleError
 
 if TYPE_CHECKING:
     from tooltrace.core.models import TaskDefinition
@@ -180,6 +183,56 @@ def cmd_run(args: argparse.Namespace) -> int:
     return EXIT_OK if result.success else EXIT_RUN
 
 
+def _select_tasks(
+    tasks: list[TaskDefinition], args: argparse.Namespace
+) -> tuple[list[TaskDefinition], dict[str, object]]:
+    """Apply `--task`, `--shuffle` and `--limit`, and record what was chosen.
+
+    Nobody runs a full benchmark on every pull request, so without a cheap
+    subset the CI integration simply does not happen. The risk is that a
+    truncated run reads like a full one, so the selection is returned alongside
+    the tasks and recorded in the run config: which policy, which seed, how many
+    of how many, and the exact ids. A subset is then reproducible by anyone with
+    the same seed, and obviously a subset to anyone reading the output.
+    """
+    chosen = list(tasks)
+    if getattr(args, "task", None):
+        wanted = {t.strip() for t in str(args.task).split(",") if t.strip()}
+        chosen = [t for t in chosen if t.id in wanted]
+
+    available = len(chosen)
+    limit = getattr(args, "limit", None)
+    shuffle = bool(getattr(args, "shuffle", False))
+    seed = getattr(args, "seed", None)
+
+    policy = "all"
+    effective_seed: int | None = None if seed is None else int(seed)
+    if shuffle:
+        # Sort first so the shuffle depends only on the seed, never on the
+        # order the loader happened to walk the pack directories in.
+        effective_seed = 0 if effective_seed is None else effective_seed
+        chosen = sorted(chosen, key=lambda t: t.id)
+        random.Random(effective_seed).shuffle(chosen)
+        policy = "seeded_shuffle"
+
+    if limit is not None and limit < len(chosen):
+        if not shuffle:
+            chosen = sorted(chosen, key=lambda t: t.id)
+            policy = "first_by_id"
+        chosen = chosen[:limit]
+
+    selection: dict[str, object] = {
+        "policy": policy,
+        "seed": effective_seed,
+        "requested_limit": limit,
+        "available": available,
+        "selected": len(chosen),
+        "is_subset": len(chosen) < available,
+        "task_ids": [t.id for t in chosen],
+    }
+    return chosen, selection
+
+
 def cmd_benchmark(args: argparse.Namespace) -> int:
     from tooltrace.runners.benchmark import run_benchmark
     from tooltrace.tasks import load_all_tasks
@@ -189,14 +242,21 @@ def cmd_benchmark(args: argparse.Namespace) -> int:
         return _cmd_context_sweep(args, tasks)
     if args.task:
         wanted = set(args.task.split(","))
-        tasks = [t for t in tasks if t.id in wanted]
         missing = wanted - {t.id for t in tasks}
         if missing:
             print(f"error: unknown tasks: {sorted(missing)}", file=sys.stderr)
             return EXIT_TASK
+    tasks, selection = _select_tasks(tasks, args)
     if not tasks:
         print("error: no tasks selected", file=sys.stderr)
         return EXIT_TASK
+    if selection["is_subset"]:
+        # A truncated run must never read like a full one.
+        print(
+            f"note: running {selection['selected']} of {selection['available']} tasks "
+            f"(policy={selection['policy']}, seed={selection['seed']})",
+            file=sys.stderr,
+        )
 
     # Drop tasks this machine cannot run, and say which -- silently omitting
     # them would make the benchmark look complete when it was not, and scoring
@@ -221,6 +281,7 @@ def cmd_benchmark(args: argparse.Namespace) -> int:
         out_dir=Path(args.out) if args.out else None,
     )
     payload = bench.model_dump(mode="json")
+    payload["selection"] = selection
     if args.out:
         out = Path(args.out)
         out.mkdir(parents=True, exist_ok=True)
@@ -285,10 +346,16 @@ def cmd_showdown(args: argparse.Namespace) -> int:
     from tooltrace.runners.benchmark import run_benchmark
     from tooltrace.tasks import load_all_tasks
 
-    tasks = load_all_tasks()
-    if args.task:
-        wanted = set(args.task.split(","))
-        tasks = [t for t in tasks if t.id in wanted]
+    tasks, selection = _select_tasks(load_all_tasks(), args)
+    if not tasks:
+        print("error: no tasks selected", file=sys.stderr)
+        return EXIT_TASK
+    if selection["is_subset"]:
+        print(
+            f"note: running {selection['selected']} of {selection['available']} tasks "
+            f"(policy={selection['policy']}, seed={selection['seed']})",
+            file=sys.stderr,
+        )
     agents = args.agents.split(",")
 
     standings: list[dict[str, object]] = []
@@ -346,6 +413,7 @@ def cmd_showdown(args: argparse.Namespace) -> int:
         "verdict": verdict,
         "note": note,
         "ranking_is_provisional": verdict != "ranked",
+        "selection": selection,
     }
     _emit(payload, args.json)
     return EXIT_OK
@@ -453,6 +521,49 @@ def cmd_reproduce(args: argparse.Namespace) -> int:
         if report.verified and (not report.rerun_attempted or report.rerun_success)
         else EXIT_RUN
     )
+
+
+def cmd_verify(args: argparse.Namespace) -> int:
+    """Check a bundle's checksums and its conformance to the published schemas.
+
+    The capability existed but had no name a user would look for: verification
+    lived under `reproduce --no-rerun`, a command documented as "verify and
+    re-run", so the cheap read-only check was reachable only by asking the
+    expensive one not to do its main job. Third-party auditing is the whole
+    point of a checksummed bundle, so it gets a verb.
+
+    Two independent checks, reported separately because they fail for different
+    reasons: checksums catch a file that changed after it was written; schema
+    validation catches a bundle that never matched the published format.
+    """
+    from tooltrace.artifacts.bundles import read_manifest, verify_bundle
+    from tooltrace.artifacts.validation import validate_bundle_artifacts
+
+    bundle = Path(args.bundle)
+    try:
+        checksum_problems = verify_bundle(bundle)
+    except BundleError as exc:
+        _emit({"bundle": str(bundle), "ok": False, "problems": [str(exc)]}, args.json)
+        return EXIT_RUN
+
+    schema_problems = [] if args.no_schema else validate_bundle_artifacts(bundle)
+    manifest: dict[str, object] = {}
+    with contextlib.suppress(BundleError, ValueError):
+        manifest = read_manifest(bundle)
+
+    payload = {
+        "bundle": str(bundle),
+        "ok": not checksum_problems and not schema_problems,
+        "checksums_ok": not checksum_problems,
+        "schema_ok": not schema_problems,
+        "checksum_problems": checksum_problems,
+        "schema_problems": schema_problems,
+        "framework_version": manifest.get("framework_version"),
+        "compatibility_key": manifest.get("compatibility_key"),
+        "trust_state": manifest.get("trust_state"),
+    }
+    _emit(payload, args.json)
+    return EXIT_OK if payload["ok"] else EXIT_RUN
 
 
 def cmd_report(args: argparse.Namespace) -> int:
@@ -906,6 +1017,21 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--agent-config")
     s.add_argument("--out")
 
+    # Nobody runs a full benchmark on every pull request, so a cheap, *recorded*
+    # subset is what makes CI integration happen at all.
+    for _sub in (b, s):
+        _sub.add_argument(
+            "--limit",
+            type=int,
+            help="run at most N tasks; the selection is recorded, not silently cut",
+        )
+        _sub.add_argument(
+            "--shuffle",
+            action="store_true",
+            help="shuffle before --limit so a subset is not always the same N tasks",
+        )
+        _sub.add_argument("--seed", type=int, help="seed for --shuffle (default 0)")
+
     c = add("compare", cmd_compare, "compare two bundles metric-by-metric")
     c.add_argument("--baseline", required=True)
     c.add_argument("--current", required=True)
@@ -927,6 +1053,11 @@ def build_parser() -> argparse.ArgumentParser:
     rp.add_argument("bundle")
     rp.add_argument("--out")
     rp.add_argument("--no-rerun", action="store_true")
+    v = add("verify", cmd_verify, "verify a bundle's checksums and schema conformance")
+    v.add_argument("bundle")
+    v.add_argument(
+        "--no-schema", action="store_true", help="check checksums only, skip schema validation"
+    )
 
     rep = add("report", cmd_report, "aggregate bundles into a report")
     rep.add_argument("--bundles", nargs="+", required=True)

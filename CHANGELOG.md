@@ -66,6 +66,22 @@ versioning follows [Semantic Versioning](https://semver.org/).
   Workspace", which "wsx" cannot thread through, while the reverse order
   matched. Both orders are scored now.
 ### Added
+- **`--limit`, `--shuffle` and `--seed` on `benchmark` and `showdown`.** Nobody
+  runs a full benchmark on every pull request, and without a way to trim one the
+  CI integration this project is built for could not be set up at all. The risk
+  is a truncated run reading like a full one, so the selection is recorded in the
+  output — policy, seed, how many of how many, and the exact task ids — and a
+  subset announces itself on stderr. Default is deterministic (first N by id);
+  `--shuffle` sorts before shuffling so the result depends only on the seed and
+  never on the order the loader happened to walk the pack directories.
+- **`tooltrace verify BUNDLE`.** Bundle verification existed but had no verb: it
+  lived under `reproduce --no-rerun`, a command documented as "verify and
+  re-run", so the cheap read-only check was reachable only by asking the
+  expensive one not to do its main job. Third-party auditing is the entire point
+  of a checksummed bundle. Checksums and schema conformance are reported
+  separately because they fail for different reasons — tampering after the fact
+  versus never having matched the published format — and `--no-schema` runs the
+  checksum half alone.
 - **Trajectory metrics now reach a user.** `tooltrace/metrics/` shipped ten
   functions — trajectory efficiency, loop detection, hallucinated resources,
   context retention, tool-selection confusion, verification quality, failure
