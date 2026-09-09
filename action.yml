@@ -1,0 +1,167 @@
+name: ToolTrace Bench
+description: >-
+  Run an agent-reliability benchmark and fail the build when the success rate
+  drops below a threshold. Offline by default; no network egress from the
+  sandbox.
+author: webdevsamran
+
+branding:
+  icon: activity
+  color: blue
+
+# This action deliberately uses no third-party actions. A composite action that
+# pulls in `setup-python` inherits that action's supply chain on behalf of every
+# caller, and pins it on their behalf too. Set up Python yourself, with whatever
+# version and pinning policy your repository already applies, and this action
+# will use the interpreter it finds.
+
+inputs:
+  agent:
+    description: Registered agent adapter to benchmark.
+    required: false
+    default: scripted
+  agent-config:
+    description: JSON passed to the adapter. Never put a credential here; use an env var name.
+    required: false
+    default: ""
+  tasks:
+    description: Comma-separated task ids. Default is every available task.
+    required: false
+    default: ""
+  runs:
+    description: Repeats per task. More runs narrow the confidence interval.
+    required: false
+    default: "1"
+  limit:
+    description: >-
+      Run at most N tasks. The selection is recorded in the output, and a subset
+      says so, so a trimmed CI run is never mistaken for a full one.
+    required: false
+    default: ""
+  shuffle:
+    description: Shuffle before applying limit, so a subset is not always the same N tasks.
+    required: false
+    default: "false"
+  seed:
+    description: Seed for shuffle. The same seed selects the same tasks.
+    required: false
+    default: "0"
+  min-success-rate:
+    description: Fail the step when the measured success rate falls below this (0..1).
+    required: false
+    default: "0"
+  out:
+    description: Directory for result bundles. Empty writes none.
+    required: false
+    default: ""
+  install:
+    description: >-
+      Install tooltrace-bench before running. Set to false when your workflow has
+      already installed it (for example from the checked-out source).
+    required: false
+    default: "true"
+  version:
+    description: Version specifier used when install is true.
+    required: false
+    default: tooltrace-bench
+
+outputs:
+  success-rate:
+    description: Measured overall success rate, or empty when nothing ran.
+    value: ${{ steps.bench.outputs.success-rate }}
+  tasks-run:
+    description: How many tasks were selected.
+    value: ${{ steps.bench.outputs.tasks-run }}
+  is-subset:
+    description: true when fewer tasks ran than were available.
+    value: ${{ steps.bench.outputs.is-subset }}
+  summary-path:
+    description: Path to the written JSON summary.
+    value: ${{ steps.bench.outputs.summary-path }}
+
+runs:
+  using: composite
+  steps:
+    - name: Install tooltrace-bench
+      if: inputs.install == 'true'
+      shell: bash
+      run: python -m pip install --disable-pip-version-check "${{ inputs.version }}"
+
+    - name: Benchmark
+      id: bench
+      shell: bash
+      env:
+        TTB_AGENT: ${{ inputs.agent }}
+        TTB_AGENT_CONFIG: ${{ inputs.agent-config }}
+        TTB_TASKS: ${{ inputs.tasks }}
+        TTB_RUNS: ${{ inputs.runs }}
+        TTB_LIMIT: ${{ inputs.limit }}
+        TTB_SHUFFLE: ${{ inputs.shuffle }}
+        TTB_SEED: ${{ inputs.seed }}
+        TTB_MIN_SUCCESS_RATE: ${{ inputs.min-success-rate }}
+        TTB_OUT: ${{ inputs.out }}
+      run: |
+        set -euo pipefail
+        args=(benchmark --agent "$TTB_AGENT" --runs "$TTB_RUNS" --json)
+        [ -n "$TTB_TASKS" ] && args+=(--task "$TTB_TASKS")
+        [ -n "$TTB_AGENT_CONFIG" ] && args+=(--agent-config "$TTB_AGENT_CONFIG")
+        [ -n "$TTB_LIMIT" ] && args+=(--limit "$TTB_LIMIT")
+        [ "$TTB_SHUFFLE" = "true" ] && args+=(--shuffle --seed "$TTB_SEED")
+        [ -n "$TTB_OUT" ] && args+=(--out "$TTB_OUT")
+
+        summary="$RUNNER_TEMP/tooltrace-summary.json"
+        # The subset note goes to stderr and stays on the console; stdout is the
+        # machine-readable payload and must not be polluted by it.
+        tooltrace "${args[@]}" > "$summary"
+
+        python - "$summary" "$TTB_MIN_SUCCESS_RATE" <<'PY'
+        import json, os, sys
+
+        summary_path, floor = sys.argv[1], float(sys.argv[2] or 0)
+        payload = json.load(open(summary_path, encoding="utf-8"))
+        overall = payload.get("summary", {}).get("overall", {})
+        selection = payload.get("selection", {})
+        rate = overall.get("rate")
+
+        with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as out:
+            out.write(f"success-rate={'' if rate is None else rate}\n")
+            out.write(f"tasks-run={selection.get('selected', '')}\n")
+            out.write(f"is-subset={str(bool(selection.get('is_subset'))).lower()}\n")
+            out.write(f"summary-path={summary_path}\n")
+
+        low, high = overall.get("ci_low"), overall.get("ci_high")
+        interval = f" (95% CI {low:.3f}–{high:.3f})" if low is not None and high is not None else ""
+        subset = ""
+        if selection.get("is_subset"):
+            subset = (
+                f"\n\n> Ran **{selection.get('selected')} of {selection.get('available')}** tasks "
+                f"(policy `{selection.get('policy')}`, seed `{selection.get('seed')}`). "
+                "This is a subset, not a full run."
+            )
+
+        step_summary = os.environ.get("GITHUB_STEP_SUMMARY")
+        if step_summary:
+            with open(step_summary, "a", encoding="utf-8") as md:
+                md.write(f"### ToolTrace Bench\n\n")
+                md.write(f"- Success rate: **{rate if rate is not None else 'n/a'}**{interval}\n")
+                md.write(f"- Runs: {overall.get('n', 'n/a')}\n")
+                taxonomy = overall.get("failure_taxonomy") or {}
+                if taxonomy:
+                    md.write(f"- Failures: {', '.join(f'{k}×{v}' for k, v in taxonomy.items())}\n")
+                md.write(subset + "\n")
+
+        if floor > 0:
+            if rate is None:
+                print("::error::no success rate was measured, so the threshold cannot be applied")
+                raise SystemExit(1)
+            if rate < floor:
+                print(f"::error::success rate {rate:.3f} is below the required {floor:.3f}")
+                raise SystemExit(1)
+            # A threshold met by a two-run sample is not evidence; say so rather
+            # than letting a green check imply more than it does.
+            if (overall.get("n") or 0) < 30:
+                print(
+                    f"::warning::threshold met, but n={overall.get('n')} is a small sample; "
+                    "the confidence interval is wide"
+                )
+        PY

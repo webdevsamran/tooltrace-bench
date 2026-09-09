@@ -37,6 +37,10 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 WORKFLOWS = ROOT / ".github" / "workflows"
+#: The published composite action is scanned too. It uses no third-party
+#: actions today, precisely so that callers do not inherit a supply chain we
+#: pinned on their behalf -- and this is what keeps that true.
+PUBLISHED_ACTION = ROOT / "action.yml"
 
 #: `uses: owner/repo[/subpath]@<ref>` with an optional trailing `# comment`.
 USES = re.compile(
@@ -96,7 +100,11 @@ def main() -> int:
     unresolved: list[str] = []
     checked = 0
 
-    for workflow in sorted(WORKFLOWS.glob("*.yml")) + sorted(WORKFLOWS.glob("*.yaml")):
+    scanned = sorted(WORKFLOWS.glob("*.yml")) + sorted(WORKFLOWS.glob("*.yaml"))
+    if PUBLISHED_ACTION.is_file():
+        scanned.append(PUBLISHED_ACTION)
+
+    for workflow in scanned:
         for lineno, line in enumerate(workflow.read_text(encoding="utf-8").splitlines(), 1):
             if LOCAL.match(line):
                 continue
