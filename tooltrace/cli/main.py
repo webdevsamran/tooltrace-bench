@@ -257,7 +257,24 @@ def _cmd_context_sweep(args: argparse.Namespace, tasks: list) -> int:
 
 
 def cmd_showdown(args: argparse.Namespace) -> int:
-    """Run one benchmark per agent and rank them by reliability."""
+    """Run one benchmark per agent and rank them -- but only when the sample supports it.
+
+    This used to sort on the success-rate point estimate and stop. It carried a
+    confidence interval in the payload and never looked at it, so two agents at
+    ``--runs 1`` still came back in a definite order, and the repository shipped
+    a statistics module whose whole purpose is to refuse exactly that claim
+    (``significance_note`` declines to name a winner below n=30). Every function
+    used below already existed in ``tooltrace/metrics/reliability.py``; none of
+    them had a caller outside the test suite.
+
+    Ranking is reported as provisional unless the sample is large enough *and*
+    the leader's Wilson interval clears the runner-up's.
+    """
+    from tooltrace.metrics.reliability import (
+        effect_size_cohens_h,
+        paired_delta,
+        significance_note,
+    )
     from tooltrace.runners.benchmark import run_benchmark
     from tooltrace.tasks import load_all_tasks
 
@@ -266,26 +283,85 @@ def cmd_showdown(args: argparse.Namespace) -> int:
         wanted = set(args.task.split(","))
         tasks = [t for t in tasks if t.id in wanted]
     agents = args.agents.split(",")
-    standings = []
-    for agent in agents:
+
+    standings: list[dict[str, object]] = []
+    # Every agent runs the identical task list in the same order, so these
+    # vectors are genuinely paired and paired_delta is legitimate.
+    outcomes: dict[str, list[bool]] = {}
+    for index, agent in enumerate(agents):
         config = json.loads(args.agent_config) if args.agent_config else None
         bench = run_benchmark(
             tasks, agent, config, runs=args.runs, out_dir=Path(args.out) if args.out else None
         )
         overall = bench.summary.get("overall", {})
+        # Agents may be named twice (a self-comparison sanity check), so key the
+        # outcome vectors by position rather than by name.
+        key = f"{index}:{agent}"
+        outcomes[key] = [bool(r.success) for r in bench.results]
         standings.append(
             {
                 "agent": agent,
+                "key": key,
                 "success_rate": overall.get("rate"),
                 "ci": [overall.get("ci_low"), overall.get("ci_high")],
+                "n": overall.get("n"),
                 "steps_mean": overall.get("steps_mean"),
                 "failed_tool_calls_mean": overall.get("failed_tool_calls_mean"),
                 "wall_ms_p95": overall.get("wall_ms_p95"),
+                "flakiness": overall.get("flakiness"),
             }
         )
-    standings.sort(key=lambda s: s["success_rate"] or 0.0, reverse=True)
-    _emit(standings, args.json)
+
+    standings.sort(key=lambda row: _as_rate(row.get("success_rate")), reverse=True)
+
+    verdict = "ranked"
+    note = "single agent; nothing to compare"
+    if len(standings) >= 2:
+        leader, runner_up = standings[0], standings[1]
+        leader_vec = outcomes[str(leader["key"])]
+        runner_vec = outcomes[str(runner_up["key"])]
+        note = significance_note(len(leader_vec), len(runner_vec))
+        for challenger in standings[1:]:
+            challenger_vec = outcomes[str(challenger["key"])]
+            challenger["paired_vs_leader"] = paired_delta(leader_vec, challenger_vec)
+            challenger["effect_size_h"] = effect_size_cohens_h(
+                _as_rate(leader.get("success_rate")), _as_rate(challenger.get("success_rate"))
+            )
+        enough = note.startswith("sample sizes sufficient")
+        separated = _intervals_are_disjoint(leader.get("ci"), runner_up.get("ci"))
+        if not (enough and separated):
+            verdict = "not distinguishable at this sample size"
+
+    for row in standings:
+        row.pop("key", None)
+    payload = {
+        "standings": standings,
+        "verdict": verdict,
+        "note": note,
+        "ranking_is_provisional": verdict != "ranked",
+    }
+    _emit(payload, args.json)
     return EXIT_OK
+
+
+def _as_rate(value: object) -> float:
+    """A success rate as a float, treating an unmeasured rate as 0.0 for ordering only."""
+    return float(value) if isinstance(value, int | float) else 0.0
+
+
+def _intervals_are_disjoint(a: object, b: object) -> bool:
+    """True when two [low, high] intervals do not overlap.
+
+    A missing bound means we cannot show separation, so the answer is False --
+    absence of evidence is never reported as separation.
+    """
+    if not (isinstance(a, list) and isinstance(b, list) and len(a) == 2 and len(b) == 2):
+        return False
+    if any(x is None for x in (*a, *b)):
+        return False
+    a_low, a_high = float(a[0]), float(a[1])
+    b_low, b_high = float(b[0]), float(b[1])
+    return a_low > b_high or b_low > a_high
 
 
 def cmd_compare(args: argparse.Namespace) -> int:
