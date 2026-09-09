@@ -11,11 +11,12 @@ Exit codes: `0` ok · `2` usage · `3` task/validation · `4` agent · `5` run f
 | `doctor` | Environment, registries, plugin discovery health check |
 | `tasks [--category]` | List bundled tasks |
 | `run --task ID --agent A [--agent-config JSON] [--out DIR]` | One deterministic task against one agent; writes a bundle |
-| `benchmark --agent A [--runs N] [--task ids] [--context-sweep] [--min-success-rate]` | Repeated reliability runs with pass@k/pass^k-aware summaries |
-| `showdown --agents a,b [--runs N]` | Fair multi-agent ranking on identical cohorts. Emits `{standings, verdict, note, ranking_is_provisional}`; the verdict is `ranked` only when the sample is large enough *and* the leader's confidence interval clears the runner-up's, otherwise `not distinguishable at this sample size` |
+| `benchmark --agent A [--runs N] [--task ids] [--limit N] [--shuffle] [--seed S] [--context-sweep] [--min-success-rate]` | Repeated reliability runs with pass@k/pass^k-aware summaries and trajectory metrics. `--limit` runs a recorded subset for CI; the policy, seed and selected ids are reported and a subset announces itself on stderr |
+| `showdown --agents a,b [--runs N] [--limit N] [--shuffle] [--seed S]` | Fair multi-agent ranking on identical cohorts. Emits `{standings, verdict, note, ranking_is_provisional}`; the verdict is `ranked` only when the sample is large enough *and* the leader's confidence interval clears the runner-up's, otherwise `not distinguishable at this sample size` |
 | `compare --baseline B --current C [--metrics m1,m2]` | Metric-by-metric bundle comparison |
 | `baseline --name N --bundle PATH` | Record a named baseline |
 | `regression --baseline B --current C --thresholds JSON` | CI gate for score/tool/latency regressions |
+| `verify BUNDLE [--no-schema]` | Check a bundle's checksums and schema conformance; read-only, exits 5 on any problem |
 | `reproduce BUNDLE [--out DIR] [--no-rerun]` | Verify hashes and optionally re-run |
 | `perturb --task ID [--perturbation kind:tool] [--runs N] [--min-recovery-rate R]` | Inject safe faults and measure recovery rate; `--out` writes bundles |
 | `trace BUNDLE [--filter SUBSTR] [--assertions] [--limit N]` | Inspect a bundle trace in the terminal (checksum-verified) |
