@@ -13,6 +13,46 @@ function useFilter(initial: string) {
   return [value, setValue] as const
 }
 
+/**
+ * An axis nobody measured must never render as a good score.
+ *
+ * A null cost shown as `0` reads as free; a null attack-success-rate shown as
+ * `0%` reads as perfectly secure. Both would be the most misleading numbers on
+ * this page, and both are currently null for every agent — no adapter here
+ * reports spend, and no security pack ships yet (`docs/feature-status.md` row
+ * 16 is graded `S`). So unmeasured is rendered as unmeasured, with a reason.
+ */
+function Unmeasured({ why }: { why: string }) {
+  return (
+    <span className="faint" title={why}>
+      not measured
+    </span>
+  )
+}
+
+function money(value: number | null | undefined, currency: string | null | undefined) {
+  // `== null` deliberately: data generated before these fields existed omits
+  // them entirely, and `undefined` must be treated as unmeasured too rather
+  // than reaching `.toFixed()`.
+  if (value == null) return <Unmeasured why="No adapter in this dataset reported provider cost." />
+  return (
+    <span className="num">
+      {currency ? `${currency} ` : ''}
+      {value.toFixed(4)}
+    </span>
+  )
+}
+
+function asr(value: number | null | undefined, runs: number | undefined) {
+  if (value == null)
+    return <Unmeasured why="No security tasks have been run; a security pack does not ship yet." />
+  return (
+    <span className={value > 0 ? 'badge badge-bad' : 'badge badge-ok'}>
+      {(value * 100).toFixed(1)}% of {runs ?? 0}
+    </span>
+  )
+}
+
 export function LeaderboardPage() {
   const agents = useAsync(getAgents)
   const results = useAsync(getResults)
@@ -21,6 +61,9 @@ export function LeaderboardPage() {
   if (agents.loading) return <Loading />
   if (agents.error) return <ErrorState message={agents.error} />
   const rows = [...(agents.data ?? [])].sort((a, b) => b.success_rate - a.success_rate)
+
+  const measuredCost = rows.filter((r) => r.cost_per_resolved_task != null).length
+  const measuredSecurity = rows.filter((r) => r.attack_success_rate != null).length
 
   // Domain × agent success-rate heatmap (cohort-safe: same protocol version only).
   const taskCategory = new Map((tasks.data ?? []).map((t) => [t.id, t.category]))
@@ -42,10 +85,49 @@ export function LeaderboardPage() {
     <div>
       <h1>Leaderboard</h1>
       <p className="muted">
-        Ranked by measured success rate across validated bundles. Only real
-        repository data is shown — never synthetic entries. Agents are never
+        Four axes, not one: how often an agent succeeds, what that costs, how long
+        it takes, and whether it can be talked out of its instructions. Only real
+        repository data is shown — never synthetic entries — and agents are never
         ranked across incompatible task/protocol cohorts.
       </p>
+
+      <div className="stats">
+        <div className="stat">
+          <span className="stat-label">Accuracy</span>
+          <span className="stat-value">{rows.length} agent{rows.length === 1 ? '' : 's'}</span>
+        </div>
+        <div className="stat">
+          <span className="stat-label">Cost measured</span>
+          <span className="stat-value">
+            {measuredCost}/{rows.length}
+          </span>
+        </div>
+        <div className="stat">
+          <span className="stat-label">Latency measured</span>
+          <span className="stat-value">
+            {rows.length}/{rows.length}
+          </span>
+        </div>
+        <div className="stat">
+          <span className="stat-label">Security measured</span>
+          <span className="stat-value">
+            {measuredSecurity}/{rows.length}
+          </span>
+        </div>
+      </div>
+
+      {(measuredCost === 0 || measuredSecurity === 0) && (
+        <p className="state empty" role="note">
+          {measuredCost === 0 && measuredSecurity === 0
+            ? 'Cost and security are unmeasured in this dataset. '
+            : measuredCost === 0
+              ? 'Cost is unmeasured in this dataset. '
+              : 'Security is unmeasured in this dataset. '}
+          Those columns read “not measured” rather than showing a zero, because a
+          zero would look like free, or perfectly secure.
+        </p>
+      )}
+
       <DataTable
         rows={rows}
         emptyHint="No agent results yet."
@@ -53,10 +135,16 @@ export function LeaderboardPage() {
           { key: 'name', header: 'Agent', value: (r) => r.name },
           { key: 'success_rate', header: 'Success rate', value: (r) => r.success_rate, numeric: true,
             render: (r) => `${(r.success_rate * 100).toFixed(1)}%` },
+          { key: 'cost_per_resolved_task', header: 'Cost / resolved task',
+            value: (r) => r.cost_per_resolved_task ?? -1, numeric: true,
+            render: (r) => money(r.cost_per_resolved_task, r.currency) },
+          { key: 'wall_ms_p95', header: 'p95 wall ms', value: (r) => r.wall_ms_p95, numeric: true },
+          { key: 'attack_success_rate', header: 'Attack success',
+            value: (r) => r.attack_success_rate ?? -1, numeric: true,
+            render: (r) => asr(r.attack_success_rate, r.security_runs) },
           { key: 'mean_score', header: 'Mean score', value: (r) => r.mean_score, numeric: true },
           { key: 'mean_steps', header: 'Steps (μ)', value: (r) => r.mean_steps, numeric: true },
           { key: 'failed_tool_calls_mean', header: 'Failed tools (μ)', value: (r) => r.failed_tool_calls_mean, numeric: true },
-          { key: 'wall_ms_p95', header: 'p95 wall ms', value: (r) => r.wall_ms_p95, numeric: true },
         ] as Column<(typeof rows)[number]>[]}
       />
       {domains.length > 0 && heatAgents.length > 0 && (

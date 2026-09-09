@@ -23,7 +23,11 @@ vi.stubGlobal('fetch', vi.fn((url: string) => {
   if (url.includes('agents.json')) {
     return json([
       { name: 'scripted', runs: 2, success_rate: 1.0, mean_score: 1.0,
-        mean_steps: 3, failed_tool_calls_mean: 0, wall_ms_p95: 4 },
+        mean_steps: 3, failed_tool_calls_mean: 0, wall_ms_p95: 4,
+        // Unmeasured axes are null, never 0 — the UI must render them as
+        // "not measured" rather than as free / perfectly secure.
+        cost_per_resolved_task: null, total_cost: null, priced_runs: 0,
+        currency: null, attack_success_rate: null, security_runs: 0 },
     ])
   }
   if (url.includes('results.json')) {

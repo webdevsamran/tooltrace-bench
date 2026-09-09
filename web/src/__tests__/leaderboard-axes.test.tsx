@@ -1,0 +1,145 @@
+import { render, screen, waitFor, within } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { LeaderboardPage } from '../pages/browse'
+
+/**
+ * The four-axis leaderboard: accuracy, cost, latency, security resilience.
+ *
+ * The failure mode this guards against is specific. An axis nobody measured,
+ * rendered as a number, reads as a *good* score: a null cost shown as `0` is
+ * "free", and a null attack-success-rate shown as `0%` is "perfectly secure".
+ * Both would be the most misleading numbers on the page, and both are null for
+ * every agent in this repository today — no adapter reports spend, and no
+ * security pack ships (`docs/feature-status.md` row 16 is graded `S`).
+ *
+ * So the rule is: unmeasured renders as "not measured", with a reason.
+ */
+
+const AGENT = {
+  name: 'scripted',
+  runs: 6,
+  success_rate: 1.0,
+  mean_score: 1.0,
+  mean_steps: 3,
+  failed_tool_calls_mean: 0,
+  wall_ms_p95: 33,
+  cost_per_resolved_task: null as number | null,
+  total_cost: null as number | null,
+  priced_runs: 0,
+  currency: null as string | null,
+  attack_success_rate: null as number | null,
+  security_runs: 0,
+}
+
+function mockData(agent: Record<string, unknown>) {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn((url: string) => {
+      const json = (body: unknown) =>
+        Promise.resolve(new Response(JSON.stringify(body), { status: 200 }))
+      if (url.includes('agents.json')) return json([agent])
+      if (url.includes('results.json')) return json([])
+      if (url.includes('tasks.json')) return json([])
+      return Promise.resolve(new Response('[]', { status: 200 }))
+    }),
+  )
+}
+
+function renderPage() {
+  return render(
+    <MemoryRouter>
+      <LeaderboardPage />
+    </MemoryRouter>,
+  )
+}
+
+describe('four-axis leaderboard', () => {
+  beforeEach(() => vi.unstubAllGlobals())
+
+  it('shows all four axes as columns', async () => {
+    mockData(AGENT)
+    renderPage()
+    expect(await screen.findByRole('heading', { name: /leaderboard/i })).toBeInTheDocument()
+    for (const header of [/success rate/i, /cost \/ resolved task/i, /p95 wall ms/i, /attack success/i]) {
+      expect(screen.getByRole('button', { name: header })).toBeInTheDocument()
+    }
+  })
+
+  it('renders an unmeasured cost as "not measured", never as zero', async () => {
+    mockData(AGENT)
+    renderPage()
+    await screen.findByRole('heading', { name: /leaderboard/i })
+    await waitFor(() => expect(screen.getAllByText(/not measured/i).length).toBeGreaterThan(0))
+    // The specific danger: a currency-formatted zero.
+    expect(screen.queryByText(/0\.0000/)).not.toBeInTheDocument()
+  })
+
+  it('renders an unmeasured attack-success rate as "not measured", never as 0%', async () => {
+    mockData(AGENT)
+    renderPage()
+    await screen.findByRole('heading', { name: /leaderboard/i })
+    // Scoped to the table: the explanatory note also uses the phrase.
+    const table = await screen.findByRole('table')
+    await waitFor(() => expect(within(table).getAllByText(/not measured/i)).toHaveLength(2))
+    expect(within(table).queryByText(/0\.0% of/)).not.toBeInTheDocument()
+  })
+
+  it('says plainly which axes this dataset does not measure', async () => {
+    mockData(AGENT)
+    renderPage()
+    const note = await screen.findByRole('note')
+    expect(note).toHaveTextContent(/cost and security are unmeasured/i)
+    expect(note).toHaveTextContent(/would look like free, or perfectly secure/i)
+  })
+
+  it('counts how many agents have each axis measured', async () => {
+    mockData(AGENT)
+    renderPage()
+    await screen.findByRole('heading', { name: /leaderboard/i })
+    // Latency is always measured; cost and security are not.
+    expect(screen.getByText('1/1')).toBeInTheDocument()
+    expect(screen.getAllByText('0/1')).toHaveLength(2)
+  })
+
+  it('renders real values when the axes are measured', async () => {
+    mockData({
+      ...AGENT,
+      cost_per_resolved_task: 0.1234,
+      currency: 'USD',
+      priced_runs: 6,
+      attack_success_rate: 0.25,
+      security_runs: 8,
+    })
+    renderPage()
+    await screen.findByRole('heading', { name: /leaderboard/i })
+    await waitFor(() => expect(screen.getByText(/0\.1234/)).toBeInTheDocument())
+    expect(screen.getByText(/25\.0% of 8/)).toBeInTheDocument()
+    expect(screen.queryByText(/not measured/i)).not.toBeInTheDocument()
+  })
+
+  it('treats a missing field the same as an explicit null', async () => {
+    /** Data generated before these fields existed omits them entirely. */
+    const { cost_per_resolved_task, attack_success_rate, ...older } = AGENT
+    void cost_per_resolved_task
+    void attack_success_rate
+    mockData(older)
+    renderPage()
+    const table = await screen.findByRole('table')
+    await waitFor(() => expect(within(table).getAllByText(/not measured/i)).toHaveLength(2))
+  })
+
+  it('flags a measured attack-success rate above zero as bad', async () => {
+    mockData({ ...AGENT, attack_success_rate: 0.5, security_runs: 4 })
+    const { container } = renderPage()
+    await screen.findByRole('heading', { name: /leaderboard/i })
+    await waitFor(() => expect(container.querySelector('.badge-bad')).toBeTruthy())
+  })
+
+  it('marks a fully resisted attack set as good', async () => {
+    mockData({ ...AGENT, attack_success_rate: 0, security_runs: 4 })
+    const { container } = renderPage()
+    await screen.findByRole('heading', { name: /leaderboard/i })
+    await waitFor(() => expect(container.querySelector('.badge-ok')).toBeTruthy())
+  })
+})
