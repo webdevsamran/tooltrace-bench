@@ -21,7 +21,7 @@ from pathlib import Path
 import yaml
 
 from tooltrace.core.exceptions import BundleError
-from tooltrace.core.models import TaskDefinition, TraceEvent
+from tooltrace.core.models import EvalResult, TaskDefinition, TraceEvent
 from tooltrace.core.versions import compatibility_key
 from tooltrace.runners.runner import environment_metadata
 
@@ -46,7 +46,7 @@ def bundle_slug(result_task_id: str, agent: str, run_id: str) -> str:
 
 def write_bundle(
     out_dir: Path,
-    result,  # EvalResult
+    result: EvalResult,
     events: list[TraceEvent],
     task: TaskDefinition,
     diff_text: str,
@@ -116,7 +116,8 @@ def read_manifest(bundle_dir: Path) -> dict[str, object]:
     manifest_path = bundle_dir / "manifest.json"
     if not manifest_path.is_file():
         raise BundleError(f"missing manifest.json in {bundle_dir}")
-    return json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest: dict[str, object] = json.loads(manifest_path.read_text(encoding="utf-8"))
+    return manifest
 
 
 def verify_bundle(bundle_dir: Path) -> list[str]:
@@ -151,7 +152,7 @@ def verify_bundle(bundle_dir: Path) -> list[str]:
     return problems
 
 
-def load_bundle_result(bundle_dir: Path):
+def load_bundle_result(bundle_dir: Path) -> EvalResult:
     from tooltrace.core.models import EvalResult
 
     data = json.loads((bundle_dir / "result.json").read_text(encoding="utf-8"))

@@ -87,7 +87,8 @@ class MCPClient:
         line = self._proc.stdout.readline()
         if not line:
             raise MCPError("MCP server closed the stream")
-        return json.loads(line.decode("utf-8"))
+        message: dict[str, Any] = json.loads(line.decode("utf-8"))
+        return message
 
     def _request(self, method: str, params: dict[str, Any]) -> dict[str, Any]:
         req_id = self._next_id
@@ -98,7 +99,8 @@ class MCPClient:
             if msg.get("id") == req_id:
                 if "error" in msg:
                     raise MCPError(f"{method} failed: {msg['error']}")
-                return msg.get("result", {})
+                result: dict[str, Any] = msg.get("result", {})
+                return result
 
     def _notify(self, method: str, params: dict[str, Any]) -> None:
         self._send({"jsonrpc": "2.0", "method": method, "params": params})

@@ -38,7 +38,7 @@ class PerturbationEngine:
                     self._fired.add(i)
                     self.injected_count += 1
             elif spec.kind == "irrelevant_files" and i not in self._fired:
-                for rel, content in dict(spec.params.get("files", {})).items():  # type: ignore[arg-type]
+                for rel, content in dict(spec.params.get("files", {})).items():
                     target = workspace / str(rel)
                     target.parent.mkdir(parents=True, exist_ok=True)
                     target.write_text(str(content), encoding="utf-8")
@@ -96,14 +96,14 @@ class PerturbationEngine:
     def _message_for(self, spec: PerturbationSpec) -> str | None:
         kind = spec.kind
         if kind == "delay":
-            seconds = float(spec.params.get("seconds", 0.5))  # type: ignore[arg-type]
+            seconds = float(spec.params.get("seconds", 0.5))
             time.sleep(min(seconds, 5.0))
             return None  # a delay slows the call but does not fail it
         if kind == "command_exit":
-            code = int(spec.params.get("exit_code", 1))  # type: ignore[arg-type]
+            code = int(spec.params.get("exit_code", 1))
             return f"injected failure: command exited with code {code}"
         if kind == "api_error":
-            status = int(spec.params.get("status", 503))  # type: ignore[arg-type]
+            status = int(spec.params.get("status", 503))
             return f"injected failure: mock API returned HTTP {status}"
         if kind == "ambiguous_error":
             return "operation failed (unclear cause; see logs)"

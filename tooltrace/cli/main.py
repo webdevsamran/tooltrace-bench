@@ -17,8 +17,15 @@ import contextlib
 import json
 import sys
 import time
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from tooltrace.core.models import TaskDefinition
+
+# Every subcommand handler takes the parsed namespace and returns an exit code.
+CommandHandler = Callable[[argparse.Namespace], int]
 
 EXIT_OK = 0
 EXIT_USAGE = 2
@@ -77,7 +84,7 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     except Exception as exc:
         checks["tasks_loaded"] = f"ERROR: {exc}"
     ok = isinstance(checks["tasks_loaded"], int) and checks["tasks_loaded"] > 0
-    _emit({"ok": ok, **checks}, args.json)  # type: ignore[arg-type]
+    _emit({"ok": ok, **checks}, args.json)
     return EXIT_OK if ok else EXIT_TASK
 
 
@@ -226,7 +233,7 @@ def cmd_benchmark(args: argparse.Namespace) -> int:
     return EXIT_OK if rate >= args.min_success_rate else EXIT_RUN
 
 
-def _cmd_context_sweep(args: argparse.Namespace, tasks: list) -> int:
+def _cmd_context_sweep(args: argparse.Namespace, tasks: list[TaskDefinition]) -> int:
     """`benchmark --context-sweep`: reliability vs context size (§10)."""
     from tooltrace.runners.benchmark import context_sweep
 
@@ -592,7 +599,7 @@ def cmd_perturb(args: argparse.Namespace) -> int:
             )
             return EXIT_USAGE
         params: dict[str, object] = {"tool": tool} if tool else {}
-        specs = [*specs, PerturbationSpec(kind=kind, params=params)]  # type: ignore[arg-type]
+        specs = [*specs, PerturbationSpec(kind=kind, params=params)]
     if not specs:
         print(
             "error: task declares no perturbations; pass --perturbation kind[:tool]",
@@ -860,7 +867,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--version", action="store_true")
     sub = p.add_subparsers(dest="command")
 
-    def add(name: str, fn, help_: str) -> argparse.ArgumentParser:
+    def add(name: str, fn: CommandHandler, help_: str) -> argparse.ArgumentParser:
         sp = sub.add_parser(name, help=help_)
         sp.set_defaults(func=fn)
         sp.add_argument("--json", action="store_true", help="structured JSON output")
@@ -988,7 +995,7 @@ def build_parser() -> argparse.ArgumentParser:
     tr.add_argument("--limit", type=int, default=50)
 
     add("snapshot", cmd_snapshot, "generate/verify a hashed dataset snapshot")
-    snap = sub.choices["snapshot"]  # type: ignore[union-attr]
+    snap = sub.choices["snapshot"]
     snap.add_argument("--source", required=True)
     snap.add_argument("--output", required=True)
     snap.add_argument("--changelog", default="")
@@ -1013,7 +1020,10 @@ def main(argv: list[str] | None = None) -> int:
         parser.print_help()
         return EXIT_USAGE
     try:
-        return args.func(args)
+        # args.func is Any off the namespace; bind it so the declared return
+        # type of main() is actually enforced rather than laundered through Any.
+        exit_code: int = args.func(args)
+        return exit_code
     except KeyboardInterrupt:
         return 130
 

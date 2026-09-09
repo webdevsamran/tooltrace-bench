@@ -295,7 +295,10 @@ def _data_equals(params: dict[str, object], workspace: Path) -> ScorerOutcome:
     expected = params.get("expected")
     if not path.is_file() or not isinstance(expected, str):
         return ScorerOutcome(0.0, "file missing or expected invalid")
-    normalize = lambda s: chr(10).join(line.rstrip() for line in s.strip().splitlines())  # noqa: E731
+
+    def normalize(text: str) -> str:
+        return chr(10).join(line.rstrip() for line in text.strip().splitlines())
+
     ok = normalize(_read(path)) == normalize(expected)
     return ScorerOutcome(1.0 if ok else 0.0, "content equal" if ok else "content differs")
 

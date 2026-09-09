@@ -11,6 +11,7 @@ vendor/lock directories are skipped.
 from __future__ import annotations
 
 import sys
+from collections.abc import Iterator
 from pathlib import Path
 
 from tooltrace.security.sanitize import find_secrets
@@ -56,7 +57,7 @@ TEXT_SUFFIXES = {
 }
 
 
-def _iter_files(paths: list[Path]):
+def _iter_files(paths: list[Path]) -> Iterator[Path]:
     for p in paths:
         if p.is_dir():
             for f in sorted(p.rglob("*")):

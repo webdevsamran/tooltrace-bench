@@ -60,7 +60,7 @@ class TempWorkspaceSandbox:
             try:
                 self._tmp.cleanup()
             except OSError:
-                shutil.rmtree(self._tmp.name, ignore_errors=True)  # type: ignore[arg-type]
+                shutil.rmtree(self._tmp.name, ignore_errors=True)
             finally:
                 self._tmp = None
                 self.workspace = None

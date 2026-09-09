@@ -11,6 +11,7 @@ from __future__ import annotations
 import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 from tooltrace.core.models import TaskDefinition, TraceEvent
 from tooltrace.tools.base import ToolContext
@@ -40,7 +41,7 @@ def replay_trace(
     events: list[TraceEvent],
     *,
     compare_status_only: bool = True,
-    prime_with: list[tuple[str, dict]] | None = None,
+    prime_with: list[tuple[str, dict[str, Any]]] | None = None,
 ) -> ReplayReport:
     """Replay all tool_request/tool_result pairs from *events*.
 
@@ -51,11 +52,11 @@ def replay_trace(
     report = ReplayReport()
 
     pending_tool: str | None = None
-    pending_args: dict = {}
+    pending_args: dict[str, Any] = {}
     request_seq: int | None = None
 
     # Pair each tool_request with its following tool_result.
-    pairs: list[tuple[int, str, dict, TraceEvent]] = []
+    pairs: list[tuple[int, str, dict[str, Any], TraceEvent]] = []
     for e in events:
         if e.type == "tool_request":
             pending_tool = str(e.payload.get("tool"))
