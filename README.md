@@ -221,7 +221,7 @@ Install once and ToolTrace tasks run as ordinary pytest tests:
 ```python
 def test_agent_edits_file(run_tooltrace, assert_tooltrace_pass):
     result, events, diff = run_tooltrace(task, "scripted", {"script": [...]})
-    assert_tooltrace_pass(result)   # failure taxonomy reason + score in the message
+    assert_tooltrace_pass(result)  # failure taxonomy reason + score in the message
 ```
 
 Traces produced *outside* the harness can be scored too: `tooltrace ingest`

@@ -20,7 +20,8 @@
     "failure_reason": "none",
     "trust_state": "LOCAL",
     "run_id": "9e8f0e9e5f2b-retry-after-tool-failure-0",
-    "created_at": "2026-09-09T15:59:26.942036+00:00"
+    "created_at": "2026-09-09T15:59:26.942036+00:00",
+    "failure_step": null
   },
   {
     "bundle": "failure-recovery-retry-after-tool-failure-scripted-9e8f0e9e5f2b-retry-after-tool-failure-1.tooltrace",
@@ -43,7 +44,8 @@
     "failure_reason": "none",
     "trust_state": "LOCAL",
     "run_id": "9e8f0e9e5f2b-retry-after-tool-failure-1",
-    "created_at": "2026-09-09T15:59:27.095332+00:00"
+    "created_at": "2026-09-09T15:59:27.095332+00:00",
+    "failure_step": null
   },
   {
     "bundle": "file-editing-fix-config-typo-scripted-9e8f0e9e5f2b-fix-config-typo-0.tooltrace",
@@ -66,7 +68,8 @@
     "failure_reason": "none",
     "trust_state": "LOCAL",
     "run_id": "9e8f0e9e5f2b-fix-config-typo-0",
-    "created_at": "2026-09-09T15:59:27.147465+00:00"
+    "created_at": "2026-09-09T15:59:27.147465+00:00",
+    "failure_step": null
   },
   {
     "bundle": "file-editing-fix-config-typo-scripted-9e8f0e9e5f2b-fix-config-typo-1.tooltrace",
@@ -89,7 +92,8 @@
     "failure_reason": "none",
     "trust_state": "LOCAL",
     "run_id": "9e8f0e9e5f2b-fix-config-typo-1",
-    "created_at": "2026-09-09T15:59:27.188632+00:00"
+    "created_at": "2026-09-09T15:59:27.188632+00:00",
+    "failure_step": null
   },
   {
     "bundle": "json-csv-transform-users-to-csv-scripted-9e8f0e9e5f2b-users-to-csv-0.tooltrace",
@@ -112,7 +116,8 @@
     "failure_reason": "none",
     "trust_state": "LOCAL",
     "run_id": "9e8f0e9e5f2b-users-to-csv-0",
-    "created_at": "2026-09-09T15:59:27.230012+00:00"
+    "created_at": "2026-09-09T15:59:27.230012+00:00",
+    "failure_step": null
   },
   {
     "bundle": "json-csv-transform-users-to-csv-scripted-9e8f0e9e5f2b-users-to-csv-1.tooltrace",
@@ -135,6 +140,7 @@
     "failure_reason": "none",
     "trust_state": "LOCAL",
     "run_id": "9e8f0e9e5f2b-users-to-csv-1",
-    "created_at": "2026-09-09T15:59:27.270406+00:00"
+    "created_at": "2026-09-09T15:59:27.270406+00:00",
+    "failure_step": null
   }
 ]

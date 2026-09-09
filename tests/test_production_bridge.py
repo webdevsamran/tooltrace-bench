@@ -112,7 +112,8 @@ def test_spans_round_trip_through_the_ingest_path() -> None:
     spans = _spans(_PLAIN_TASK)
     events = from_otel_spans(spans)
     types = [e.type for e in events]
-    assert types.count("tool_request") == len([s for s in spans[1:]])
+    # spans[0] is the agent-invocation span; the rest are tool calls.
+    assert types.count("tool_request") == len(spans) - 1
     assert types.count("tool_request") == types.count("tool_result")
 
 

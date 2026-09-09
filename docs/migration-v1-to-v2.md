@@ -22,7 +22,7 @@ bundles remain supported (backwards-compatible readers are covered by tests).
 ```python
 from tooltrace.tasks.v2 import migrate_v1_to_v2
 
-v2 = migrate_v1_to_v2(v1_dict)   # accepts dict or v1 TaskDefinition
+v2 = migrate_v1_to_v2(v1_dict)  # accepts dict or v1 TaskDefinition
 ```
 
 Migration rules:

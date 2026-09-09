@@ -120,7 +120,7 @@ and a row claiming a task pack has to have that pack on disk.
 | 74 | Bootstrap/Bayesian optional modules behind extras + methodology docs | I | `tooltrace/analysis/stats.py` (`bootstrap_interval`) |
 | 75 | Reliability frontier charts (success/latency/cost/efficiency) | P | `web/src/charts.tsx` (`Scatter`, `LineChart`) |
 | 76 | Failure clustering (deterministic vectors; semantic labeled) | I | `tooltrace/analysis/core.py` (`cluster_failures`) |
-| 77 | Root-cause drill-down aggregate → trace/assertion | I | `tooltrace/analysis/failures.py` (`Classification.seq`), `tooltrace/metrics/aggregate.py` (`failure_steps`), `tooltrace/cli/main.py` (`cmd_trace`) |
+| 77 | Root-cause drill-down aggregate → trace/assertion | I | `tooltrace/analysis/failures.py` (`Classification.seq`), `tooltrace/metrics/aggregate.py` (`failure_step`), `tooltrace/cli/main.py` (`cmd_trace`), `web/src/lib/clusters.ts` (`clusterFailures`, `stepLink`) |
 | 78 | Reproducibility score (metadata completeness, not validity) | I | `tooltrace/analysis/core.py` (`reproducibility_score`) |
 | 79 | Deterministic replay from trace bundles | I | `tooltrace/replay/` |
 | 80 | Partial replay from checkpoint | I | `replay_from_checkpoint` |

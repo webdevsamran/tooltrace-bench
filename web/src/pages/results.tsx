@@ -1,17 +1,20 @@
 import { Link, useParams } from 'react-router-dom'
-import { getResults, useAsync } from '../api'
+import { assetUrl, getResults, useAsync } from '../api'
 import { LineChart } from '../charts'
 import { estimatePassAtK } from '../lib/passAtK'
 import {
-  BarChart, DataTable, DiffViewer, EmptyState, ErrorState,
+  DiffViewer, EmptyState, ErrorState,
   LineChart as LineChartOld, Loading, SuccessBadge, TraceTimeline,
 } from '../components'
 import type { TraceLine } from '../components'
 import { useUrlState } from '../lib/useUrlState'
+import { clusterFailures, stepLink } from '../lib/clusters'
 
 // Fetch a bundle's trace + diff lazily from the raw-data directory.
 async function fetchBundleDetail(bundle: string) {
-  const base = `bundles/${bundle}`
+  // assetUrl, not a bare relative string: this page *is* a nested route, so a
+  // relative fetch here asks for `/results/bundles/...` and always 404s.
+  const base = assetUrl(`bundles/${bundle}`)
   const [traceRes, diffRes] = await Promise.all([
     fetch(`${base}/trace.json`),
     fetch(`${base}/workspace.diff.txt`),
@@ -28,10 +31,20 @@ export function ResultDetailPage() {
     () => (bundle ? fetchBundleDetail(bundle) : Promise.resolve({ trace: [], diff: '' })),
     [bundle],
   )
+  // Arriving from a failure cluster carries the step in the URL, so the link
+  // is the whole navigation: no scrolling, no searching for the failure.
+  // Called before the early returns below to keep hook order stable.
+  const [seqParam] = useUrlState('seq')
   if (results.loading || detail.loading) return <Loading />
   if (results.error) return <ErrorState message={results.error} />
   const row = (results.data ?? []).find((r) => r.bundle === bundle)
   if (!row) return <ErrorState message={`Unknown bundle ${bundle}`} />
+  const step = row.failure_step ?? null
+  // The URL wins when present -- someone may have linked to a step other than
+  // the attributed one -- and a non-numeric parameter highlights nothing
+  // rather than throwing.
+  const parsed = Number.parseInt(seqParam, 10)
+  const highlightSeq = Number.isFinite(parsed) ? parsed : (step?.seq ?? null)
   return (
     <div>
       <h1>Result <code>{row.run_id}</code></h1>
@@ -46,8 +59,15 @@ export function ResultDetailPage() {
         <div className="card"><strong>{row.tool_calls}</strong><span>tool calls ({row.failed_tool_calls} failed)</span></div>
         <div className="card"><strong>{row.wall_ms.toFixed(1)}</strong><span>wall ms</span></div>
       </section>
+      {step && (
+        <p className="callout callout-bad">
+          <strong>Failure attributed to step {step.seq === null ? '(unattributed)' : `#${step.seq}`}</strong>
+          {step.tool && <> · <code>{step.tool}</code></>} · rule <code>{step.rule}</code>
+          {step.detail && <> — {step.detail}</>}
+        </p>
+      )}
       <h2>Trace timeline</h2>
-      <TraceTimeline events={detail.data?.trace ?? []} />
+      <TraceTimeline events={detail.data?.trace ?? []} highlightSeq={highlightSeq} />
       <h2>Workspace diff</h2>
       <DiffViewer diff={detail.data?.diff ?? ''} />
     </div>
@@ -196,51 +216,125 @@ function PassAtKCurve({ outcomes }: { outcomes: number[] }) {
   )
 }
 
+
+/**
+ * The failure-cluster explorer.
+ *
+ * What was here before was a dropdown and a bar chart of failure *categories*.
+ * That view can tell you eleven runs hit `execution` and cannot tell you
+ * whether that is one bug or eleven — and it left the reader to find the
+ * relevant step in a trace by hand afterwards.
+ *
+ * This clusters on the failure signature instead (reason + the rule that
+ * matched + the tool it was attributed to) and every run in a cluster links
+ * straight to the step that broke. The chain is: cluster → run → step.
+ */
 export function FailureAnalysisPage() {
   const results = useAsync(getResults)
-  const [reason, setReason] = useUrlState('reason')
+  const [selected, setSelected] = useUrlState('cluster')
   if (results.loading) return <Loading />
   if (results.error) return <ErrorState message={results.error} />
+
   const rows = results.data ?? []
-  const allFailures = rows.filter((r) => !r.success)
-  const reasons = [...new Set(allFailures.map((f) => f.failure_reason))].sort()
-  const failures = reason ? allFailures.filter((f) => f.failure_reason === reason) : allFailures
-  const byReason = new Map<string, number>()
-  for (const f of failures) byReason.set(f.failure_reason, (byReason.get(f.failure_reason) ?? 0) + 1)
+  const clusters = clusterFailures(rows)
+  const failures = rows.filter((r) => !r.success)
+  const open = clusters.find((c) => c.id === selected) ?? null
+  // How much of the failure set is openable at a step. Stated plainly, because
+  // a reader who clicks three clusters and finds no step links deserves to
+  // know that up front rather than infer it.
+  const attributed = failures.filter((f) => typeof f.failure_step?.seq === 'number').length
+
   return (
     <div>
-      <h1>Failure Analysis</h1>
-      <label>
-        Failure reason{' '}
-        <select
-          value={reason}
-          onChange={(e) => setReason(e.target.value)}
-          aria-label="Filter by failure reason"
-        >
-          <option value="">All reasons ({allFailures.length})</option>
-          {reasons.map((r) => (
-            <option key={r} value={r}>
-              {r} ({allFailures.filter((f) => f.failure_reason === r).length})
-            </option>
-          ))}
-        </select>
-      </label>
-      <BarChart
-        data={[...byReason.entries()].map(([label, value]) => ({ label, value }))}
-        format={(v) => String(v)}
-      />
-      <h2>Failed runs</h2>
-      <DataTable
-        rows={failures}
-        emptyHint="No failures recorded — nothing to analyze."
-        columns={[
-          { key: 'task_id', header: 'Task', value: (r) => r.task_id },
-          { key: 'agent', header: 'Agent', value: (r) => r.agent },
-          { key: 'failure_reason', header: 'Category', value: (r) => r.failure_reason },
-          { key: 'score_total', header: 'Score', value: (r) => r.score_total, numeric: true },
-          { key: 'failed_tool_calls', header: 'Failed tools', value: (r) => r.failed_tool_calls, numeric: true },
-        ]}
-      />
+      <h1>Failure clusters</h1>
+      <p className="muted">
+        Failed runs grouped by signature — the failure class, the rule that matched, and the
+        tool call it was attributed to. Runs that share a signature are usually one defect;
+        the same class reached by different rules usually is not.
+      </p>
+
+      {failures.length === 0 ? (
+        <EmptyState hint="No failed runs in this dataset — there is nothing to cluster." />
+      ) : (
+        <>
+          <section className="stats" aria-label="Failure summary">
+            <div className="stat">
+              <span className="stat-label">Failed runs</span>
+              <span className="stat-value">{failures.length}</span>
+            </div>
+            <div className="stat">
+              <span className="stat-label">Clusters</span>
+              <span className="stat-value">{clusters.length}</span>
+            </div>
+            <div className="stat">
+              <span className="stat-label">Attributed to a step</span>
+              <span className="stat-value">
+                {attributed} / {failures.length}
+              </span>
+            </div>
+          </section>
+
+          <div className="cluster-layout">
+            <section aria-label="Clusters">
+              <h2>Clusters</h2>
+              <ul className="cluster-list">
+                {clusters.map((c) => (
+                  <li key={c.id}>
+                    <button
+                      type="button"
+                      className={`cluster-card${c.id === selected ? ' is-open' : ''}`}
+                      aria-expanded={c.id === selected}
+                      aria-controls="cluster-detail"
+                      onClick={() => setSelected(c.id === selected ? '' : c.id)}
+                    >
+                      <span className="cluster-count">{c.runs.length}</span>
+                      <span className="cluster-body">
+                        <strong>{c.reason}</strong>
+                        <code className="cluster-rule">{c.rule}</code>
+                        {c.tool && <code className="cluster-tool">{c.tool}</code>}
+                        <span className="cluster-meta">
+                          {c.tasks.length} task{c.tasks.length === 1 ? '' : 's'} ·{' '}
+                          {c.agents.length} agent{c.agents.length === 1 ? '' : 's'}
+                          {c.representativeSeq !== null && ` · every run at step #${c.representativeSeq}`}
+                        </span>
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </section>
+
+            <section id="cluster-detail" aria-label="Cluster detail" aria-live="polite">
+              <h2>{open ? 'Runs in this cluster' : 'Pick a cluster'}</h2>
+              {open ? (
+                <>
+                  {open.detail && <p className="cluster-detail-text">{open.detail}</p>}
+                  <p className="muted">
+                    Spanning {open.tasks.join(', ')} across {open.agents.join(', ')}.
+                  </p>
+                  <ul className="cluster-runs">
+                    {open.runs.map((r) => (
+                      <li key={r.bundle}>
+                        <Link to={stepLink(r)}>
+                          <code>{r.task_id}</code>
+                          {typeof r.failure_step?.seq === 'number' ? (
+                            <span className="run-step">open at step #{r.failure_step.seq}</span>
+                          ) : (
+                            <span className="run-step muted">no step attributed</span>
+                          )}
+                        </Link>
+                        <span className="muted"> {r.agent} · score {r.score_total.toFixed(2)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              ) : (
+                <EmptyState hint="Select a cluster to see its runs and jump to the failing step." />
+              )}
+            </section>
+          </div>
+        </>
+      )}
     </div>
   )
 }
