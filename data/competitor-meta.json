@@ -1,18 +1,22 @@
 {
-  "fetched_utc": "2026-09-09T10:16:15+00:00",
+  "fetched_utc": "2026-09-09T15:51:41+00:00",
   "tool": "gh api (authenticated)",
   "repos": {
     "SWE-bench/SWE-bench": {
+      "requested": "SWE-bench/SWE-bench",
       "repo": "SWE-bench/SWE-bench",
+      "category": "Patch-only coding benchmark",
       "license_spdx": "MIT",
-      "stars": 5807,
+      "stars": 5808,
       "pushed_at": "2026-09-02T01:51:01Z",
       "archived": false,
       "description": "SWE-bench: Can Language Models Resolve Real-world Github Issues?",
       "latest_release": null
     },
     "microsoft/SWE-bench-Live": {
+      "requested": "microsoft/SWE-bench-Live",
       "repo": "microsoft/SWE-bench-Live",
+      "category": "Contamination-resistant coding benchmark",
       "license_spdx": "MIT",
       "stars": 234,
       "pushed_at": "2026-09-07T23:24:48Z",
@@ -23,8 +27,21 @@
         "published_at": "2026-03-08T11:23:25Z"
       }
     },
+    "laude-institute/terminal-bench": {
+      "requested": "laude-institute/terminal-bench",
+      "repo": "harbor-framework/terminal-bench-1",
+      "category": "Terminal/OS agent benchmark",
+      "license_spdx": "Apache-2.0",
+      "stars": 2572,
+      "pushed_at": "2026-07-11T05:19:08Z",
+      "archived": false,
+      "description": "A benchmark for LLMs on complicated tasks in the terminal",
+      "latest_release": null
+    },
     "sierra-research/tau-bench": {
+      "requested": "sierra-research/tau-bench",
       "repo": "sierra-research/tau-bench",
+      "category": "Tool-agent customer-service benchmark",
       "license_spdx": "MIT",
       "stars": 1427,
       "pushed_at": "2026-03-18T17:36:06Z",
@@ -33,9 +50,11 @@
       "latest_release": null
     },
     "sierra-research/tau2-bench": {
+      "requested": "sierra-research/tau2-bench",
       "repo": "sierra-research/tau2-bench",
+      "category": "Dual-control tool-agent benchmark",
       "license_spdx": "MIT",
-      "stars": 1991,
+      "stars": 1994,
       "pushed_at": "2026-09-07T23:46:37Z",
       "archived": false,
       "description": "\u03c4-Bench: A Benchmark for Tool-Agent-User Interaction in Real-World Domains",
@@ -45,16 +64,31 @@
       }
     },
     "THUDM/AgentBench": {
+      "requested": "THUDM/AgentBench",
       "repo": "THUDM/AgentBench",
+      "category": "Multi-domain agent benchmark",
       "license_spdx": "Apache-2.0",
-      "stars": 3717,
+      "stars": 3718,
       "pushed_at": "2026-02-08T17:01:05Z",
       "archived": false,
       "description": "A Comprehensive Benchmark to Evaluate LLMs as Agents (ICLR'24)",
       "latest_release": null
     },
+    "THUDM/VisualAgentBench": {
+      "requested": "THUDM/VisualAgentBench",
+      "repo": "THUDM/VisualAgentBench",
+      "category": "Multimodal/GUI agent benchmark",
+      "license_spdx": "Apache-2.0",
+      "stars": 276,
+      "pushed_at": "2025-04-24T14:59:48Z",
+      "archived": false,
+      "description": "Towards Large Multimodal Models as Visual Foundation Agents",
+      "latest_release": null
+    },
     "xlang-ai/OSWorld": {
+      "requested": "xlang-ai/OSWorld",
       "repo": "xlang-ai/OSWorld",
+      "category": "Real-desktop OS agent benchmark",
       "license_spdx": "Apache-2.0",
       "stars": 3134,
       "pushed_at": "2026-08-30T09:41:51Z",
@@ -66,7 +100,9 @@
       }
     },
     "web-arena-x/webarena": {
+      "requested": "web-arena-x/webarena",
       "repo": "web-arena-x/webarena",
+      "category": "Web-agent benchmark (self-hosted sites)",
       "license_spdx": "Apache-2.0",
       "stars": 1606,
       "pushed_at": "2025-11-26T21:16:00Z",
@@ -78,9 +114,11 @@
       }
     },
     "browser-use/browser-use": {
+      "requested": "browser-use/browser-use",
       "repo": "browser-use/browser-use",
+      "category": "Browser automation library",
       "license_spdx": "MIT",
-      "stars": 113853,
+      "stars": 113915,
       "pushed_at": "2026-09-07T19:55:36Z",
       "archived": false,
       "description": "Agents that use the browser.",
@@ -89,20 +127,91 @@
         "published_at": "2026-09-04T03:28:53Z"
       }
     },
+    "ShishirPatil/gorilla": {
+      "requested": "ShishirPatil/gorilla",
+      "repo": "ShishirPatil/gorilla",
+      "category": "Function-call benchmark + leaderboard (BFCL)",
+      "license_spdx": "Apache-2.0",
+      "stars": 13018,
+      "pushed_at": "2026-04-13T03:19:45Z",
+      "archived": false,
+      "description": "Gorilla: Training and Evaluating LLMs for Function Calls (Tool Calls)",
+      "latest_release": {
+        "tag": "v1.3",
+        "published_at": "2025-07-17T21:10:14Z"
+      }
+    },
+    "OpenBMB/ToolBench": {
+      "requested": "OpenBMB/ToolBench",
+      "repo": "OpenBMB/ToolBench",
+      "category": "Static tool/API catalog benchmark",
+      "license_spdx": "Apache-2.0",
+      "stars": 5736,
+      "pushed_at": "2025-05-21T15:46:59Z",
+      "archived": false,
+      "description": "[ICLR'24 spotlight] An open platform for training, serving, and evaluating large language model for tool learning.",
+      "latest_release": null
+    },
+    "mlcommons/mlperf_client": {
+      "requested": "mlcommons/mlperf_client",
+      "repo": "mlcommons/mlperf_client",
+      "category": "Vendor-curated PC hardware benchmark",
+      "license_spdx": "Apache-2.0",
+      "stars": 90,
+      "pushed_at": "2026-08-18T14:55:28Z",
+      "archived": false,
+      "description": "MLPerf Client is a benchmark for Windows, Linux and macOS, focusing on client form factors in ML inference scenarios.",
+      "latest_release": {
+        "tag": "v2.0",
+        "published_at": "2026-08-18T14:55:28Z"
+      }
+    },
+    "mlcommons/inference": {
+      "requested": "mlcommons/inference",
+      "repo": "mlcommons/inference",
+      "category": "Serving-scale inference benchmark",
+      "license_spdx": "Apache-2.0",
+      "stars": 1624,
+      "pushed_at": "2026-09-02T17:04:15Z",
+      "archived": false,
+      "description": "Reference implementations of MLPerf\u00ae inference benchmarks",
+      "latest_release": {
+        "tag": "v5.1.1",
+        "published_at": "2025-10-28T14:21:04Z"
+      }
+    },
     "UKGovernmentBEIS/inspect_ai": {
+      "requested": "UKGovernmentBEIS/inspect_ai",
       "repo": "UKGovernmentBEIS/inspect_ai",
+      "category": "Evaluation framework",
       "license_spdx": "MIT",
-      "stars": 2734,
-      "pushed_at": "2026-09-09T09:02:44Z",
+      "stars": 2735,
+      "pushed_at": "2026-09-09T14:49:08Z",
       "archived": false,
       "description": "Inspect: A framework for large language model evaluations",
       "latest_release": null
     },
-    "promptfoo/promptfoo": {
-      "repo": "promptfoo/promptfoo",
+    "UKGovernmentBEIS/inspect_evals": {
+      "requested": "UKGovernmentBEIS/inspect_evals",
+      "repo": "UKGovernmentBEIS/inspect_evals",
+      "category": "Evaluation suite for inspect_ai",
       "license_spdx": "MIT",
-      "stars": 24964,
-      "pushed_at": "2026-09-09T09:43:10Z",
+      "stars": 664,
+      "pushed_at": "2026-09-09T12:38:00Z",
+      "archived": false,
+      "description": "Collection of evals for Inspect AI",
+      "latest_release": {
+        "tag": "v0.19.0",
+        "published_at": "2026-08-31T03:55:17Z"
+      }
+    },
+    "promptfoo/promptfoo": {
+      "requested": "promptfoo/promptfoo",
+      "repo": "promptfoo/promptfoo",
+      "category": "LLM eval and red-teaming framework",
+      "license_spdx": "MIT",
+      "stars": 24972,
+      "pushed_at": "2026-09-09T15:50:50Z",
       "archived": false,
       "description": "Test your prompts, agents, and RAGs. Red teaming/pentesting/vulnerability scanning for AI. Compare performance of GPT, Claude, Gemini, DeepSeek, and more. Simple declarative configs with command line and CI/CD integration.  Used by OpenAI and Anthropic.",
       "latest_release": {
@@ -111,9 +220,11 @@
       }
     },
     "confident-ai/deepeval": {
+      "requested": "confident-ai/deepeval",
       "repo": "confident-ai/deepeval",
+      "category": "LLM evaluation framework",
       "license_spdx": "Apache-2.0",
-      "stars": 18186,
+      "stars": 18189,
       "pushed_at": "2026-09-08T07:08:59Z",
       "archived": false,
       "description": "The LLM Evaluation Framework",
@@ -122,8 +233,35 @@
         "published_at": "2026-08-24T21:56:54Z"
       }
     },
+    "explodinggradients/ragas": {
+      "requested": "explodinggradients/ragas",
+      "repo": "vibrantlabsai/ragas",
+      "category": "RAG evaluation framework",
+      "license_spdx": "Apache-2.0",
+      "stars": 15691,
+      "pushed_at": "2026-02-24T07:47:19Z",
+      "archived": false,
+      "description": "Supercharge Your LLM Application Evaluations \ud83d\ude80",
+      "latest_release": {
+        "tag": "v0.4.3",
+        "published_at": "2026-01-13T17:47:29Z"
+      }
+    },
+    "openai/evals": {
+      "requested": "openai/evals",
+      "repo": "openai/evals",
+      "category": "Vendor eval harness",
+      "license_spdx": "NOASSERTION",
+      "stars": 19417,
+      "pushed_at": "2026-04-14T15:29:57Z",
+      "archived": false,
+      "description": "Evals is a framework for evaluating LLMs and LLM systems, and an open-source registry of benchmarks.",
+      "latest_release": null
+    },
     "AgentOps-AI/agentops": {
+      "requested": "AgentOps-AI/agentops",
       "repo": "AgentOps-AI/agentops",
+      "category": "Agent observability SDK",
       "license_spdx": "MIT",
       "stars": 5813,
       "pushed_at": "2026-06-25T08:25:03Z",
@@ -135,10 +273,12 @@
       }
     },
     "Arize-ai/phoenix": {
+      "requested": "Arize-ai/phoenix",
       "repo": "Arize-ai/phoenix",
+      "category": "Observability and eval platform",
       "license_spdx": "NOASSERTION",
-      "stars": 11388,
-      "pushed_at": "2026-09-09T05:22:55Z",
+      "stars": 11389,
+      "pushed_at": "2026-09-09T15:49:44Z",
       "archived": false,
       "description": "AI Observability & Evaluation",
       "latest_release": {
@@ -147,10 +287,12 @@
       }
     },
     "langfuse/langfuse": {
+      "requested": "langfuse/langfuse",
       "repo": "langfuse/langfuse",
+      "category": "LLM observability platform",
       "license_spdx": "NOASSERTION",
-      "stars": 34392,
-      "pushed_at": "2026-09-09T10:06:57Z",
+      "stars": 34402,
+      "pushed_at": "2026-09-09T15:48:50Z",
       "archived": false,
       "description": "\ud83e\udea2 Open source AI engineering platform: LLM evals, observability, metrics, prompt management, playground, datasets. Integrates with OpenTelemetry, LangChain, OpenAI SDK, LiteLLM, and more. \ud83c\udf4aYC W23 ",
       "latest_release": {
@@ -158,13 +300,40 @@
         "published_at": "2026-09-08T12:53:51Z"
       }
     },
-    "openai/evals": {
-      "repo": "openai/evals",
-      "license_spdx": "NOASSERTION",
-      "stars": 19414,
-      "pushed_at": "2026-04-14T15:29:57Z",
+    "ethz-spylab/agentdojo": {
+      "requested": "ethz-spylab/agentdojo",
+      "repo": "ethz-spylab/agentdojo",
+      "category": "Prompt-injection security benchmark",
+      "license_spdx": "MIT",
+      "stars": 810,
+      "pushed_at": "2026-06-02T10:01:31Z",
       "archived": false,
-      "description": "Evals is a framework for evaluating LLMs and LLM systems, and an open-source registry of benchmarks.",
+      "description": "A Dynamic Environment to Evaluate Attacks and Defenses for LLM Agents.",
+      "latest_release": {
+        "tag": "v0.1.35",
+        "published_at": "2025-10-27T18:09:56Z"
+      }
+    },
+    "uiuc-kang-lab/InjecAgent": {
+      "requested": "uiuc-kang-lab/InjecAgent",
+      "repo": "uiuc-kang-lab/InjecAgent",
+      "category": "Prompt-injection security benchmark",
+      "license_spdx": "MIT",
+      "stars": 168,
+      "pushed_at": "2024-07-02T05:39:24Z",
+      "archived": false,
+      "description": null,
+      "latest_release": null
+    },
+    "microsoft/BIPIA": {
+      "requested": "microsoft/BIPIA",
+      "repo": "microsoft/BIPIA",
+      "category": "Indirect prompt-injection benchmark",
+      "license_spdx": "NOASSERTION",
+      "stars": 157,
+      "pushed_at": "2024-04-15T02:08:17Z",
+      "archived": false,
+      "description": "A benchmark for evaluating the robustness of LLMs and defenses to indirect prompt injection attacks.",
       "latest_release": null
     }
   }

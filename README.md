@@ -277,7 +277,7 @@ These are independent projects: no shared library, no coupled releases, and each
 
 ## How this compares
 
-15 projects are tracked in [`docs/competitive-analysis.md`](docs/competitive-analysis.md),
+26 projects are tracked in [`docs/competitive-analysis.md`](docs/competitive-analysis.md),
 fetched from the GitHub API on 2026-09-09 and committed to
 [`data/competitor-meta.json`](data/competitor-meta.json). The table is generated from that
 file rather than typed, so it cannot drift from the data it cites.

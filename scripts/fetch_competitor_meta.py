@@ -12,23 +12,17 @@ import subprocess
 from datetime import UTC, datetime
 from pathlib import Path
 
-REPOS = [
-    "SWE-bench/SWE-bench",
-    "microsoft/SWE-bench-Live",
-    "sierra-research/tau-bench",
-    "sierra-research/tau2-bench",
-    "THUDM/AgentBench",
-    "xlang-ai/OSWorld",
-    "web-arena-x/webarena",
-    "browser-use/browser-use",
-    "UKGovernmentBEIS/inspect_ai",
-    "promptfoo/promptfoo",
-    "confident-ai/deepeval",
-    "AgentOps-AI/agentops",
-    "Arize-ai/phoenix",
-    "langfuse/langfuse",
-    "openai/evals",
-]
+REGISTRY = Path("data/competitor-registry.json")
+
+
+def tracked_projects() -> list[dict[str, str]]:
+    """The projects to fetch, from the one file that lists them.
+
+    `REPOS` used to be a literal here, so the registry the documentation talks
+    about and the list actually fetched could disagree. They cannot now.
+    """
+    data = json.loads(REGISTRY.read_text(encoding="utf-8"))
+    return list(data["projects"])
 
 
 class FetchError(RuntimeError):
@@ -78,14 +72,24 @@ def gh_json(endpoint: str, *, allow_404: bool = False) -> dict[str, object] | No
 
 def main() -> None:
     results: dict[str, dict[str, object]] = {}
-    for repo in REPOS:
+    for project in tracked_projects():
+        repo = project["slug"]
         meta = gh_json(f"repos/{repo}")
         rel = gh_json(f"repos/{repo}/releases/latest", allow_404=True)
-        entry: dict[str, object] = {"repo": repo}
+        # `requested` is what the registry asks for; `repo` is what the API
+        # answered with. GitHub follows renames silently, so recording both
+        # turns an org move into a fact in the data rather than prose in a
+        # table that somebody has to remember to update.
+        entry: dict[str, object] = {
+            "requested": repo,
+            "repo": repo,
+            "category": project["category"],
+        }
         if meta is None:  # pragma: no cover - gh_json raises instead now
             raise FetchError(f"{repo}: no metadata returned")
         else:
             lic = meta.get("license") or {}
+            entry["repo"] = meta.get("full_name") or repo
             entry.update(
                 {
                     "license_spdx": lic.get("spdx_id"),
