@@ -1,6 +1,6 @@
 {
-  "run_id": "362ad2321005",
-  "created_at": "2026-09-07T07:13:51.326869+00:00",
+  "run_id": "8a65c6839bb6",
+  "created_at": "2026-09-09T14:47:47.092849+00:00",
   "config": {
     "agent": "scripted",
     "agent_config": {},
@@ -16,7 +16,7 @@
     {
       "schema_version": 1,
       "framework_version": "0.3.0",
-      "run_id": "362ad2321005-retry-after-tool-failure-0",
+      "run_id": "8a65c6839bb6-retry-after-tool-failure-0",
       "task_id": "failure-recovery/retry-after-tool-failure",
       "task_version": "1.0.0",
       "task_protocol_version": 1,
@@ -68,9 +68,9 @@
       "unnecessary_changes": 0,
       "workspace_violations": 0,
       "test_pass_ratio": null,
-      "wall_ms": 8.822,
+      "wall_ms": 37.401,
       "model_ms": null,
-      "tool_ms": 8.289,
+      "tool_ms": 36.97,
       "usage": {
         "tokens": null,
         "model_time_ms": null,
@@ -79,14 +79,14 @@
       },
       "trust_state": "LOCAL",
       "judge_config": null,
-      "started_at": "2026-09-07T07:13:50.801763+00:00",
-      "finished_at": "2026-09-07T07:13:50.827673+00:00",
-      "bundle_path": "failure-recovery-retry-after-tool-failure-scripted-362ad2321005-retry-after-tool-failure-0.tooltrace"
+      "started_at": "2026-09-09T14:47:46.515066+00:00",
+      "finished_at": "2026-09-09T14:47:46.630263+00:00",
+      "bundle_path": "failure-recovery-retry-after-tool-failure-scripted-8a65c6839bb6-retry-after-tool-failure-0.tooltrace"
     },
     {
       "schema_version": 1,
       "framework_version": "0.3.0",
-      "run_id": "362ad2321005-retry-after-tool-failure-1",
+      "run_id": "8a65c6839bb6-retry-after-tool-failure-1",
       "task_id": "failure-recovery/retry-after-tool-failure",
       "task_version": "1.0.0",
       "task_protocol_version": 1,
@@ -138,9 +138,9 @@
       "unnecessary_changes": 0,
       "workspace_violations": 0,
       "test_pass_ratio": null,
-      "wall_ms": 3.515,
+      "wall_ms": 3.477,
       "model_ms": null,
-      "tool_ms": 3.156,
+      "tool_ms": 3.133,
       "usage": {
         "tokens": null,
         "model_time_ms": null,
@@ -149,14 +149,14 @@
       },
       "trust_state": "LOCAL",
       "judge_config": null,
-      "started_at": "2026-09-07T07:13:51.037395+00:00",
-      "finished_at": "2026-09-07T07:13:51.045974+00:00",
-      "bundle_path": "failure-recovery-retry-after-tool-failure-scripted-362ad2321005-retry-after-tool-failure-1.tooltrace"
+      "started_at": "2026-09-09T14:47:46.794074+00:00",
+      "finished_at": "2026-09-09T14:47:46.802228+00:00",
+      "bundle_path": "failure-recovery-retry-after-tool-failure-scripted-8a65c6839bb6-retry-after-tool-failure-1.tooltrace"
     },
     {
       "schema_version": 1,
       "framework_version": "0.3.0",
-      "run_id": "362ad2321005-fix-config-typo-0",
+      "run_id": "8a65c6839bb6-fix-config-typo-0",
       "task_id": "file-editing/fix-config-typo",
       "task_version": "1.0.0",
       "task_protocol_version": 1,
@@ -202,9 +202,9 @@
       "unnecessary_changes": 0,
       "workspace_violations": 0,
       "test_pass_ratio": null,
-      "wall_ms": 8.046,
+      "wall_ms": 8.445,
       "model_ms": null,
-      "tool_ms": 7.669,
+      "tool_ms": 8.106,
       "usage": {
         "tokens": null,
         "model_time_ms": null,
@@ -213,14 +213,14 @@
       },
       "trust_state": "LOCAL",
       "judge_config": null,
-      "started_at": "2026-09-07T07:13:51.092511+00:00",
-      "finished_at": "2026-09-07T07:13:51.110060+00:00",
-      "bundle_path": "file-editing-fix-config-typo-scripted-362ad2321005-fix-config-typo-0.tooltrace"
+      "started_at": "2026-09-09T14:47:46.848635+00:00",
+      "finished_at": "2026-09-09T14:47:46.866317+00:00",
+      "bundle_path": "file-editing-fix-config-typo-scripted-8a65c6839bb6-fix-config-typo-0.tooltrace"
     },
     {
       "schema_version": 1,
       "framework_version": "0.3.0",
-      "run_id": "362ad2321005-fix-config-typo-1",
+      "run_id": "8a65c6839bb6-fix-config-typo-1",
       "task_id": "file-editing/fix-config-typo",
       "task_version": "1.0.0",
       "task_protocol_version": 1,
@@ -266,9 +266,9 @@
       "unnecessary_changes": 0,
       "workspace_violations": 0,
       "test_pass_ratio": null,
-      "wall_ms": 7.951,
+      "wall_ms": 7.647,
       "model_ms": null,
-      "tool_ms": 7.613,
+      "tool_ms": 7.357,
       "usage": {
         "tokens": null,
         "model_time_ms": null,
@@ -277,14 +277,14 @@
       },
       "trust_state": "LOCAL",
       "judge_config": null,
-      "started_at": "2026-09-07T07:13:51.150765+00:00",
-      "finished_at": "2026-09-07T07:13:51.168121+00:00",
-      "bundle_path": "file-editing-fix-config-typo-scripted-362ad2321005-fix-config-typo-1.tooltrace"
+      "started_at": "2026-09-09T14:47:46.905949+00:00",
+      "finished_at": "2026-09-09T14:47:46.922745+00:00",
+      "bundle_path": "file-editing-fix-config-typo-scripted-8a65c6839bb6-fix-config-typo-1.tooltrace"
     },
     {
       "schema_version": 1,
       "framework_version": "0.3.0",
-      "run_id": "362ad2321005-users-to-csv-0",
+      "run_id": "8a65c6839bb6-users-to-csv-0",
       "task_id": "json-csv-transform/users-to-csv",
       "task_version": "1.0.0",
       "task_protocol_version": 1,
@@ -323,9 +323,9 @@
       "unnecessary_changes": 0,
       "workspace_violations": 0,
       "test_pass_ratio": null,
-      "wall_ms": 4.68,
+      "wall_ms": 4.762,
       "model_ms": null,
-      "tool_ms": 4.512,
+      "tool_ms": 4.431,
       "usage": {
         "tokens": null,
         "model_time_ms": null,
@@ -334,14 +334,14 @@
       },
       "trust_state": "LOCAL",
       "judge_config": null,
-      "started_at": "2026-09-07T07:13:51.212041+00:00",
-      "finished_at": "2026-09-07T07:13:51.225910+00:00",
-      "bundle_path": "json-csv-transform-users-to-csv-scripted-362ad2321005-users-to-csv-0.tooltrace"
+      "started_at": "2026-09-09T14:47:46.968679+00:00",
+      "finished_at": "2026-09-09T14:47:46.986024+00:00",
+      "bundle_path": "json-csv-transform-users-to-csv-scripted-8a65c6839bb6-users-to-csv-0.tooltrace"
     },
     {
       "schema_version": 1,
       "framework_version": "0.3.0",
-      "run_id": "362ad2321005-users-to-csv-1",
+      "run_id": "8a65c6839bb6-users-to-csv-1",
       "task_id": "json-csv-transform/users-to-csv",
       "task_version": "1.0.0",
       "task_protocol_version": 1,
@@ -380,9 +380,9 @@
       "unnecessary_changes": 0,
       "workspace_violations": 0,
       "test_pass_ratio": null,
-      "wall_ms": 4.809,
+      "wall_ms": 5.014,
       "model_ms": null,
-      "tool_ms": 4.633,
+      "tool_ms": 4.827,
       "usage": {
         "tokens": null,
         "model_time_ms": null,
@@ -391,9 +391,9 @@
       },
       "trust_state": "LOCAL",
       "judge_config": null,
-      "started_at": "2026-09-07T07:13:51.264782+00:00",
-      "finished_at": "2026-09-07T07:13:51.279192+00:00",
-      "bundle_path": "json-csv-transform-users-to-csv-scripted-362ad2321005-users-to-csv-1.tooltrace"
+      "started_at": "2026-09-09T14:47:47.029242+00:00",
+      "finished_at": "2026-09-09T14:47:47.045151+00:00",
+      "bundle_path": "json-csv-transform-users-to-csv-scripted-8a65c6839bb6-users-to-csv-1.tooltrace"
     }
   ],
   "summary": {
@@ -409,15 +409,15 @@
       "steps_p95": 4.0,
       "tool_calls_mean": 2.0,
       "failed_tool_calls_mean": 0.333,
-      "wall_ms_p50": 6.38,
-      "wall_ms_p95": 8.628,
+      "wall_ms_p50": 6.331,
+      "wall_ms_p95": 30.162,
       "steps_ci95": [
         2.333,
         3.667
       ],
       "wall_ms_ci95": [
-        4.68,
-        7.879
+        4.775,
+        22.085
       ],
       "flakiness": {
         "runs": 1,
@@ -440,15 +440,15 @@
         "steps_p95": 4.0,
         "tool_calls_mean": 3.0,
         "failed_tool_calls_mean": 1.0,
-        "wall_ms_p50": 6.168,
-        "wall_ms_p95": 8.557,
+        "wall_ms_p50": 20.439,
+        "wall_ms_p95": 35.705,
         "steps_ci95": [
           4.0,
           4.0
         ],
         "wall_ms_ci95": [
-          3.515,
-          8.822
+          3.477,
+          37.401
         ],
         "flakiness": {
           "runs": 1,
@@ -471,15 +471,15 @@
         "steps_p95": 3.0,
         "tool_calls_mean": 2.0,
         "failed_tool_calls_mean": 0.0,
-        "wall_ms_p50": 7.998,
-        "wall_ms_p95": 8.041,
+        "wall_ms_p50": 8.046,
+        "wall_ms_p95": 8.405,
         "steps_ci95": [
           3.0,
           3.0
         ],
         "wall_ms_ci95": [
-          7.951,
-          8.046
+          7.647,
+          8.445
         ],
         "flakiness": {
           "runs": 1,
@@ -501,15 +501,15 @@
         "steps_p95": 2.0,
         "tool_calls_mean": 1.0,
         "failed_tool_calls_mean": 0.0,
-        "wall_ms_p50": 4.745,
-        "wall_ms_p95": 4.803,
+        "wall_ms_p50": 4.888,
+        "wall_ms_p95": 5.001,
         "steps_ci95": [
           2.0,
           2.0
         ],
         "wall_ms_ci95": [
-          4.68,
-          4.809
+          4.762,
+          5.014
         ],
         "flakiness": {
           "runs": 1,

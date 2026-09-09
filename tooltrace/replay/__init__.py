@@ -23,6 +23,12 @@ class ReplayReport:
     matched: int = 0
     mismatched: list[str] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
+    # Informational context that is not a failure. Partial replay used to put
+    # its "skipped the prefix" note in `errors`, which made `ok` permanently
+    # False -- a flawless partial replay reported failure. The note was always
+    # meant to stop callers mistaking a partial replay for a full one, not to
+    # signal that anything went wrong.
+    notes: list[str] = field(default_factory=list)
 
     @property
     def ok(self) -> bool:
@@ -30,9 +36,18 @@ class ReplayReport:
 
 
 def replay_trace(
-    task: TaskDefinition, events: list[TraceEvent], *, compare_status_only: bool = True
+    task: TaskDefinition,
+    events: list[TraceEvent],
+    *,
+    compare_status_only: bool = True,
+    prime_with: list[tuple[str, dict]] | None = None,
 ) -> ReplayReport:
-    """Replay all tool_request/tool_result pairs from *events*."""
+    """Replay all tool_request/tool_result pairs from *events*.
+
+    ``prime_with`` names calls that happened before this slice of the trace, so
+    one-shot perturbations they already consumed are not injected again. Partial
+    replay supplies the skipped prefix.
+    """
     report = ReplayReport()
 
     pending_tool: str | None = None
@@ -56,7 +71,6 @@ def replay_trace(
     if not pairs:
         return report
 
-    engine = None
     from tooltrace.perturbations import PerturbationEngine
 
     engine = PerturbationEngine(task.perturbations)
@@ -71,8 +85,21 @@ def replay_trace(
             p.write_text(content, encoding="utf-8")
         engine.prepare_workspace(workspace)
 
+        for primed_tool, primed_args in prime_with or []:
+            engine.prime(primed_tool, primed_args)
+
         ctx = ToolContext(workspace=workspace, network_policy=task.network_policy.value)
-        executor = ToolExecutor(ctx, task.allowed_tools, emit_event=lambda ev: None)
+        # The engine was constructed and its workspace prepared, but its hook was
+        # never handed to the executor -- so declared faults could not fire during
+        # replay, and every task carrying a perturbation replayed as a mismatch.
+        # `failure-recovery/retry-after-tool-failure` ships one, so the repository's
+        # own recovery task could not be replayed faithfully.
+        executor = ToolExecutor(
+            ctx,
+            task.allowed_tools,
+            emit_event=lambda ev: None,
+            perturbation_hook=engine.hook if engine.active else None,
+        )
 
         for seq, tool, _args, expected_result in pairs:
             report.total_requests += 1
@@ -110,9 +137,14 @@ def replay_from_checkpoint(
     """
     prefix = [e for e in events if e.seq is not None and e.seq < checkpoint_seq]
     suffix = [e for e in events if e.seq is None or e.seq >= checkpoint_seq]
-    report = replay_trace(task, suffix, compare_status_only=compare_status_only)
+    primed = [
+        (str(e.payload.get("tool")), dict(e.payload.get("args") or {}))
+        for e in prefix
+        if e.type == "tool_request"
+    ]
+    report = replay_trace(task, suffix, compare_status_only=compare_status_only, prime_with=primed)
     skipped_tools = sum(1 for e in prefix if e.type == "tool_request")
-    report.errors.insert(
+    report.notes.insert(
         0,
         f"partial-replay: skipped {len(prefix)} events "
         f"({skipped_tools} tool requests) before checkpoint seq={checkpoint_seq}",

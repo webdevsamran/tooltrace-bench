@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "framework_version": "0.3.0",
-  "run_id": "362ad2321005-fix-config-typo-1",
-  "task_id": "file-editing/fix-config-typo",
+  "run_id": "8a65c6839bb6-retry-after-tool-failure-1",
+  "task_id": "failure-recovery/retry-after-tool-failure",
   "task_version": "1.0.0",
   "task_protocol_version": 1,
   "agent": "scripted",
@@ -11,15 +11,21 @@
       {
         "tool": "read_file",
         "args": {
-          "path": "config.ini"
+          "path": "notes.txt"
+        }
+      },
+      {
+        "tool": "read_file",
+        "args": {
+          "path": "notes.txt"
         }
       },
       {
         "tool": "patch_file",
         "args": {
-          "path": "config.ini",
-          "search": "timout",
-          "replace": "timeout"
+          "path": "notes.txt",
+          "search": "reday",
+          "replace": "ready"
         }
       }
     ]
@@ -29,27 +35,27 @@
   "score": {
     "total": 1.0,
     "components": {
-      "typo removed": 1.0,
-      "correct key present": 1.0
+      "typo fixed": 1.0,
+      "correct word": 1.0
     },
     "weights": {
-      "typo removed": 1.0,
-      "correct key present": 1.0
+      "typo fixed": 1.0,
+      "correct word": 1.0
     }
   },
   "failure_reason": "none",
   "failure_detail": "no_failure",
-  "steps": 3,
-  "tool_calls": 2,
-  "failed_tool_calls": 0,
+  "steps": 4,
+  "tool_calls": 3,
+  "failed_tool_calls": 1,
   "invalid_tool_calls": 0,
-  "repeated_calls": 0,
+  "repeated_calls": 1,
   "unnecessary_changes": 0,
   "workspace_violations": 0,
   "test_pass_ratio": null,
-  "wall_ms": 7.951,
+  "wall_ms": 3.477,
   "model_ms": null,
-  "tool_ms": 7.613,
+  "tool_ms": 3.133,
   "usage": {
     "tokens": null,
     "model_time_ms": null,
@@ -58,7 +64,7 @@
   },
   "trust_state": "LOCAL",
   "judge_config": null,
-  "started_at": "2026-09-07T07:13:51.150765+00:00",
-  "finished_at": "2026-09-07T07:13:51.168121+00:00",
+  "started_at": "2026-09-09T14:47:46.794074+00:00",
+  "finished_at": "2026-09-09T14:47:46.802228+00:00",
   "bundle_path": null
 }
