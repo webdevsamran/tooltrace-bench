@@ -1,0 +1,84 @@
+# Reliability comparison on every pull request.
+#
+# Runs the same sweep twice -- once on the merge base, once on the head -- and
+# comments the difference. The point of doing it this way rather than against a
+# stored baseline is that both sweeps run on the same runner in the same job, so
+# a difference in machine cannot be mistaken for a difference in code. That is
+# the single largest confounder in agent latency numbers.
+#
+# It does not fail the build unless a regression is *established*: large enough
+# to matter and beyond what the samples support. An inconclusive comparison is
+# reported loudly and does not block, because failing on absent evidence would
+# make this gate a function of how many runs the repository can afford rather
+# than of whether the code got worse. See `docs/statistics.md`.
+#
+# No third-party actions. A workflow that pulls one in inherits its supply chain
+# on behalf of everyone who copies this file.
+name: PR reliability
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: pr-reliability-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    steps:
+      # actions/checkout@v7 -- full history so the merge base is reachable.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+
+      # actions/setup-python@v5
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: "3.12"
+
+      - name: Sweep this branch
+        run: |
+          pip install --disable-pip-version-check -e .
+          tooltrace benchmark --agent scripted --runs 10 --out current-runs --json > /dev/null
+
+      - name: Sweep the merge base
+        run: |
+          # A worktree rather than a checkout: the head's runs are already on
+          # disk and must survive.
+          git worktree add ../base "$(git merge-base HEAD origin/${{ github.base_ref }})"
+          cd ../base
+          pip install --disable-pip-version-check -e .
+          tooltrace benchmark --agent scripted --runs 10 --out "$GITHUB_WORKSPACE/base-runs" --json > /dev/null
+
+      - name: Compare
+        id: compare
+        run: |
+          set +e
+          # The installed package is now the base checkout's. Reinstall the head
+          # so the comparison is performed by the code under review -- and so a
+          # change to the comparison logic itself is exercised by its own PR.
+          pip install --disable-pip-version-check -e .
+          tooltrace pr-report --baseline base-runs --current current-runs \
+            --out comment.md --json > report.json
+          echo "exit-code=$?" >> "$GITHUB_OUTPUT"
+          cat comment.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Comment on the pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          # `gh` is preinstalled on GitHub runners. Editing the last comment
+          # rather than adding one keeps a long-running PR readable.
+          gh pr comment "$PR" --body-file comment.md --edit-last --create-if-none
+
+      - name: Fail on an established regression
+        if: steps.compare.outputs.exit-code != '0'
+        run: |
+          echo "::error::a reliability regression the sample supports"
+          exit 1

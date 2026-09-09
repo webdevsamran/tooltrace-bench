@@ -184,6 +184,43 @@ def cmd_badge(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def cmd_pr_report(args: argparse.Namespace) -> int:
+    from tooltrace.analysis.pr_report import (
+        cohort_problems,
+        compare_samples,
+        render_markdown,
+        rows_from_bundles,
+    )
+
+    baseline_dir, current_dir = Path(args.baseline), Path(args.current)
+    baseline_rows, baseline_meta = rows_from_bundles(list(baseline_dir.glob("*.tooltrace")))
+    current_rows, current_meta = rows_from_bundles(list(current_dir.glob("*.tooltrace")))
+    if not baseline_rows or not current_rows:
+        print("pr-report needs bundles on both sides", file=sys.stderr)
+        return EXIT_USAGE
+
+    report = compare_samples(baseline_rows, current_rows)
+    # A comparison across different task sets or artifact versions attributes a
+    # difference in measurement to the code. Refused, not annotated.
+    report.incomparable.extend(cohort_problems(baseline_meta, current_meta))
+    markdown = render_markdown(report)
+    if args.out:
+        Path(args.out).parent.mkdir(parents=True, exist_ok=True)
+        Path(args.out).write_text(markdown, encoding="utf-8")
+
+    if args.json:
+        _emit({**report.to_dict(), "markdown": markdown}, True)
+    else:
+        print(markdown)
+
+    if report.incomparable:
+        return EXIT_USAGE
+    # Only an established regression fails. An inconclusive comparison is
+    # reported loudly and does not block: failing on absent evidence would make
+    # this gate a function of the caller's compute budget.
+    return EXIT_REGRESSION if report.regressed else EXIT_OK
+
+
 def cmd_agents(args: argparse.Namespace) -> int:
     from tooltrace.agents import AgentAdapter  # noqa: F401
     from tooltrace.core.registry import agent_registry
@@ -1262,6 +1299,11 @@ def build_parser() -> argparse.ArgumentParser:
     bd.add_argument("--out", help="write the SVG here (and the shields endpoint beside it)")
     bd.add_argument("--svg-url", help="URL the README should point at, for the embed snippet")
     bd.add_argument("--link", help="URL the badge should link to")
+
+    pr = add("pr-report", cmd_pr_report, "compare two sets of runs for a pull request")
+    pr.add_argument("--baseline", required=True, help="directory of baseline bundles")
+    pr.add_argument("--current", required=True, help="directory of this branch's bundles")
+    pr.add_argument("--out", help="write the markdown comment here")
 
     add("agents", cmd_agents, "list registered agent adapters")
 

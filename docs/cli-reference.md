@@ -14,7 +14,8 @@ Exit codes: `0` ok · `2` usage · `3` task/validation · `4` agent · `5` run f
 | `run --task ID --agent A [--agent-config JSON] [--out DIR]` | One deterministic task against one agent; writes a bundle |
 | `benchmark --agent A [--runs N] [--task ids] [--limit N] [--shuffle] [--seed S] [--context-sweep] [--min-success-rate]` | Repeated reliability runs with pass@k/pass^k-aware summaries and trajectory metrics. `--limit` runs a recorded subset for CI; the policy, seed and selected ids are reported and a subset announces itself on stderr |
 | `showdown --agents a,b [--runs N] [--limit N] [--shuffle] [--seed S]` | Fair multi-agent ranking on identical cohorts. Emits `{standings, verdict, note, ranking_is_provisional}`; the verdict is `ranked` only when the sample is large enough *and* the leader's confidence interval clears the runner-up's, otherwise `not distinguishable at this sample size` |
-| `compare --baseline B --current C [--metrics m1,m2]` | Metric-by-metric bundle comparison |
+| `compare --baseline B --current C [--metrics m1,m2]` | Metric-by-metric comparison of two **single-run** bundles |
+| `pr-report --baseline DIR --current DIR [--out F]` | Compare two *sets* of runs and render a pull-request comment. Four verdicts per metric: `regressed`, `improved`, `no_change_detected`, `inconclusive`. Only an established regression exits non-zero (8) — a change has to be both real (its interval excludes zero) and large enough to matter. Refuses to compare different task sets or artifact versions |
 | `baseline --name N --bundle PATH` | Record a named baseline |
 | `regression --baseline B --current C --thresholds JSON` | CI gate for score/tool/latency regressions |
 | `mcp-conformance [-- COMMAND...]` | Check an MCP server against the protocol over stdio. Exits non-zero only on a *required* failure; a missing tool description is reported as recommended, not a violation. Defaults to the bundled fixture |
