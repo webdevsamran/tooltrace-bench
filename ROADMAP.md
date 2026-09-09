@@ -53,11 +53,21 @@ Statuses: ✅ shipped · 🚧 in progress · 📋 planned. This file is synchron
   workers, studio, review queue, users, policies, audit, webhooks, health),
   charts, virtualized Trace Explorer, e2e + axe accessibility gates
 
-## v0.3 — Ecosystem (planned)
+## v0.3 — Ecosystem, adoption and integrity (shipped 2026-09-07)
+
+0.3.0 is released. What it contains is recorded in [CHANGELOG.md](CHANGELOG.md);
+in short: `tooltrace ingest` for externally produced traces, the pytest plugin
+and assertion DSL, and an integrity pass that deleted a fabricated README sample
+and added the machine checks that stop it returning.
+
+The four items below carry the `v0.3 — Ecosystem` heading for historical
+reasons. **None of them shipped in 0.3.0**, and they remain planned:
 
 - 📋 Community task-pack registry conventions (no central hosting required)
 - 📋 Reproduction service conventions for third-party verifiers
-- 📋 Judge calibration dataset publishing workflow
+- 📋 Judge calibration dataset publishing workflow — note that no judge ships at
+      all today (`docs/feature-status.md` rows 45 and 46 are graded `D`), so this
+      needs a judge adapter before it needs a publishing workflow
 - 📋 Additional domain packs: concurrency, streaming, browser fixtures expansion
 
 ## Future (optional, non-OSS-blocking)

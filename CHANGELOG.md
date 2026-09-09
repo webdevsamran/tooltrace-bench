@@ -65,6 +65,22 @@ versioning follows [Semantic Versioning](https://semver.org/).
   `label + group` string meant the entry for Experiments read "Experiments
   Workspace", which "wsx" cannot thread through, while the reverse order
   matched. Both orders are scored now.
+- **`typer` and `rich` were declared as runtime dependencies and never
+  imported.** The CLI is `argparse`; neither package appears anywhere in
+  `tooltrace/`. Every install resolved and downloaded two packages the project
+  does not use, and `sbom.json` — generated from the declared closure — described
+  a wider dependency surface than the real one, which is a security artifact
+  wrong in the unsafe direction. Removed; the SBOM drops from 40 components to
+  39. `tests/test_declared_dependencies_are_imported.py` AST-walks the package
+  and fails when a declared dependency is imported nowhere, and requires a new
+  dependency to be mapped explicitly rather than drifting in.
+- **`ROADMAP.md` said v0.3 was planned after 0.3.0 shipped.** The heading read
+  "v0.3 — Ecosystem (planned)" while `pyproject.toml` was at 0.3.0 and
+  `CHANGELOG.md` carried a released `[0.3.0]` entry, so a reader would conclude
+  the release had not happened — and nothing recorded what it actually
+  delivered. The heading now says shipped, points at the changelog, and states
+  plainly that the four listed items were *not* in it and remain planned.
+  `tests/test_roadmap_matches_changelog.py` keeps the two files in agreement.
 - **The capability matrix was 79% unverified, and four more rows were false.**
   `docs/feature-status.md` grades 122 capabilities and calls itself the
   project's verification artifact, but its path check only inspected
