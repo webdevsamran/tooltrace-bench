@@ -51,7 +51,14 @@ def write_bundle(
     task: TaskDefinition,
     diff_text: str,
     scoring_details: dict[str, str],
+    validate: bool = True,
 ) -> Path:
+    """Write a bundle and, unless `validate=False`, check it against the schemas.
+
+    The three artifact schemas shipped unenforced for three releases. They are
+    checked at write time now, so a bundle that does not match the format this
+    project publishes never reaches disk in the first place.
+    """
     out_dir.mkdir(parents=True, exist_ok=True)
     bundle_dir = out_dir / f"{bundle_slug(result.task_id, result.agent, result.run_id)}.tooltrace"
     bundle_dir.mkdir(exist_ok=True)
@@ -92,6 +99,16 @@ def write_bundle(
         "checksums": checksums,
     }
     (bundle_dir / "manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+
+    if validate:
+        from tooltrace.artifacts.validation import validate_bundle_artifacts
+
+        problems = validate_bundle_artifacts(bundle_dir)
+        if problems:
+            raise BundleError(
+                f"bundle {bundle_dir.name} does not match its published schemas: "
+                + "; ".join(problems[:5])
+            )
     return bundle_dir
 
 

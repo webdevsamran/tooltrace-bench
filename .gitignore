@@ -18,6 +18,9 @@ htmlcov/
 runs/
 *.tooltrace/
 !results/**/*.tooltrace/
+# A frozen bundle proving today's readers still accept an older artifact;
+# see tests/test_bundle_schema_enforcement.py.
+!tests/fixtures/**/*.tooltrace/
 results/_smoke/
 results/_*.txt
 .tooltrace-baselines.json

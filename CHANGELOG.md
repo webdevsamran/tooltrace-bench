@@ -65,6 +65,19 @@ versioning follows [Semantic Versioning](https://semver.org/).
   `label + group` string meant the entry for Experiments read "Experiments
   Workspace", which "wsx" cannot thread through, while the reverse order
   matched. Both orders are scored now.
+- **Three of the four published schemas were never enforced.** `schemas/` has
+  shipped `result`, `trace` and `bundle-manifest` documents since 0.1.0, and no
+  runtime path, test or CI step ever validated an artifact against any of them —
+  only `task.schema.json` was checked. `write_bundle` now validates what it
+  writes (`tooltrace/artifacts/validation.py`), with a `validate=False` escape
+  hatch. Empirically zero-risk: every committed bundle already validated.
+  `validate_trace_stream` additionally enforces what a per-line schema cannot —
+  that `seq` is unique, monotonic and gapless across a whole trace.
+- **"Forward compatibility is tested" was not true.** Every bundle test wrote a
+  bundle with the current code and read it straight back, which tests a round
+  trip rather than compatibility with an older artifact. A frozen bundle is now
+  committed at `tests/fixtures/bundles/v1-frozen.tooltrace/` and read by today's
+  readers.
 - **Every shipped trace carried duplicate `seq` values.** The runner and the tool
   executor each kept an event counter; the runner passed its current value as
   `seq_start` — by value, at construction — and both then advanced
