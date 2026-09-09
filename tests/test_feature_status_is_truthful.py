@@ -17,15 +17,36 @@ checked". These tests make the checkable parts checkable.
 
 from __future__ import annotations
 
+import importlib.util
 import re
 from collections import Counter
+from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 _ROOT = Path(__file__).resolve().parent.parent
 _DOC = _ROOT / "docs" / "feature-status.md"
 _TEXT = _DOC.read_text(encoding="utf-8")
 
 _ROW = re.compile(r"^\|\s*(\d+)\s*\|(.+?)\|\s*([A-Z])\s*\|(.+?)\|\s*$", re.M)
+
+
+def _refchecker() -> Any:
+    """The single path resolver, shared with the CI script.
+
+    This test used to keep its own copy, which is how the two drifted: the
+    script grew a `removeprefix` fix that the test never got.
+    """
+    path = _ROOT / "scripts" / "check_doc_code_refs.py"
+    spec = importlib.util.spec_from_file_location("check_doc_code_refs", path)
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+_REFS = _refchecker()
+_resolves = _REFS.resolves
 
 #: Where a bare path in the evidence column may be rooted. The table writes
 #: `packs/git-workflow` for what is really `tooltrace/tasks/packs/git-workflow`.
@@ -40,24 +61,6 @@ _PACK_SUBJECT = re.compile(r"(?:^|\s)[\w-]*packs\b", re.IGNORECASE)
 
 def _rows() -> list[tuple[int, str, str, str]]:
     return [(int(n), cap.strip(), state, ev.strip()) for n, cap, state, ev in _ROW.findall(_TEXT)]
-
-
-def _resolves(token: str) -> bool:
-    """True if `token` names something on disk (or is plainly not a path)."""
-    raw = token.strip()
-    if raw.startswith("/"):
-        return True  # a URL route such as /api/v1/events, not a file
-    candidate = raw.lstrip("./")
-    for base in _BASES:
-        full = base + candidate
-        if "*" in full:
-            if list(_ROOT.glob(full)):
-                return True
-        elif (_ROOT / full).exists():
-            return True
-    if "/" not in candidate and candidate.endswith(".py"):
-        return bool(list((_ROOT / "tooltrace").rglob(candidate)))
-    return False
 
 
 def test_the_table_still_parses() -> None:
@@ -77,7 +80,7 @@ def test_every_path_cited_as_evidence_exists() -> None:
         (num, token)
         for num, _, _, evidence in _rows()
         for token in re.findall(r"`([^`]+)`", evidence)
-        if ("/" in token or token.endswith(".py")) and not _resolves(token)
+        if _REFS.looks_like_path(token) and not _resolves(token)
     ]
     assert not unresolved, "feature-status.md cites paths that do not exist: " + ", ".join(
         f"row {n}: {p}" for n, p in unresolved
@@ -152,9 +155,15 @@ def test_the_summary_counts_match_the_table() -> None:
         (r"blocked \(E\):\*\* (\d+)", "E"),
         (r"\*\*Schema only \(S\):\*\* (\d+)", "S"),
         (r"completed this pass \(P\):\*\* (\d+)", "P"),
+        (r"\*\*Declared only \(D\):\*\* (\d+)", "D"),
+        (r"\*\*Not implemented \(N\):\*\* (\d+)", "N"),
     ):
         match = re.search(label, summary)
-        assert match, f"summary no longer states a count for {state}"
+        if not match:
+            assert counts[state] == 0, (
+                f"the table has {counts[state]} {state} rows and the summary never mentions them"
+            )
+            continue
         assert int(match.group(1)) == counts[state], (
             f"summary claims {match.group(1)} {state} rows; the table has {counts[state]}"
         )
@@ -179,4 +188,88 @@ def test_the_roadmap_and_the_matrix_agree_about_browser_packs() -> None:
         assert _grade(11) != "I", (
             "ROADMAP lists browser fixtures as planned while feature-status.md "
             "marks row 11 implemented"
+        )
+
+
+#: A capability claim mapped to a probe that answers "does anything ship?".
+#: When the probe says nothing ships, no row *claiming to use* that capability
+#: may be graded as working. This is the generic form of the judge defect: two
+#: rows claimed multi-judge adapters and calibration datasets for three
+#: releases, and no file matching `judge*.py` has ever existed.
+#:
+#: The claim patterns are phrases, not bare keywords, because a row may
+#: legitimately mention a capability in order to say it is *not* used: row 44
+#: claims "judge-independent deterministic scoring", which shipping no judge is
+#: precisely the evidence for, not a contradiction of.
+_CLAIM_PROBES: dict[str, tuple[re.Pattern[str], Callable[[], bool]]] = {
+    "judge": (
+        re.compile(r"multi-judge|judge adapter|judge calibration|judge drift", re.I),
+        lambda: bool(list((_ROOT / "tooltrace").rglob("judge*.py"))),
+    ),
+    "calibration dataset": (
+        re.compile(r"calibration dataset", re.I),
+        lambda: bool(list((_ROOT / "tooltrace").rglob("calibrat*.py"))),
+    ),
+}
+
+#: Grades that assert the capability works today.
+_WORKING = {"I", "E", "P"}
+
+
+def test_no_row_claims_a_capability_nothing_implements() -> None:
+    offenders = []
+    for name, (pattern, ships) in _CLAIM_PROBES.items():
+        if ships():
+            continue  # the capability exists; rows may claim it
+        for num, capability, state, _ in _rows():
+            if state in _WORKING and pattern.search(capability):
+                offenders.append(f"#{num} claims {name!r} while no implementation of it ships")
+    assert not offenders, "; ".join(offenders)
+
+
+def test_every_working_row_cites_something_checkable() -> None:
+    """Evidence has to be inspectable, not an assertion in prose.
+
+    97 of the 122 rows cited bare prose such as "clustering module" or
+    "calibration sets module", and the path check only inspected backticked
+    tokens -- so three quarters of the table was never verified at all, which
+    is how #42, #45, #46 and #121 survived as `I` with no implementation.
+
+    `N` and `D` rows are exempt by definition: their whole content is that
+    nothing ships, so there is nothing to cite.
+    """
+    bare = [
+        (num, capability)
+        for num, capability, state, evidence in _rows()
+        if state in _WORKING and not re.findall(r"`[^`]+`", evidence)
+    ]
+    assert not bare, "rows assert a working capability with no checkable citation: " + "; ".join(
+        f"#{n} {c}" for n, c in bare
+    )
+
+
+def test_the_claim_probes_are_not_vacuous() -> None:
+    """A probe that matches nothing is indistinguishable from no probe.
+
+    Rows 45 and 46 are the ones that were graded `I` for three releases while
+    claiming judge machinery that has never existed. The patterns must match
+    them, or regrading either row back to `I` would slip through unnoticed.
+    """
+    by_num = {num: capability for num, capability, _, _ in _rows()}
+    judge_pattern = _CLAIM_PROBES["judge"][0]
+    assert judge_pattern.search(by_num[45]), "the judge probe no longer matches row 45"
+    assert judge_pattern.search(by_num[46]), "the judge probe no longer matches row 46"
+    # ...and it must not match the row that claims independence *from* a judge.
+    assert not judge_pattern.search(by_num[44]), (
+        "row 44 claims judge-independent scoring; shipping no judge is evidence "
+        "for that row, not against it"
+    )
+
+
+def test_probed_capabilities_really_are_absent() -> None:
+    """If a judge ever ships, this test fails and the probe must be retired."""
+    for name, (_, ships) in _CLAIM_PROBES.items():
+        assert not ships(), (
+            f"an implementation of {name!r} now exists; remove its claim probe and "
+            "regrade the rows it was guarding"
         )
