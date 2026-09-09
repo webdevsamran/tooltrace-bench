@@ -12,7 +12,6 @@ Tasks are YAML (or JSON) documents validated against
 from __future__ import annotations
 
 import json
-from importlib import resources
 from pathlib import Path
 
 import jsonschema
@@ -21,28 +20,17 @@ import yaml
 from tooltrace.core.exceptions import TaskValidationError
 from tooltrace.core.models import TaskDefinition
 from tooltrace.core.registry import discover_plugins
-
-_SCHEMA_CACHE: dict[str, dict[str, object]] | None = None
+from tooltrace.core.schemas import load_all_schemas
 
 
 def _schemas() -> dict[str, dict[str, object]]:
-    global _SCHEMA_CACHE
-    if _SCHEMA_CACHE is None:
-        cache: dict[str, dict[str, object]] = {}
-        schema_root = resources.files("tooltrace") / "schema_data"
-        # schemas live at repo root; fall back to packaged copies
-        repo_schema_dir = Path(__file__).resolve().parents[2] / "schemas"
-        source = repo_schema_dir if repo_schema_dir.is_dir() else None
-        if source is not None:
-            for f in sorted(source.glob("*.json")):
-                name = f.name.removesuffix(".schema.json")
-                cache[name] = json.loads(f.read_text(encoding="utf-8"))
-        else:  # pragma: no cover - wheel installs without repo checkout
-            for f in sorted(schema_root.glob("*.json")):  # type: ignore[attr-defined]
-                name = f.name.removesuffix(".schema.json")
-                cache[name] = json.loads(f.read_text(encoding="utf-8"))
-        _SCHEMA_CACHE = cache
-    return _SCHEMA_CACHE
+    """Every JSON Schema, resolved from the packaged copy or the repo root.
+
+    Resolution lives in :mod:`tooltrace.core.schemas` because the wheel and the
+    checkout disagree about where the files are, and getting that wrong shipped
+    a package in which no task could be loaded at all.
+    """
+    return load_all_schemas()
 
 
 def validate_task_document(doc: object) -> list[str]:

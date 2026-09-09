@@ -39,3 +39,5 @@ Thumbs.db
 .env.*
 *.pem
 *.key
+# built into the wheel from schemas/ by hatch force-include; never edit in place
+tooltrace/schema_data/
