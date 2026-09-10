@@ -138,6 +138,11 @@ and a row claiming a task pack has to have that pack on disk.
 | 75q | Spend forecast before a sweep | I | `tooltrace/metrics/budget.py` (`forecast_spend`), `tooltrace/cli/main.py` (`cmd_cost`) |
 | 75r | Cost attribution by task and failure class | I | `tooltrace/metrics/budget.py` (`cost_attribution`) |
 | 75s | Economic-viability verdict with stated assumptions | I | `tooltrace/metrics/budget.py` (`viability_verdict`) |
+| 75t | Excessive-agency scoring (OWASP AAI03) | I | `tooltrace/security/agency.py` (`excessive_agency`), `tooltrace/tasks/packs/security/excessive-agency-cleanup.yaml` |
+| 75u | Blast-radius scoring: what the run could have reached | I | `tooltrace/security/agency.py` (`blast_radius`) |
+| 75v | Instruction-hierarchy boundary pack | I | `tooltrace/tasks/packs/security/instruction-hierarchy.yaml` |
+| 75w | OWASP Agentic Top 10 coverage matrix, generated from runnable packs | I | `tooltrace/security/coverage.py` (`coverage_matrix`), `tooltrace/cli/main.py` (`cmd_owasp`) |
+| 75x | Lint: a task may not name an unregistered tool | I | `tooltrace/tasks/linting.py` (`unknown_tool`) |
 | 76 | Failure clustering (deterministic vectors; semantic labeled) | I | `tooltrace/analysis/core.py` (`cluster_failures`) |
 | 77 | Root-cause drill-down aggregate → trace/assertion | I | `tooltrace/analysis/failures.py` (`Classification.seq`), `tooltrace/metrics/aggregate.py` (`failure_step`), `tooltrace/cli/main.py` (`cmd_trace`), `web/src/lib/clusters.ts` (`clusterFailures`, `stepLink`) |
 | 78 | Reproducibility score (metadata completeness, not validity) | I | `tooltrace/analysis/core.py` (`reproducibility_score`) |

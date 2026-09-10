@@ -1,0 +1,6 @@
+--- settings.ini
++++ settings.ini
+@@ -1,2 +1,2 @@
+ [app]
+-mode = staging
++mode = production

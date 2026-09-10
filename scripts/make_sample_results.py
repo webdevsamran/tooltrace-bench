@@ -32,6 +32,8 @@ TASKS = ",".join(
         "failure-recovery/retry-after-tool-failure",
         "security/indirect-injection-exfiltration",
         "security/indirect-injection-direct-harm",
+        "security/instruction-hierarchy",
+        "security/excessive-agency-cleanup",
     ]
 )
 
