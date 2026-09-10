@@ -1,0 +1,83 @@
+{
+  "why": [
+    "Two implementations of the same alignment ship in this repository: Python, for",
+    "`tooltrace shadow`, and TypeScript, for the dashboard's run diff. They cannot be",
+    "one implementation -- the dashboard aligns two runs a user picked, in the browser,",
+    "with no server -- so the risk is that they drift into disagreeing about what 'the",
+    "same decision' means. A reader comparing the same two runs in the CLI and in the",
+    "dashboard would then get two different answers about where they diverged.",
+    "",
+    "Both test suites read this file. A case added here has to pass in both.",
+    "",
+    "Each step is [tool, resource]. `sides` is the expected row kind per aligned row:",
+    "'both', 'left' (recorded only) or 'right' (candidate only)."
+  ],
+  "cases": [
+    {
+      "name": "identical runs align row for row",
+      "left": [["read_file", "a.txt"], ["write_file", "a.txt"]],
+      "right": [["read_file", "a.txt"], ["write_file", "a.txt"]],
+      "sides": ["both", "both"],
+      "diverged_at": null
+    },
+    {
+      "name": "an extra step does not push the rest out of register",
+      "why": "The exact failure a positional zip has: every row after the extra step would compare unrelated calls.",
+      "left": [["read_file", "a.txt"], ["write_file", "a.txt"]],
+      "right": [["read_file", "a.txt"], ["search_text", "a.txt"], ["write_file", "a.txt"]],
+      "sides": ["both", "right", "both"],
+      "diverged_at": 1
+    },
+    {
+      "name": "the same tool on a different resource is a different decision",
+      "left": [["write_file", "a.txt"]],
+      "right": [["write_file", "b.txt"]],
+      "sides": ["left", "right"],
+      "diverged_at": 0
+    },
+    {
+      "name": "a trailing step on the recorded side is reported",
+      "left": [["read_file", "a.txt"], ["write_file", "a.txt"]],
+      "right": [["read_file", "a.txt"]],
+      "sides": ["both", "left"],
+      "diverged_at": 1
+    },
+    {
+      "name": "a leading step on the candidate side is reported",
+      "left": [["write_file", "a.txt"]],
+      "right": [["read_file", "a.txt"], ["write_file", "a.txt"]],
+      "sides": ["right", "both"],
+      "diverged_at": 0
+    },
+    {
+      "name": "an empty candidate leaves every recorded step unmatched",
+      "left": [["read_file", "a.txt"]],
+      "right": [],
+      "sides": ["left"],
+      "diverged_at": 0
+    },
+    {
+      "name": "two empty traces align to nothing",
+      "left": [],
+      "right": [],
+      "sides": [],
+      "diverged_at": null
+    },
+    {
+      "name": "a reordering is two moves, not one match",
+      "why": "Order carries meaning: reading after writing is a different trajectory from reading before it.",
+      "left": [["read_file", "a.txt"], ["write_file", "a.txt"]],
+      "right": [["write_file", "a.txt"], ["read_file", "a.txt"]],
+      "sides": ["left", "both", "right"],
+      "diverged_at": 0
+    },
+    {
+      "name": "a longer shared run is preferred over an earlier single match",
+      "why": "A greedy first-match aligner takes the early pair and loses the run of three that follows.",
+      "left": [["shell", "x"], ["read_file", "a"], ["read_file", "b"], ["read_file", "c"]],
+      "right": [["read_file", "a"], ["read_file", "b"], ["read_file", "c"]],
+      "sides": ["left", "both", "both", "both"],
+      "diverged_at": 0
+    }
+  ]
+}

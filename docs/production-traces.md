@@ -173,3 +173,37 @@ missing a field would bias the sample in a direction nobody chose.
 
 When `--out` is given, the policy is written beside the sample. A kept subset on
 its own is a file nobody can correct for later.
+
+## Shadow mode: decisions, not outcomes
+
+Shadow mode usually means running a candidate against live traffic and comparing
+outcomes. **That is not possible here**, and the difference is the whole design.
+A production trace happened against real systems holding real state at a
+particular moment; re-running a candidate in a temp workspace is a different
+task that happens to share an objective, and any outcome it produces is an
+outcome in a sandbox rather than a prediction about production.
+
+So `tooltrace shadow` compares decisions: given the same objective, does the
+candidate reach for the same tools, on the same resources, in the same order --
+and where does it first stop doing so? Everything before that point is common
+ground; everything worth reading starts there.
+
+Two things travel with every report, because either alone would be read as a
+stronger claim than this makes:
+
+- **Outcomes are not compared.** A report that looked like an outcome comparison
+  would be read as "the candidate would have been fine", which it cannot support.
+- **A divergence is not a defect.** The candidate may be doing something better,
+  and the recorded run is a log rather than an oracle -- production is where the
+  mistakes happened in the first place.
+
+### One alignment, two languages
+
+The same longest-common-subsequence alignment runs in Python (here) and in
+TypeScript (the dashboard's run diff). They cannot be one implementation: the
+dashboard aligns two runs a user picked, in the browser, with no server.
+
+So `tests/fixtures/trace_alignment.json` holds the cases **both** test suites
+read. A reader comparing the same two runs in the CLI and in the dashboard has
+to get the same answer about where they diverged, and a shared fixture is what
+stops the two drifting into different definitions of "the same decision".
