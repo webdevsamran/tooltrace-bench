@@ -7,6 +7,49 @@ versioning follows [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- **`tooltrace power` -- decide how many runs to do, before doing them.** Every
+  interval this project reports is computed after the runs, which leaves the most
+  consequential decision unsupported. People pick 3, or 10, because they are round
+  numbers, and then read a difference the sample cannot support -- the exact
+  failure `showdown` and `pr-report` exist to prevent, addressed one step too late.
+
+  The numbers are worth stating outright, because a planner nobody believes is a
+  planner nobody uses: detecting a **10-point** difference in success rate at a 50%
+  baseline takes about **393 runs per arm**, and a 5-point difference about
+  **1570**. A 3-run sweep does not compare agents; it demonstrates that something
+  runs.
+
+  The default baseline is 0.5 deliberately -- variance in a proportion peaks there,
+  so it gives the most conservative requirement. A baseline of exactly 0 or 1 gets
+  no answer rather than an infinitely sensitive one, and fewer than ten runs gets
+  no answer rather than a normal approximation that produces a number without
+  producing information.
+
+- **`showdown` now carries what its own sample could have detected.** That is what
+  makes its "not distinguishable at this sample size" verdict readable: without a
+  stated minimum detectable effect, that verdict is indistinguishable from "these
+  agents are the same", and they are opposite claims.
+
+- **Variance decomposition.** "This agent is flaky" and "this benchmark covers
+  diverse tasks" produce the same standard deviation and mean opposite things, with
+  different fixes. Within-configuration variance is nondeterminism; between-task
+  variance is the benchmark working. An agent that is perfect on one task and
+  hopeless on another, entirely repeatably, has *zero* within-configuration
+  variance -- a single standard deviation calls that flaky, and it is not.
+
+  The stated limit travels with it: this cannot separate the model's
+  nondeterminism from the harness's without a fixed-seed control arm no adapter
+  guarantees. And zero total variance reports a `null` share, not `0` -- "none of
+  the variance is noise" and "there was no variance" are different statements.
+
+- **Bayesian A/B comparison** in `showdown`. P(A is better than B) is what people
+  read a confidence interval as saying anyway; reporting it directly is more honest
+  than letting the misreading do the work. The uniform prior is explicit and stated
+  in the output -- a prior chosen after seeing the data is how a Bayesian analysis
+  becomes rhetoric. A posterior near 0.5 reads as an absence of evidence, never as
+  evidence of equality.
+
+### Added
 - **`tool_call_count` trace scorer.** `tools_used` answers whether a tool appears
   at all, which cannot tell one call from twenty — and twenty identical calls is
   the signature of an agent stuck in a loop. Takes `min`, `max` and
