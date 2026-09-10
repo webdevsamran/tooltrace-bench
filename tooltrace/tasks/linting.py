@@ -45,10 +45,10 @@ def lint_task(task: Any) -> list[LintIssue]:
         )
     contract = getattr(task, "scoring_contract", None)
     if contract is not None and getattr(contract, "judge_required", False):
-        executable = (
-            all(scorer_registry.has(a.type) for a in getattr(task, "assertions", []))
-            if hasattr(scorer_registry, "has")
-            else True
+        from tooltrace.scoring.trace_scorers import TRACE_SCORERS as _TRACE
+
+        executable = all(
+            scorer_registry.has(a.type) or a.type in _TRACE for a in getattr(task, "assertions", [])
         )
         if executable:
             issues.append(
@@ -63,8 +63,19 @@ def lint_task(task: Any) -> list[LintIssue]:
     known_paths = set(dict(getattr(task, "starting_workspace", {}) or {})) | set(
         dict(getattr(task, "fixtures", {}) or {})
     )
+    # Trace-aware scorers live in their own registry: they take `(params,
+    # TraceView)` rather than `(params, workspace)`, so they were never in
+    # `scorer_registry`. The linter only knew about the workspace kind and
+    # therefore reported three errors against `tool-call-structure/read-before-write`
+    # -- a correctly designed shipped task. A linter that errors on correct design
+    # trains people to ignore it, which is the same failure the leak check had.
+    from tooltrace.scoring.trace_scorers import TRACE_SCORERS
+
+    def _is_registered(kind: str) -> bool:
+        return scorer_registry.has(kind) or kind in TRACE_SCORERS
+
     for a in getattr(task, "assertions", []):
-        if not scorer_registry.has(a.type):
+        if not _is_registered(a.type):
             issues.append(
                 LintIssue(
                     code="unknown_scorer",

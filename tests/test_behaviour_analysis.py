@@ -300,14 +300,44 @@ def test_autonomy_refuses_to_score_a_task_that_needs_no_help() -> None:
     assert "trivially autonomous" in got["reason"]
 
 
-def test_autonomy_becomes_measurable_the_moment_a_task_declares_one() -> None:
-    """Written so it works when such a task ships, not deferred to a rewrite."""
-    task = {"user_actions": [{"at_step": 2, "kind": "message", "message": "actually, do X"}]}
-    events = trace(call(1, "read_file", "ok"), call(3, "write_file", "ok"))
-    got = autonomy(events, task)
-    assert got["measurable"] is True
-    assert 0.0 <= got["score"] <= 1.0
+def test_autonomy_counts_what_happened_not_what_was_declared() -> None:
+    """An intervention declared at a step the run never reached did not happen.
+
+    Counting the declaration would restate the task file rather than measure the
+    run, so the count comes from the trace.
+    """
+    task = {"metadata": {"user_actions": [{"at_step": 2, "kind": "message", "message": "do X"}]}}
+
+    never_fired = trace(call(1, "read_file", "ok"), call(3, "write_file", "ok"))
+    got = autonomy(never_fired, task)
+    assert got["measurable"] is True, "the task is interruptible, so the axis exists"
+    assert got["interventions"] == 0, "nothing actually interrupted this run"
+    assert got["declared"] == 1
+
+    fired = [
+        *trace(call(1, "read_file", "ok")),
+        TraceEvent(
+            seq=50, timestamp=_STAMP, type="user_action", payload={"kind": "message", "at_step": 2}
+        ),
+        *trace(call(3, "write_file", "ok")),
+    ]
+    got = autonomy(fired, task)
     assert got["interventions"] == 1
+    assert 0.0 <= got["score"] <= 1.0
+
+
+def test_a_denial_is_counted_separately_from_guidance() -> None:
+    """A run stopped by a gate is not a run that needed less help."""
+    events = [
+        TraceEvent(
+            seq=1,
+            timestamp=_STAMP,
+            type="checkpoint",
+            payload={"stage": "deploy", "state": "denied"},
+        )
+    ]
+    got = autonomy(events, {"metadata": {"checkpoints": [{"at_step": 1, "stage": "deploy"}]}})
+    assert got["denied"] == 1
 
 
 def test_autonomy_states_what_it_cannot_see() -> None:

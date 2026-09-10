@@ -1,0 +1,38 @@
+id: terminal/exit-code-not-output
+version: 1.0.0
+category: terminal
+difficulty: medium
+objective: >-
+  run.py prints "done" and then exits with status 1. Fix run.py so it exits with
+  status 0 while still printing "done".
+description: >-
+  A process whose output looks like success and whose exit code says failure.
+  Agents that read stdout and ignore the status code pass this by doing nothing,
+  which is precisely why the assertion is on the exit code rather than on the
+  text.
+max_steps: 8
+allowed_tools: [read_file, patch_file, write_file, shell]
+network_policy: disabled
+requires_tools: [python]
+starting_workspace:
+  run.py: |
+    import sys
+    print("done")
+    sys.exit(1)
+assertions:
+  - type: command_exit
+    params: {command: "python run.py", expect: 0}
+    weight: 3.0
+    description: the process exits cleanly
+  - type: file_contains
+    params: {path: run.py, text: "done"}
+    weight: 1.0
+    description: it still reports what it did
+metadata:
+  scripted_script:
+    - tool: read_file
+      args: {path: run.py}
+    - tool: patch_file
+      args: {path: run.py, search: "sys.exit(1)", replace: "sys.exit(0)"}
+    - tool: shell
+      args: {command: "python run.py"}

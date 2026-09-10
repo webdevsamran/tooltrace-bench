@@ -327,18 +327,30 @@ def _expected_literals(task: dict[str, Any]) -> list[str]:
 def autonomy(events: Sequence[TraceEvent], task: dict[str, Any] | None = None) -> dict[str, Any]:
     """How much intervention the run needed.
 
-    Currently **unmeasurable, and it says so.** `UserAction` and `CheckpointStage`
-    exist in the task model, no shipping task declares one, and no executor
-    performs one — so every run completes with zero interventions and an autonomy
-    score of 1.0 would be a perfect mark on an axis nobody measured. That is the
-    same failure the leaderboard's cost and security columns were built to avoid.
+    Counted from the **trace**, not from the task file. An intervention declared
+    at a step the run never reached did not happen, and a metric that counted it
+    would be restating the task rather than measuring the run.
 
-    The measurement is written so it becomes real the moment a task declares an
-    intervention, rather than being deferred to a rewrite.
+    A task that declares no intervention is still reported as unmeasurable
+    rather than scoring 1.0. Nobody interrupted the run, so it was trivially
+    autonomous, and a perfect mark on an axis nobody measured is the failure the
+    leaderboard's cost and security columns exist to avoid.
+
+    Interventions are declared in `metadata` because the v1 task protocol is
+    versioned and `tooltrace/tasks/v2.py` is marked do-not-touch; a top-level
+    field is still honoured, so a v2 task that migrates forward keeps working.
     """
-    declared = list((task or {}).get("user_actions") or [])
-    checkpoints = list((task or {}).get("checkpoints") or [])
-    if not declared and not checkpoints:
+    metadata = (task or {}).get("metadata")
+    metadata = metadata if isinstance(metadata, dict) else {}
+    declared = list((task or {}).get("user_actions") or metadata.get("user_actions") or [])
+    checkpoints = list((task or {}).get("checkpoints") or metadata.get("checkpoints") or [])
+
+    performed = [e for e in events if e.type in ("user_action", "checkpoint")]
+    denials = [
+        e for e in events if e.type == "checkpoint" and (e.payload or {}).get("state") == "denied"
+    ]
+
+    if not declared and not checkpoints and not performed:
         return {
             "measurable": False,
             "reason": (
@@ -350,16 +362,21 @@ def autonomy(events: Sequence[TraceEvent], task: dict[str, Any] | None = None) -
         }
 
     steps = sum(1 for e in events if e.type == "tool_request")
-    interventions = len(declared) + len(checkpoints)
+    interventions = len(performed)
     return {
         "measurable": True,
         "score": round(max(0.0, 1.0 - interventions / max(steps, 1)), 6),
         "interventions": interventions,
+        "declared": len(declared) + len(checkpoints),
         "steps": steps,
+        # A denial is the sharpest form of intervention: the run did not merely
+        # receive guidance, it was refused. Counted separately because a run
+        # stopped by a gate is not a run that needed less help.
+        "denied": len(denials),
         "note": (
-            "Interventions are counted from the task's declaration. An agent that "
-            "needed help it was never offered is not distinguishable from one that "
-            "did not need it."
+            "Counted from the trace, so an intervention declared at a step the run "
+            "never reached is not counted. An agent that needed help it was never "
+            "offered is still not distinguishable from one that did not need it."
         ),
     }
 

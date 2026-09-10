@@ -139,6 +139,27 @@ def _is_preservation_assertion(assertion: dict[str, Any], workspace: dict[str, A
     return any(value.lower() in existing for value in _expected_values(assertion))
 
 
+def _declared_extraction(task: dict[str, Any]) -> str:
+    """A task's stated reason that its answer legitimately sits in its input.
+
+    Retrieval, citation, redaction and hand-off tasks are all cases where the
+    expected value appears in the workspace *because copying it is the skill*.
+    `knowledge/cite-the-source` asks the agent to quote a value and cite where it
+    came from; `legal/quote-the-clause-exactly` asks for a verbatim clause and
+    fails a paraphrase. In both, "the answer is in the input" describes the task
+    rather than a flaw in it.
+
+    Structure cannot separate that from a genuine leak -- both look like a value
+    in a file the agent reads -- so the task declares it, and the declaration is
+    reported rather than silently honoured. A reader can list every task claiming
+    the exemption, which is the property that keeps it from becoming a way to
+    switch the check off.
+    """
+    metadata = task.get("metadata")
+    reason = (metadata or {}).get("expected_value_in_input") if isinstance(metadata, dict) else None
+    return str(reason) if reason else ""
+
+
 def expected_value_report(task: dict[str, Any]) -> dict[str, Any]:
     """Where each expected value is visible, classified by what that means.
 
@@ -160,6 +181,7 @@ def expected_value_report(task: dict[str, Any]) -> dict[str, Any]:
     workspace = task.get("starting_workspace") or {}
     objective = f"{task.get('objective') or ''} {task.get('description') or ''}".lower()
     workspace_text = " ".join(str(v) for v in workspace.values()).lower()
+    extraction_reason = _declared_extraction(task)
 
     in_workspace: list[str] = []
     in_objective: list[str] = []
@@ -185,9 +207,14 @@ def expected_value_report(task: dict[str, Any]) -> dict[str, Any]:
             elif lowered in objective:
                 in_objective.append(f"{kind}: expected value {value!r} is stated in the objective")
 
+    declared_extraction = in_workspace if extraction_reason else []
     return {
-        # The only class that fails integrity.
-        "leaked_to_workspace": in_workspace,
+        # The only class that fails integrity. A task that declares itself an
+        # extraction task moves its findings to `declared_extraction`, where they
+        # stay visible.
+        "leaked_to_workspace": [] if extraction_reason else in_workspace,
+        "declared_extraction": declared_extraction,
+        "extraction_reason": extraction_reason,
         # Reported so an author can see it, never a failure: the objective is the
         # specification, and a task is entitled to state its target.
         "stated_in_objective": in_objective,

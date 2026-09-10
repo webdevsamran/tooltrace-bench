@@ -88,8 +88,37 @@ def _json_schema(params: dict[str, object], workspace: Path) -> ScorerOutcome:
     return ScorerOutcome(1.0, "schema valid")
 
 
+def _walk_pointer(document: object, pointer: object) -> tuple[object, str]:
+    """Select a value inside a JSON document by dotted path.
+
+    Shared by `json_equals` and `json_set_equals` so the two cannot drift on
+    syntax. Returns `(value, problem)`; `problem` is empty when the walk
+    succeeded.
+    """
+    if not isinstance(pointer, str) or not pointer:
+        return document, ""
+    for segment in pointer.strip("/").split("."):
+        if isinstance(document, dict) and segment in document:
+            document = document[segment]
+        else:
+            return None, f"pointer '{pointer}' not found at '{segment}'"
+    return document, ""
+
+
 @register_scorer("json_equals")
 def _json_equals(params: dict[str, object], workspace: Path) -> ScorerOutcome:
+    """Compare a JSON document, or one value inside it.
+
+    `pointer` selects a value by dotted path. Without it the whole document is
+    compared, which is the older behaviour and still the right default for a
+    task that owns the whole file.
+
+    It exists because `json_equals` previously *ignored* a `pointer` param and
+    compared the whole document anyway -- so a task asserting one field got
+    "JSON differs" with no hint that its parameter had been dropped. Restating an
+    entire document to assert one field also makes a task brittle: an unrelated
+    field changing breaks an assertion that was never about it.
+    """
     path = _resolve(workspace, params.get("path"))
     expected = params.get("expected")
     if not path.is_file():
@@ -98,8 +127,14 @@ def _json_equals(params: dict[str, object], workspace: Path) -> ScorerOutcome:
         actual = json.loads(_read(path))
     except json.JSONDecodeError as exc:
         return ScorerOutcome(0.0, f"invalid JSON: {exc}")
-    ok = actual == expected
-    return ScorerOutcome(1.0 if ok else 0.0, "JSON equal" if ok else "JSON differs")
+
+    selected, problem = _walk_pointer(actual, params.get("pointer"))
+    if problem:
+        return ScorerOutcome(0.0, problem)
+
+    ok = selected == expected
+    where = f" at '{params['pointer']}'" if params.get("pointer") else ""
+    return ScorerOutcome(1.0 if ok else 0.0, f"JSON {'equal' if ok else 'differs'}{where}")
 
 
 @register_scorer("csv_equals")
@@ -429,13 +464,9 @@ def _json_set_equals(params: dict[str, object], workspace: Path) -> ScorerOutcom
     except json.JSONDecodeError as exc:
         return ScorerOutcome(0.0, f"invalid JSON: {exc}")
 
-    pointer = params.get("pointer")
-    if isinstance(pointer, str) and pointer:
-        for segment in pointer.split("."):
-            if isinstance(document, dict) and segment in document:
-                document = document[segment]
-            else:
-                return ScorerOutcome(0.0, f"pointer '{pointer}' not found at '{segment}'")
+    document, problem = _walk_pointer(document, params.get("pointer"))
+    if problem:
+        return ScorerOutcome(0.0, problem)
 
     expected = params.get("expected")
     if not isinstance(expected, list):

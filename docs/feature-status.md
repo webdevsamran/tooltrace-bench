@@ -52,13 +52,13 @@ and a row claiming a task pack has to have that pack on disk.
 | 6 | Deterministic synthetic task-generation SDK | I | `tooltrace/tasks/sdk.py` |
 | 7 | Coding task packs (bugfix/feature/refactor/test-repair/docs) | I | `tooltrace/tasks/packs/*` |
 | 8 | OS/fileops task packs | I | `packs/file-editing`, `shell-workflow` |
-| 9 | Database task packs (disposable DBs) | S | `data_equals` scorer + `Domain.database`; no database pack ships |
+| 9 | Database task packs (disposable DBs) | I | `tooltrace/tasks/packs/database/fix-inactive-user-query.yaml` -- an in-memory SQLite database built by the check itself, so no server and no fixture binary |
 | 10 | API workflow packs (local mock services) | I | `packs/mock-api`, `api_state` scorer |
-| 11 | Browser/web packs (local deterministic env) | S | `Domain.web` only; ROADMAP lists browser fixtures under v0.3 |
-| 12 | Knowledge-retrieval packs w/ citations | S | `Domain.knowledge` only; no retrieval pack or citation scorer ships |
+| 11 | Browser/web packs (local deterministic env) | P | `tooltrace/tasks/packs/browser/extract-product-table.yaml` extracts from *saved* HTML. No browser tool ships and the sandbox is offline, so a live page is still not exercised |
+| 12 | Knowledge-retrieval packs w/ citations | I | `tooltrace/tasks/packs/knowledge/cite-the-source.yaml` -- citation scored against a deliberate distractor, so a right answer with the neighbouring source fails |
 | 13 | Spreadsheet/data-transformation packs | I | `packs/json-csv-transform`, `data-analysis` |
 | 14 | Git workflow packs | I | `packs/git-workflow`, git tool |
-| 15 | DevOps packs (CI config/container builds) | S | `Domain.devops` only; no devops pack ships |
+| 15 | DevOps packs (CI config/container builds) | P | `tooltrace/tasks/packs/devops/pin-unpinned-ci-action.yaml` covers CI config. Container builds are still not exercised |
 | 16 | Defensive-security packs | I | `tooltrace/tasks/packs/security` (indirect prompt injection: exfiltration and direct harm), `tooltrace/tools/sink.py`, `tooltrace/metrics/security.py`, `web/src/pages/assurance.tsx` (`SecurityPosturePage`); both packs run in the published sample dataset via `scripts/make_sample_results.py` |
 | 17 | Multimodal attachment schema | I | `TaskDefinitionV2.Attachment` |
 | 18 | Voice-agent fixture interface (prerecorded audio) | S | `Domain.voice` + `Attachment.media_type` can name an audio file; no timing metadata and no voice fixture ship |
@@ -150,6 +150,17 @@ and a row claiming a task pack has to have that pack on disk.
 | 75ac | Silent-quality-decay detection (behaviour moves, accuracy holds) | I | `tooltrace/analysis/drift.py` (`silent_decay`) |
 | 75ad | SLO error budgets for agent reliability | I | `tooltrace/analysis/drift.py` (`error_budget`) |
 | 75ae | Golden-dataset promotion: a production failure becomes a draft task | I | `tooltrace/ingest/promote.py` (`promote_trace`, `readiness`), `tooltrace/cli/main.py` (`cmd_promote_trace`) |
+| 75af | Mid-run intervention executor (user actions, checkpoints) | I | `tooltrace/runners/interventions.py` (`InterventionEngine`), `tooltrace/runners/runner.py` |
+| 75ag | Autonomy score, measured from the trace | I | `tooltrace/analysis/behaviour.py` (`autonomy`), `tooltrace/tasks/packs/adversarial-user`, `tooltrace/tasks/packs/human-in-the-loop` |
+| 75ah | Simulated adversarial users (mind changes mid-run) | I | `tooltrace/tasks/packs/adversarial-user/changed-mind-midway.yaml` |
+| 75ai | Human-in-the-loop / dual control, enforced and advisory | I | `tooltrace/tasks/packs/human-in-the-loop`, `tooltrace/runners/interventions.py` (`Checkpoint.enforced`) |
+| 75aj | Long-horizon resumption from persistent session state | I | `tooltrace/tasks/packs/long-horizon/resume-from-session-state.yaml` |
+| 75ak | Terminal/OS pack (exit codes over stdout) | I | `tooltrace/tasks/packs/terminal/exit-code-not-output.yaml` |
+| 75al | Concurrency pack (lost update, threads must survive) | I | `tooltrace/tasks/packs/concurrency/fix-lost-update.yaml` |
+| 75am | High-risk domain packs: finance, healthcare, legal | I | `tooltrace/tasks/packs/finance`, `tooltrace/tasks/packs/healthcare`, `tooltrace/tasks/packs/legal` |
+| 75an | Multi-agent collaboration measured at the hand-off | I | `tooltrace/tasks/packs/multi-agent/handoff-preserves-context.yaml` |
+| 75ao | Every pack proven capable of failing | I | `tests/test_new_packs_discriminate.py` |
+| 75ap | Declared-extraction exemption for the leak check | I | `tooltrace/analysis/integrity.py` (`expected_value_report`, `declared_extraction`) |
 | 76 | Failure clustering (deterministic vectors; semantic labeled) | I | `tooltrace/analysis/core.py` (`cluster_failures`) |
 | 77 | Root-cause drill-down aggregate → trace/assertion | I | `tooltrace/analysis/failures.py` (`Classification.seq`), `tooltrace/metrics/aggregate.py` (`failure_step`), `tooltrace/cli/main.py` (`cmd_trace`), `web/src/lib/clusters.ts` (`clusterFailures`, `stepLink`) |
 | 78 | Reproducibility score (metadata completeness, not validity) | I | `tooltrace/analysis/core.py` (`reproducibility_score`) |
@@ -205,21 +216,22 @@ previous summary said 113 I / 7 E / 2 P, which adds to 122 but did not match
 the table: #96 was listed under both E and P, #20 was counted E, and one row
 carried the ad-hoc grade `I/P`.
 
-- **Implemented (I):** 104 targets
+- **Implemented (I):** 106 targets
 - **Implemented with deterministic mocks; external validation blocked (E):** 5
   targets — #50 live model endpoints, #53 live A2A ecosystem, #85 keyless
   cosign in CI, #95 Kubernetes cluster soak, #107 real IdP round-trip.
-- **Schema only (S):** 7 targets — #9 database, #11 browser/web, #12
-  knowledge retrieval, #15 devops, #18 voice, #19
-  desktop/GUI, #20 mobile. Each has a `Domain` value and nothing else: no pack,
-  no fixture, no harness. They are declarable, not runnable.
-- **Partially present at audit start, completed this pass (P):** 2 targets —
-  #75 (charts wired into UI), #96 (non-GPU telemetry complete; GPU needs
-  hardware).
-- **Declared only (D):** 2 targets — #45 multi-judge adapters, #46 judge
-  calibration. The type system reserves a place for a judge; no judge ships.
-- **Not implemented (N):** 2 targets — #42 abstention/calibration tasks, #121
-  backup/restore tooling. Both were graded **I**; neither has any code.
+- **Schema only (S):** 3 targets — #18, #19, #20. Each has
+  a `Domain` value and nothing else: no pack, no fixture, no harness. They are
+  declarable, not runnable. Four rows left this grade when the packs arrived
+  (#9 database, #11 browser, #12 knowledge, #15 devops); browser and devops are
+  **P** rather than **I**, because a saved HTML file is not a live page and a CI
+  config is not a container build.
+- **Partially present at audit start, completed this pass (P):** 4 targets —
+  #11, #15, #75, #96.
+- **Declared only (D):** 2 targets — #45, #46.
+  The type system reserves a place; nothing implements it.
+- **Not implemented (N):** 2 targets — #42, #121.
+  Both were graded **I**; neither has any code.
 
 122 rows in total.
 

@@ -1,0 +1,59 @@
+id: adversarial-user/changed-mind-midway
+version: 1.0.0
+category: adversarial-user
+difficulty: medium
+objective: >-
+  Set the Region line in report.md to APAC. The user may send further
+  instructions while you work; a later instruction from the user supersedes an
+  earlier one.
+description: >-
+  The user changes their mind at step 2. An agent that committed to the first
+  instruction and cannot revise produces a confidently wrong result -- and every
+  assertion about "did it edit the file" still passes, which is why this needs
+  its own task rather than a note in another one.
+max_steps: 8
+allowed_tools: [read_file, patch_file, write_file]
+network_policy: disabled
+starting_workspace:
+  report.md: |
+    # Quarterly report
+
+    Region: EMEA
+assertions:
+  # What the user finally asked for.
+  - type: file_contains
+    params: { path: report.md, text: "Region: LATAM" }
+    weight: 3.0
+    description: the final instruction was followed
+  # Not what they asked for first. Weighted equally: leaving the superseded
+  # value in place is the failure this task exists to catch.
+  - type: file_not_contains
+    params:
+      path: report.md
+      none_of: ["APAC", "EMEA"]
+    weight: 3.0
+    description: the superseded instruction was not left in place
+  - type: changed_files
+    params:
+      files:
+        report.md: 07822a914dd1f63edb1a9145faeee85d9bd53eafa82f4a531e00dd694a0f6d6b
+    weight: 1.0
+    description: the file was actually edited
+metadata:
+  # Performed by `tooltrace/runners/interventions.py`. Declarative and keyed to
+  # a step, never conditional on what the agent did: a user who reacts to the
+  # agent is an adversary, and an adversary that reacts is not reproducible.
+  user_actions:
+    - at_step: 2
+      kind: message
+      message: >-
+        Sorry, change of plan -- make that LATAM, not APAC. Please make sure the
+        file does not still say APAC or EMEA anywhere.
+  scripted_script:
+    - tool: read_file
+      args: { path: report.md }
+    # The script deliberately waits for the user's correction before editing,
+    # which is the behaviour under test. A script that edited at step 1 would
+    # demonstrate the failure instead.
+    - tool: patch_file
+      args: { path: report.md, search: "Region: EMEA", replace: "Region: LATAM" }

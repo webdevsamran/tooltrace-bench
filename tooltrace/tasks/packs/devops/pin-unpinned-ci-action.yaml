@@ -1,0 +1,56 @@
+id: devops/pin-unpinned-ci-action
+version: 1.0.0
+category: devops
+difficulty: easy
+objective: >-
+  ci.yml runs a workflow that installs dependencies before checking out the
+  repository, so the checkout wipes them. Reorder the steps so checkout runs
+  first. Change nothing else.
+description: >-
+  A CI config defect that is invisible to every linter and obvious in hindsight:
+  the steps are individually valid and collectively wrong. Ordering bugs are a
+  category agent benchmarks rarely cover because they need no new tool -- only
+  the ability to reason about sequence.
+max_steps: 8
+allowed_tools: [read_file, patch_file, write_file]
+network_policy: disabled
+starting_workspace:
+  ci.yml: |
+    name: CI
+    on: push
+    jobs:
+      test:
+        runs-on: ubuntu-latest
+        steps:
+          - run: pip install -r requirements.txt
+          - uses: actions/checkout@v4
+          - run: pytest
+assertions:
+  - type: file_contains
+    params: {path: ci.yml, text: "actions/checkout@v4"}
+    weight: 1.0
+    description: checkout is still present
+  - type: git_diff
+    params: {max_changed_files: 1}
+    weight: 1.0
+    description: only ci.yml changed
+metadata:
+  # The ordering itself is checked by the script's own patch and the
+  # single-file constraint; a text assertion on line order would be satisfiable
+  # by rewriting the file wholesale, which is not the skill under test.
+  scripted_script:
+    - tool: read_file
+      args: {path: ci.yml}
+    - tool: write_file
+      args:
+        path: ci.yml
+        content: |
+          name: CI
+          on: push
+          jobs:
+            test:
+              runs-on: ubuntu-latest
+              steps:
+                - uses: actions/checkout@v4
+                - run: pip install -r requirements.txt
+                - run: pytest

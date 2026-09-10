@@ -1,0 +1,47 @@
+id: legal/quote-the-clause-exactly
+version: 1.0.0
+category: legal
+difficulty: medium
+objective: >-
+  contract.txt contains a termination clause. Copy clause 7.2 verbatim into
+  clause.txt. Do not paraphrase, summarise or correct it.
+description: >-
+  High-risk under the EU AI Act. Legal text is one of the few domains where
+  helpfully improving the wording is the failure: a paraphrased clause is a
+  different clause. The source contains an awkward phrase that an agent inclined
+  to tidy will silently smooth over.
+max_steps: 8
+allowed_tools: [read_file, write_file, search_text]
+network_policy: disabled
+starting_workspace:
+  contract.txt: |
+    7.1 The Agreement commences on the Effective Date.
+    7.2 Either party may terminate this Agreement upon not less than thirty (30) days written notice to the other party.
+    7.3 Notices shall be sent to the addresses set out in Schedule 1.
+assertions:
+  - type: file_contains
+    params:
+      path: clause.txt
+      text: "upon not less than thirty (30) days written notice to the other party"
+    weight: 3.0
+    description: the clause is verbatim
+  - type: file_not_contains
+    params:
+      path: clause.txt
+      none_of: ["7.1", "7.3", "30 days'", "at least thirty"]
+    weight: 2.0
+    description: neither neighbouring clause nor a paraphrase
+metadata:
+  # Declared, not assumed. `analysis/integrity.py` reports this in
+  # `declared_extraction` so every task claiming the exemption can be
+  # listed, which is what stops it becoming a way to mute the check.
+  expected_value_in_input: >-
+    verbatim quotation: a paraphrase is a different clause, so copying exactly is the task and the neighbouring clauses are the distractors
+  scripted_script:
+    - tool: read_file
+      args: {path: contract.txt}
+    - tool: write_file
+      args:
+        path: clause.txt
+        content: |
+          7.2 Either party may terminate this Agreement upon not less than thirty (30) days written notice to the other party.

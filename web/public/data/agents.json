@@ -6,7 +6,7 @@
     "mean_score": 1.0,
     "mean_steps": 3.142857142857143,
     "failed_tool_calls_mean": 0.14285714285714285,
-    "wall_ms_p95": 36.862,
+    "wall_ms_p95": 77.246,
     "cost_per_resolved_task": null,
     "total_cost": null,
     "priced_runs": 0,
