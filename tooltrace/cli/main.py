@@ -1496,6 +1496,76 @@ def cmd_report(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def cmd_platforms(args: argparse.Namespace) -> int:
+    """Get a run set into Langfuse, Phoenix, Datadog, W&B or MLflow.
+
+    Writes files and prints the command; it never sends anything. A benchmark
+    that phoned home by default would be the wrong artifact, and the credential
+    is referenced by environment variable rather than read -- a tool that loads a
+    key in order to print a command has held a key it did not need.
+    """
+    from tooltrace.artifacts.bundles import load_bundle_result, load_bundle_trace
+    from tooltrace.exporters.otel import result_to_otel_spans, to_otlp_json
+    from tooltrace.exporters.platforms import (
+        OTLP_TARGETS,
+        langfuse_scores,
+        platform_report,
+        push_instructions,
+        to_mlflow_runs,
+        to_wandb_records,
+    )
+
+    bundles = sorted(Path(args.bundles).glob("*.tooltrace"))
+    if not bundles:
+        print(f"no bundles under {args.bundles}", file=sys.stderr)
+        return EXIT_USAGE
+
+    results = []
+    spans: list[dict[str, Any]] = []
+    for bundle in bundles:
+        result = load_bundle_result(bundle)
+        results.append(result.model_dump(mode="json"))
+        spans.extend(result_to_otel_spans(result, load_bundle_trace(bundle)))
+
+    out = Path(args.out)
+    out.mkdir(parents=True, exist_ok=True)
+    written: list[str] = []
+
+    def write(name: str, payload: Any) -> None:
+        path = out / name
+        path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+        written.append(str(path))
+
+    write("otlp-spans.json", to_otlp_json(spans))
+    write("langfuse-scores.json", langfuse_scores(results))
+    write("mlflow-runs.json", to_mlflow_runs(results))
+    write("wandb-records.json", to_wandb_records(results))
+
+    report = platform_report(results)
+    instructions = (
+        push_instructions(args.target, args.base_url or "<base-url>") if args.target else None
+    )
+    payload = {"written": written, **report, "push": instructions}
+
+    if args.json:
+        _emit(payload, True)
+        return EXIT_OK
+
+    for path in written:
+        print(f"wrote {path}")
+    print()
+    print(report["statement"])
+    if instructions:
+        print()
+        print(f"{instructions['name']}: {instructions['note']}.")
+        print(f"  key in ${instructions['env_var']}, sent as {instructions['auth_format']}")
+        print(f"  {instructions['command']}")
+    else:
+        print()
+        print(f"OTLP targets: {', '.join(sorted(OTLP_TARGETS))} (pass --target for the command)")
+    return EXIT_OK
+
+
 def cmd_export(args: argparse.Namespace) -> int:
     from tooltrace.reports import export_with_plugins
 
@@ -2302,6 +2372,16 @@ def build_parser() -> argparse.ArgumentParser:
     rep.add_argument("--bundles", nargs="+", required=True)
     rep.add_argument("--format", default="markdown", choices=["json", "csv", "md", "junit", "html"])
     rep.add_argument("--output")
+
+    pf = add("platforms", cmd_platforms, "convert a run set for an observability platform")
+    pf.add_argument("--bundles", required=True, help="directory of .tooltrace bundles")
+    pf.add_argument("--out", required=True, help="directory to write the converted files into")
+    pf.add_argument(
+        "--target",
+        choices=["langfuse", "phoenix", "datadog", "honeycomb", "grafana"],
+        help="print the push command for one OTLP platform. Nothing is sent",
+    )
+    pf.add_argument("--base-url", help="that platform's base URL, for the printed command")
 
     ex = add("export", cmd_export, "run exporter plugins on a JSON payload")
     ex.add_argument("--out", required=True)

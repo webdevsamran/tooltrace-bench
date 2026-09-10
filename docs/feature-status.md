@@ -181,6 +181,7 @@ and a row claiming a task pack has to have that pack on disk.
 | 75bh | Token-efficiency regression gate, with `not_measured` kept apart from `inconclusive` | I | `tooltrace/analysis/pr_report.py` (`NOT_MEASURED`, `_total_tokens`) |
 | 75bi | GitLab / Jenkins / CircleCI pipeline templates | I | `tooltrace/cli/init.py` (`ci_config`, `CI_PATHS`) |
 | 75bj | Pre-commit notice when a change alters what an agent is shown | I | `scripts/prompt_change_notice.py`, `.pre-commit-config.yaml` |
+| 75bk | Langfuse / Phoenix / Datadog / W&B / MLflow export paths | I | `tooltrace/exporters/platforms.py` (`OTLP_TARGETS`, `to_mlflow_runs`, `langfuse_scores`), `tooltrace/cli/main.py` (`cmd_platforms`) |
 | 76 | Failure clustering (deterministic vectors; semantic labeled) | I | `tooltrace/analysis/core.py` (`cluster_failures`) |
 | 77 | Root-cause drill-down aggregate → trace/assertion | I | `tooltrace/analysis/failures.py` (`Classification.seq`), `tooltrace/metrics/aggregate.py` (`failure_step`), `tooltrace/cli/main.py` (`cmd_trace`), `web/src/lib/clusters.ts` (`clusterFailures`, `stepLink`) |
 | 78 | Reproducibility score (metadata completeness, not validity) | I | `tooltrace/analysis/core.py` (`reproducibility_score`) |
