@@ -7,6 +7,42 @@ versioning follows [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- **`tooltrace mcp-fuzz`: malformed JSON-RPC, and what the server did with it.**
+  `mcp-conformance` asks a server to do things correctly. This asks it to do
+  things incorrectly, which is the half that finds real defects, because a server
+  is written against the happy path and tested against the happy path.
+
+  The cases are specific rather than random -- random bytes at a JSON-RPC server
+  mostly produce parse errors that every implementation handles identically.
+  These are the shapes implementations get wrong: a method that is not a string,
+  `params` that is a string, a `tools/call` with no name, a truncated line.
+
+  Three severities keep it a measurement rather than an opinion. Accepting a
+  `must_reject` case is a violation and fails; tolerating a `should_reject` one is
+  sloppy and does not, because half the servers in the wild are Postel's-law
+  tolerant and calling that a failure would make the report an opinion. **A crash
+  is always a problem**, whatever the severity says: a server that dies on
+  optional input is a denial-of-service surface, and so is one that hangs.
+
+### Fixed
+- **This project's own MCP fixture crashed on three malformed inputs**, and the
+  fuzzer found all three on its first run. `json.loads` was unguarded, and
+  `tools/call` reached into `msg["params"]["name"]` without checking that `params`
+  was a mapping or that `name` was there.
+
+  That mattered more than a fixture bug usually would: this is the server
+  `mcp-conformance` checks when nobody names one, so it is the example this
+  project holds up as *conforming*. Every entry point is guarded now, and every
+  guard answers with a JSON-RPC error rather than staying silent -- a client
+  cannot tell silence from a hang. The fragile version is kept verbatim in the
+  tests as the thing the fuzzer must catch.
+
+- **The fuzzer's first implementation hung on its first case.** It checked a
+  deadline *between* blocking `readline` calls, which is not a deadline. It writes
+  the payload and closes stdin now, so a server looping over stdin sees EOF and a
+  silent case ends in a second.
+
+### Added
 - **Local model server presets and `tooltrace backends`.** Ollama, llama.cpp, LM
   Studio, vLLM and SGLang all expose an OpenAI-compatible `/chat/completions`,
   which `openai_compat` already drives. Five adapter classes posting the same body

@@ -129,42 +129,90 @@ class MCPClient:
 # ---------------------------------------------------------------------------
 
 
+# The bundled fixture, and the default target of `tooltrace mcp-conformance`.
+#
+# It used to crash on three malformed inputs -- `json.loads` was unguarded, and
+# `tools/call` reached straight into `msg["params"]["name"]` without checking
+# that `params` was a mapping or that `name` was there. `agents/mcp_fuzz.py`
+# found all three the first time it ran, against this file.
+#
+# That mattered more than a fixture bug usually would: this is what
+# `mcp-conformance` checks against when nobody names a server, so it is the
+# example this project holds up as a *conforming* one. A reference server that
+# dies on a truncated line is a poor thing to point at.
+#
+# Every entry point is now guarded, and every guard answers with a JSON-RPC
+# error rather than staying silent, because a client cannot distinguish silence
+# from a hang.
 FAKE_SERVER_SCRIPT = r"""
 import json, sys
+
 TOOLS = {
     "echo": {"name": "echo", "description": "echo text back",
              "inputSchema": {"type": "object", "properties": {"text": {"type": "string"}}}},
 }
+
 def send(obj):
     sys.stdout.write(json.dumps(obj) + "\x0a"); sys.stdout.flush()
-initialized = False
+
+def fail(msg_id, code, message):
+    send({"jsonrpc": "2.0", "id": msg_id, "error": {"code": code, "message": message}})
+
 for line in sys.stdin:
     line = line.strip()
     if not line:
         continue
-    msg = json.loads(line)
+
+    # A parse error is an error, not a crash and not silence. -32700 is the
+    # JSON-RPC code for exactly this, and the id is null because there is no
+    # parsed request to take one from.
+    try:
+        msg = json.loads(line)
+    except ValueError:
+        fail(None, -32700, "parse error")
+        continue
+
+    if not isinstance(msg, dict):
+        fail(None, -32600, "invalid request: not an object")
+        continue
     if "id" not in msg:
         continue
+
+    msg_id = msg["id"]
     method = msg.get("method")
+    # A non-string method cannot name anything; dispatching on it would be a
+    # type confusion rather than a lookup.
+    if not isinstance(method, str):
+        fail(msg_id, -32600, "invalid request: method must be a string")
+        continue
+
+    params = msg.get("params", {})
+    if not isinstance(params, dict):
+        fail(msg_id, -32602, "invalid params: must be an object")
+        continue
+
     if method == "initialize":
-        send({"jsonrpc": "2.0", "id": msg["id"], "result":
+        send({"jsonrpc": "2.0", "id": msg_id, "result":
               {"protocolVersion": "2024-11-05",
                "capabilities": {"tools": {}},
                "serverInfo": {"name": "fake-mcp", "version": "0.1"}}})
     elif method == "tools/list":
-        send({"jsonrpc": "2.0", "id": msg["id"], "result": {"tools": list(TOOLS.values())}})
+        send({"jsonrpc": "2.0", "id": msg_id, "result": {"tools": list(TOOLS.values())}})
     elif method == "tools/call":
-        name = msg["params"]["name"]
-        args = msg["params"].get("arguments", {})
+        name = params.get("name")
+        if not isinstance(name, str):
+            # The request that must never succeed: calling an unnamed tool.
+            fail(msg_id, -32602, "invalid params: name is required and must be a string")
+            continue
+        args = params.get("arguments")
+        args = args if isinstance(args, dict) else {}
         if name == "echo":
-            send({"jsonrpc": "2.0", "id": msg["id"], "result":
-                  {"content": [{"type": "text", "text": args.get("text", "")}]}})
+            send({"jsonrpc": "2.0", "id": msg_id, "result":
+                  {"content": [{"type": "text", "text": str(args.get("text", ""))}]}})
         else:
-            send({"jsonrpc": "2.0", "id": msg["id"], "error":
-                  {"code": -32602, "message": f"unknown tool {name}"}})
+            fail(msg_id, -32602, "unknown tool " + name)
     else:
-        send({"jsonrpc": "2.0", "id": msg["id"], "error":
-              {"code": -32601, "message": f"unknown method {method}"}})
+        fail(msg_id, -32601, "unknown method " + method)
 """
 
 
