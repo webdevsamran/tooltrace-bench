@@ -21,6 +21,7 @@ from tooltrace.metrics.aggregate import (
     failure_taxonomy,
     trajectory_report,
 )
+from tooltrace.metrics.budget import BudgetGuard
 from tooltrace.metrics.economics import cost_summary
 from tooltrace.runners.runner import TaskRunner
 
@@ -31,7 +32,19 @@ def run_benchmark(
     agent_config: dict[str, object] | None = None,
     runs: int = 1,
     out_dir: Path | None = None,
+    budget: BudgetGuard | None = None,
 ) -> BenchmarkRun:
+    """Run every task `runs` times and summarise.
+
+    `budget`, when given, is a **hard** ceiling. A soft budget that logs and
+    continues is a budget that does not exist, and the situation it guards
+    against -- a sweep left running overnight against a metered API -- is exactly
+    the one where nobody reads the log.
+
+    A stopped sweep records what it did not run, and the summary says
+    `is_partial`. A truncated measurement silently reported as a complete one is
+    the same defect the `--limit` subset note exists to prevent.
+    """
     if runs < 1:
         raise ValueError("runs must be >= 1")
     runner = TaskRunner(output_dir=out_dir)
@@ -54,13 +67,35 @@ def run_benchmark(
     all_trajectories: list[dict[str, object]] = []
     behaviour_reports: list[dict[str, object]] = []
 
+    planned_total = len(tasks) * runs
+    completed = 0
+
     for task in tasks:
         task_rows: list[dict[str, object]] = []
         task_trajectories: list[dict[str, object]] = []
         for i in range(runs):
+            # Checked before the run, using the mean cost observed so far. A
+            # run's cost is not knowable in advance, so the ceiling is enforced
+            # one run early rather than one run late -- erring towards spending
+            # less than asked, which is the only safe direction for a ceiling.
+            if budget is not None and budget.runs_completed > 0:
+                mean_so_far = budget.spent / budget.runs_completed
+                if budget.would_exceed(mean_so_far):
+                    budget.stop(
+                        f"projected spend would exceed the {budget.ceiling} "
+                        f"{budget.currency} ceiling",
+                        remaining=planned_total - completed,
+                    )
+            if budget is not None and budget.stopped:
+                break
+
             result, events, diff_text = runner.run(
                 task, agent_name, _config_for(task), run_id=f"{run_id}-{task.name}-{i}"
             )
+            completed += 1
+            if budget is not None:
+                reported = (result.usage.provider_cost_reported) if result.usage else None
+                budget.record(reported)
             scoring_details: dict[str, str] = {}
             if out_dir is not None:
                 from tooltrace.scoring.composite import score_task
@@ -117,6 +152,10 @@ def run_benchmark(
                 )
             )
 
+        if not task_rows:
+            # The budget stopped before this task ran at all. Recording an empty
+            # summary would publish a 0% success rate for a task nobody ran.
+            continue
         summary = summarize_reliability(task_rows)
         summary["trajectory"] = aggregate_trajectory(task_trajectories)
         summary["cost"] = cost_summary(
@@ -148,6 +187,8 @@ def run_benchmark(
     from tooltrace.analysis.power import variance_decomposition
 
     overall["behaviour"] = aggregate_behaviour(behaviour_reports)
+    if budget is not None:
+        overall["budget"] = budget.to_dict()
     overall["variance"] = variance_decomposition(
         [{"agent": agent_name, "task_id": r.task_id, "success": r.success} for r in all_results]
     )
@@ -158,6 +199,9 @@ def run_benchmark(
         run_id=run_id,
         created_at=datetime.now(UTC).isoformat(),
         config={
+            "budget_stopped": bool(budget and budget.stopped),
+            "runs_planned": planned_total,
+            "runs_completed": completed,
             "agent": agent_name,
             "agent_config": dict(agent_config or {}),
             "runs_per_task": runs,

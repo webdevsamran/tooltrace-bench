@@ -262,6 +262,81 @@ def cmd_power(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def cmd_cost(args: argparse.Namespace) -> int:
+    """Where the money went, what a planned sweep would cost, and whether it pays."""
+
+    from tooltrace.artifacts.bundles import load_bundle_result
+    from tooltrace.metrics.budget import cost_attribution, forecast_spend, viability_verdict
+    from tooltrace.metrics.economics import cost_summary
+
+    bundles = sorted(Path(args.bundles).glob("*.tooltrace"))
+    if not bundles:
+        print(f"no bundles under {args.bundles}", file=sys.stderr)
+        return EXIT_USAGE
+    results = [load_bundle_result(b).model_dump(mode="json") for b in bundles]
+
+    summary = cost_summary(results)
+    attribution: dict[str, Any] = cost_attribution(results)
+    forecast: dict[str, Any] | None = None
+    if args.forecast_tasks and args.forecast_runs:
+        forecast = forecast_spend(
+            tasks=args.forecast_tasks, runs_per_task=args.forecast_runs, observed=results
+        )
+    viability: dict[str, Any] = viability_verdict(
+        cost_per_resolved_task=summary.get("cost_per_resolved_task"),
+        human_baseline_cost=args.human_baseline,
+        success_rate=(
+            sum(1 for r in results if r.get("success")) / len(results) if results else None
+        ),
+        currency=str(summary.get("currency") or "USD"),
+    )
+
+    payload: dict[str, Any] = {
+        "runs": len(results),
+        "summary": summary,
+        "attribution": attribution,
+        "viability": viability,
+    }
+    if forecast is not None:
+        payload["forecast"] = forecast
+
+    if args.json:
+        _emit(payload, True)
+        return EXIT_OK
+
+    if not attribution.get("measurable"):
+        print(attribution.get("reason"))
+    else:
+        print(f"total {attribution['total']} over {len(results)} run(s)")
+        print(
+            f"spent on failures: {attribution['spent_on_failures']} "
+            f"({attribution['failure_share']:.1%})"
+        )
+        if not attribution.get("covers_all_runs"):
+            print(f"  note: {attribution['unpriced_runs']} run(s) reported no cost")
+
+    if forecast is not None:
+        print()
+        if forecast.get("measurable"):
+            print(
+                f"forecast {forecast['estimate']} {forecast['currency']} "
+                f"for {forecast['planned_runs']} runs"
+            )
+            print(f"  range {forecast['range'][0]}-{forecast['range'][1]}")
+            print(f"  {forecast['assumption']}")
+        else:
+            print(f"forecast unavailable: {forecast['reason']}")
+
+    print()
+    if viability.get("measurable"):
+        print(f"viability: {viability['verdict']} (ratio {viability['ratio']})")
+        for assumption in viability["assumptions"]:
+            print(f"  - {assumption}")
+    else:
+        print(f"viability: {viability['reason']}")
+    return EXIT_OK
+
+
 def cmd_agents(args: argparse.Namespace) -> int:
     from tooltrace.agents import AgentAdapter  # noqa: F401
     from tooltrace.core.registry import agent_registry
@@ -446,15 +521,30 @@ def cmd_benchmark(args: argparse.Namespace) -> int:
         )
         return EXIT_TASK
 
+    guard = None
+    if getattr(args, "budget", None):
+        from tooltrace.metrics.budget import BudgetGuard
+
+        guard = BudgetGuard(ceiling=float(args.budget), currency=args.budget_currency)
+
     bench = run_benchmark(
         tasks,
         args.agent,
         _agent_config(args.agent_config),
         runs=args.runs,
         out_dir=Path(args.out) if args.out else None,
+        budget=guard,
     )
     payload = bench.model_dump(mode="json")
     payload["selection"] = selection
+    if guard is not None and guard.stopped:
+        # Same discipline as the subset note above: a sweep cut short must never
+        # read like a complete one, and stderr keeps stdout machine-readable.
+        print(
+            f"note: stopped by the budget after {guard.runs_completed} run(s); "
+            f"{guard.runs_skipped} not run ({guard.stop_reason})",
+            file=sys.stderr,
+        )
     if args.out:
         out = Path(args.out)
         out.mkdir(parents=True, exist_ok=True)
@@ -1427,6 +1517,19 @@ def build_parser() -> argparse.ArgumentParser:
         help="expected success rate; 0.5 is the worst case and the default",
     )
 
+    ct = add("cost", cmd_cost, "where the money went, and what the next sweep would cost")
+    ct.add_argument("--bundles", default="results", help="directory of .tooltrace bundles")
+    ct.add_argument("--forecast-tasks", type=int, help="tasks in a planned sweep")
+    ct.add_argument("--forecast-runs", type=int, help="runs per task in a planned sweep")
+    ct.add_argument(
+        "--human-baseline",
+        type=float,
+        help=(
+            "cost per task if a person did it. No default: a viability verdict against "
+            "an invented baseline is an opinion, not a measurement"
+        ),
+    )
+
     add("agents", cmd_agents, "list registered agent adapters")
 
     t = add("tasks", cmd_tasks, "list available tasks")
@@ -1445,6 +1548,15 @@ def build_parser() -> argparse.ArgumentParser:
     b.add_argument("--task", help="comma-separated task ids (default: all)")
     b.add_argument("--out")
     b.add_argument("--summary", action="store_true")
+    b.add_argument(
+        "--budget",
+        type=float,
+        help=(
+            "hard spending ceiling for this sweep. The sweep stops rather than "
+            "continuing, and the summary reports what did not run"
+        ),
+    )
+    b.add_argument("--budget-currency", default="USD")
     b.add_argument("--min-success-rate", type=float, default=0.0)
     b.add_argument(
         "--context-sweep",

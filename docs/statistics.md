@@ -346,3 +346,58 @@ designed tasks.
   targets, like "implementation untouched" -- is exempt entirely. Flagging it
   would push an author to delete the assertion that stops an agent from "fixing"
   a failing test by rewriting the code beneath it.
+
+## What a sweep costs, before you start it
+
+`cost_summary` reports what a sweep did cost, which is the wrong end of the
+decision people face. The Holistic Agent Leaderboard sweep ran to roughly
+$40,000; nobody should learn a number like that afterwards.
+
+`tooltrace cost` answers three questions, and each refuses to guess:
+
+- **A forecast needs observations.** Below three priced runs it reports
+  `measurable: false` rather than multiplying an assumed token count. A
+  confident figure with no basis is exactly what gets believed and budgeted
+  against. What it does return is a **range**, not a point, because cost per run
+  moves with prompt length, step count and cache state.
+- **Attribution splits spend by task and by how the run ended.** Discovering
+  that 60% of a budget went on runs that failed is the finding; a total cannot
+  show it. Runs that reported no price are excluded and counted, so a report
+  over a partly-priced sweep says it describes only the priced part.
+- **Viability has no default human baseline.** A verdict computed against a
+  number this project chose would be this project's opinion wearing a
+  measurement's clothes, and "economically viable" is exactly the phrase that
+  gets quoted without its assumptions. The unresolved share is named too: an
+  agent that resolves 40% of tasks needs someone for the other 60%, and a cost
+  per *resolved* task that ignores that compares an agent's best case with a
+  human's average one.
+
+`benchmark --budget` is a **hard** ceiling. A soft budget that logs and continues
+is a budget that does not exist, and the situation it guards against — a sweep
+left running overnight against a metered API — is exactly the one where nobody
+reads the log. It warns at 80% before it stops, and a stopped sweep records what
+it did not run and reports `is_partial`, for the same reason `--limit` announces
+itself: a truncated measurement must never read as a complete one.
+
+One deliberate hole, stated where it will be read: **an unpriced run is not a
+free run.** Counting it as `0.0` would let an unpriced sweep run forever under
+any ceiling, so it is not counted at all — and the budget says outright that it
+is therefore not bounding those runs.
+
+## Prompt caching changes what a token costs
+
+`prompt_tokens` alone is the wrong basis for cost now. A cached prompt token
+typically bills at a small fraction of a fresh one, and a reasoning token bills
+as output while appearing in neither count on some providers. `TokenUsage`
+carries `cached_prompt_tokens`, `cache_write_tokens` and `reasoning_tokens`, all
+optional and defaulted so every bundle written before they existed still parses
+and still validates.
+
+Two rules in `PriceTable.compute_cost` that are easy to get wrong:
+
+- **Cached tokens are a subset of the prompt count, not an addition.** A provider
+  reporting 10,000 prompt tokens of which 9,000 were cached must be charged for
+  10,000, not 19,000.
+- **An unstated cached rate bills at the full input rate**, and the result says
+  `cached_rate_stated: false`. Over-estimating is the only direction a cost
+  figure may err in.

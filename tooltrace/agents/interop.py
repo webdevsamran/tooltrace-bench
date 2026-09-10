@@ -254,6 +254,13 @@ class PriceEntry(BaseModel):
     output_per_1k: float
     currency: str = "USD"
     effective_from: str  # ISO date; newest entry <= usage date wins
+    #: Rate for prompt tokens served from cache. `None` means the table does not
+    #: state one, and cached tokens are then billed at the full input rate -- an
+    #: over-estimate, which is the only safe direction for a cost figure to err.
+    cached_input_per_1k: float | None = None
+    #: Rate for tokens written into a cache, which several providers bill above
+    #: the input rate. `None` means not stated, and none is charged.
+    cache_write_per_1k: float | None = None
 
 
 class PriceTable(BaseModel):
@@ -279,9 +286,25 @@ class PriceTable(BaseModel):
         output_tokens: int,
         at_date: str,
         allow_unpriced: bool = False,
+        cached_input_tokens: int = 0,
+        cache_write_tokens: int = 0,
+        reasoning_tokens: int = 0,
     ) -> dict[str, Any]:
-        """Cost strictly from the explicit table. Unpriced models raise unless
-        allow_unpriced=True (then cost is reported as unknown, never guessed)."""
+        """Cost strictly from the explicit table.
+
+        Unpriced models raise unless `allow_unpriced=True`, in which case the
+        cost is reported as unknown -- never guessed.
+
+        Cached prompt tokens are a **subset** of `input_tokens`, not an addition:
+        a provider reports 10,000 prompt tokens of which 9,000 were cached, and
+        charging for 19,000 would be plainly wrong. When the table states no
+        cached rate, cached tokens bill at the full input rate. That
+        over-estimates, which is the only direction a cost figure may err in.
+
+        Reasoning tokens bill as output. Some providers include them in
+        `completion_tokens` and some do not, so they are passed separately and
+        added; an adapter that double-counts is reporting wrong numbers upstream.
+        """
         entry = self._entry_for(model, at_date)
         if entry is None:
             if allow_unpriced:
@@ -290,9 +313,20 @@ class PriceTable(BaseModel):
                 f"no price configured for model {model!r} effective {at_date}; "
                 "add it to your price table instead of guessing"
             )
-        cost = (input_tokens / 1000.0) * entry.input_per_1k + (
-            output_tokens / 1000.0
-        ) * entry.output_per_1k
+
+        cached = max(0, min(cached_input_tokens, input_tokens))
+        fresh = input_tokens - cached
+        cached_rate = (
+            entry.cached_input_per_1k
+            if entry.cached_input_per_1k is not None
+            else entry.input_per_1k
+        )
+        cost = (
+            (fresh / 1000.0) * entry.input_per_1k
+            + (cached / 1000.0) * cached_rate
+            + (max(0, cache_write_tokens) / 1000.0) * (entry.cache_write_per_1k or 0.0)
+            + ((output_tokens + max(0, reasoning_tokens)) / 1000.0) * entry.output_per_1k
+        )
         return {
             "model": model,
             "cost": round(cost, 6),
@@ -301,6 +335,11 @@ class PriceTable(BaseModel):
             "price_effective_from": entry.effective_from,
             "input_tokens": input_tokens,
             "output_tokens": output_tokens,
+            "cached_input_tokens": cached,
+            "cache_write_tokens": max(0, cache_write_tokens),
+            "reasoning_tokens": max(0, reasoning_tokens),
+            # Stated so a reader can tell a real discount from an absent rate.
+            "cached_rate_stated": entry.cached_input_per_1k is not None,
         }
 
 
