@@ -274,17 +274,53 @@ def _bundles(tmp_path: Path, name: str, runs_count: int) -> Path:
     return out
 
 
+#: Everything except wall-clock. See the test below for why this is not
+#: cheating: the two arms here run the same agent on the same task, so any
+#: latency difference between them is a fact about the machine.
+BEHAVIOURAL = "success_rate,score,steps,failed_tool_calls"
+
+
 def test_the_cli_reports_and_exits_zero_without_an_established_regression(
     tmp_path: Path, capsys
 ) -> None:
     baseline = _bundles(tmp_path, "base", 3)
     current = _bundles(tmp_path, "curr", 3)
     capsys.readouterr()
-    code = main(["pr-report", "--baseline", str(baseline), "--current", str(current), "--json"])
+    code = main(
+        [
+            "pr-report",
+            "--baseline",
+            str(baseline),
+            "--current",
+            str(current),
+            "--metrics",
+            BEHAVIOURAL,
+            "--json",
+        ]
+    )
     payload = json.loads(capsys.readouterr().out)
     assert code == 0, "an inconclusive comparison must not block a pull request"
     assert payload["regressed"] is False
     assert payload["markdown"].startswith("### Agent reliability")
+
+
+def test_wall_clock_is_excluded_here_because_it_is_not_a_property_of_the_agent() -> None:
+    """This test was flaky, and the flake was telling the truth.
+
+    Both arms above run the identical scripted agent on the identical task, so
+    every behavioural metric is identical by construction. `wall_ms` is not: it
+    is wall-clock on whatever machine happened to run it, and under a loaded
+    test suite three runs against three runs can differ by more than the 20%
+    that `pr-report` treats as worth blocking on. The report was right; the
+    assertion was wrong.
+
+    That is also why `--metrics` exists. A team on a shared CI runner would hit
+    this on real pull requests, switch the gate off, and lose the four metrics
+    that *were* worth gating on. Narrowing a gate beats losing it.
+    """
+    from tooltrace.analysis.pr_report import METRICS
+
+    assert set(BEHAVIOURAL.split(",")) == set(METRICS) - {"wall_ms"}
 
 
 def test_the_cli_writes_the_comment_to_a_file(tmp_path: Path, capsys) -> None:
