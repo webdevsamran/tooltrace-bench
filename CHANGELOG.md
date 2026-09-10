@@ -7,6 +7,30 @@ versioning follows [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- **Every `tooltrace` command in the documentation is now parsed against the real
+  CLI.** The 0.3.0 changelog records this exact failure -- a quickstart naming a
+  task id that did not exist and a `--pack` flag the CLI never had -- found by
+  hand, after release, by someone trying to follow it. The fix then was to correct
+  the text rather than to make the text checkable, and twenty documented
+  invocations later nothing verified any of them.
+
+  Each one is fed to the argument parser, which is the thing that will reject it
+  when a user types it. Commands whose values are placeholders have their *flags*
+  checked against the subcommand's own parser rather than being skipped. The
+  self-contained ones are executed as well.
+
+### Fixed
+- **`README.md` documented a `compare` invocation the CLI has never accepted.**
+  `tooltrace compare runs/run-A.tooltrace runs/run-B.tooltrace` uses positional
+  arguments; the command takes `--baseline` and `--current`. Anyone following
+  step 8 of the quickstart got an argparse error.
+
+- **`docs/schemas-and-protocols.md` documented `tooltrace snapshot --verify`**
+  without the `--source` and `--output` it requires, so the verification command
+  in the "Verification commands" section did not run. `docs/recipes.md` had it
+  right, which is how a reader would have found out.
+
+### Added
 - **A quantization quality-vs-speed curve**, and the validity condition matters
   more than the arithmetic. Is Q4 good enough, or is the accuracy it costs worse
   than the memory it saves? -- the question a team asks once the GPU is theirs.

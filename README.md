@@ -80,7 +80,7 @@ tooltrace benchmark --task file-editing/fix-config-typo,bug-fixing/fix-off-by-on
     --agent scripted --runs 3 --summary
 
 # 8. Compare two runs (only identical task/protocol versions compare)
-tooltrace compare runs/run-A.tooltrace runs/run-B.tooltrace
+tooltrace compare --baseline runs/run-A.tooltrace --current runs/run-B.tooltrace
 
 # 9. Put the number in your own README
 tooltrace badge --bundles runs/ --out badges/reliability.svg

@@ -62,6 +62,6 @@ and leaderboards **reject incompatible cohorts** instead of mixing them.
 ```bash
 python -m json.tool schemas/task.schema.json      # all schemas parse
 tooltrace validate --path tooltrace/tasks/packs   # packs against schemas
-tooltrace snapshot --verify                       # dataset snapshot integrity
+tooltrace snapshot --source results --output data/snapshots/index.json --verify
 tooltrace reproduce runs/<bundle>.tooltrace       # bundle hash verification
 ```
