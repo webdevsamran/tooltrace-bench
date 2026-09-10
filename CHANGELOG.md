@@ -7,6 +7,23 @@ versioning follows [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- **A quantization quality-vs-speed curve**, and the validity condition matters
+  more than the arithmetic. Is Q4 good enough, or is the accuracy it costs worse
+  than the memory it saves? -- the question a team asks once the GPU is theirs.
+
+  A comparison across quantizations means something only when everything else was
+  held fixed: same model, same backend, same machine. Two quantizations
+  benchmarked on different hardware produce a latency curve that is mostly a
+  curve of the two machines, and reporting that as a quantization effect would be
+  the most confidently wrong number in the module. So each group carries what
+  varied alongside it, and the report **refuses to call itself a curve** when more
+  than the quantization moved.
+
+  Runs that declare no quantization are excluded rather than bucketed under
+  "unknown" -- that bucket would mix every unlabelled run into one row and call it
+  a level.
+
+### Added
 - **`state_drift`: did the agent undo its own work?** Every workspace scorer sees
   the final state, which cannot distinguish an agent that went straight to the
   answer from one that wrote it, overwrote it with something else, and wrote it

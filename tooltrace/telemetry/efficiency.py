@@ -382,4 +382,122 @@ def report(results: list[dict[str, Any]], allowed_tools: list[str] | None = None
         "ttft": time_to_first_token(results),
         "energy": energy_sources(),
         "handlers": handler_matrix(results),
+        "quantization": quantization_curve(results),
+    }
+
+
+def quantization_curve(results: list[dict[str, Any]]) -> dict[str, Any]:
+    """Quality against speed, by declared quantization.
+
+    The question a team asks once the GPU is theirs: is Q4 good enough, or is
+    the accuracy it costs worse than the memory it saves?
+
+    The arithmetic is trivial and the **validity condition is not**, so it is
+    checked rather than assumed. A comparison across quantizations means
+    something only when everything else was held fixed -- same model, same
+    backend, same machine. Two quantizations benchmarked on different hardware
+    produce a latency curve that is mostly a curve of the two machines, and
+    reporting it as a quantization effect would be the most confidently wrong
+    number in this module.
+
+    So each group carries what varied alongside it, and the report refuses to
+    call itself a curve when more than the quantization moved.
+    """
+    groups: dict[str, dict[str, Any]] = {}
+    unlabelled = 0
+
+    for result in results:
+        config = result.get("agent_config") or {}
+        level = str(config.get("quantization") or "").strip()
+        if not level:
+            # Not grouped under "unknown": that would be a bucket mixing every
+            # unlabelled run into one row and calling it a quantization.
+            unlabelled += 1
+            continue
+        entry = groups.setdefault(
+            level,
+            {
+                "quantization": level,
+                "runs": 0,
+                "successes": 0,
+                "wall_ms_total": 0.0,
+                "wall_ms_runs": 0,
+                "models": set(),
+                "backends": set(),
+                "machines": set(),
+            },
+        )
+        entry["runs"] += 1
+        entry["successes"] += 1 if result.get("success") else 0
+        wall = result.get("wall_ms")
+        if isinstance(wall, int | float):
+            entry["wall_ms_total"] += float(wall)
+            entry["wall_ms_runs"] += 1
+        entry["models"].add(str(config.get("model") or "(not declared)"))
+        entry["backends"].add(str(config.get("backend") or "(not declared)"))
+        environment = result.get("environment") or {}
+        entry["machines"].add(str((environment or {}).get("machine") or "(not recorded)"))
+
+    points = []
+    for entry in sorted(groups.values(), key=lambda e: e["quantization"]):
+        points.append(
+            {
+                "quantization": entry["quantization"],
+                "runs": entry["runs"],
+                "success_rate": round(entry["successes"] / entry["runs"], 6),
+                "wall_ms_mean": (
+                    round(entry["wall_ms_total"] / entry["wall_ms_runs"], 3)
+                    if entry["wall_ms_runs"]
+                    else None
+                ),
+                "models": sorted(entry["models"]),
+                "backends": sorted(entry["backends"]),
+                "sample_is_small": entry["runs"] < 10,
+            }
+        )
+
+    models = {m for entry in groups.values() for m in entry["models"]}
+    backends = {b for entry in groups.values() for b in entry["backends"]}
+    machines = {m for entry in groups.values() for m in entry["machines"]}
+    confounded = [
+        label
+        for label, values in (("model", models), ("backend", backends), ("machine", machines))
+        if len(values) > 1
+    ]
+
+    if len(points) < 2:
+        return {
+            "comparable": False,
+            "points": points,
+            "unlabelled_runs": unlabelled,
+            "reason": (
+                f"{len(points)} quantization level(s) recorded"
+                + (
+                    f"; {unlabelled} run(s) declared none, so they are excluded rather than "
+                    "grouped into an invented 'unknown' level"
+                    if unlabelled
+                    else ""
+                )
+                + ". A curve needs at least two points measured the same way."
+            ),
+        }
+
+    return {
+        # Not "did it work" -- whether the difference between the points can be
+        # attributed to the quantization at all.
+        "comparable": not confounded,
+        "points": points,
+        "unlabelled_runs": unlabelled,
+        "confounded_by": confounded,
+        "statement": (
+            f"{len(points)} quantization level(s) across {sum(p['runs'] for p in points)} run(s)"
+            + (
+                ". Everything else was held fixed, so the difference between these points is "
+                "attributable to the quantization."
+                if not confounded
+                else f". **{', '.join(confounded)} also varied**, so this is not a "
+                "quantization curve: the difference between the points is the sum of every "
+                "axis that moved, and nothing here separates them."
+            )
+        ),
     }

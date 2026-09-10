@@ -203,9 +203,16 @@ def test_no_runs_produces_an_empty_matrix_rather_than_a_populated_one() -> None:
 # --- the combined report and the CLI ----------------------------------------
 
 
-def test_the_report_carries_all_four_answers() -> None:
+def test_the_report_carries_every_answer() -> None:
     payload = report([run()])
-    assert set(payload) == {"prefill", "cache", "ttft", "energy", "handlers"}
+    assert set(payload) == {
+        "prefill",
+        "cache",
+        "ttft",
+        "energy",
+        "handlers",
+        "quantization",
+    }
 
 
 def test_the_cli_reports_this_machine_without_any_bundles(capsys) -> None:
@@ -230,3 +237,82 @@ def test_the_cli_wires_the_latency_split_that_had_no_caller(capsys) -> None:
     payload = json.loads(capsys.readouterr().out)
     assert payload["latency"]["runs"] > 0
     assert "comparability" in payload
+
+
+# --- quantization: the validity condition, not the arithmetic ---------------
+
+
+def quantized(level: str, *, success: bool = True, wall: float = 100.0, **overrides: Any) -> dict:
+    config = {"quantization": level, "model": "qwen3:8b", "backend": "ollama"}
+    config.update(overrides.pop("config", {}))
+    return {
+        "agent": "openai_compat",
+        "agent_config": config,
+        "success": success,
+        "wall_ms": wall,
+        "environment": {"machine": "x86_64"},
+        **overrides,
+    }
+
+
+def test_two_levels_on_one_machine_are_comparable() -> None:
+    from tooltrace.telemetry.efficiency import quantization_curve
+
+    curve = quantization_curve(
+        [quantized("Q4"), quantized("Q4"), quantized("Q8", wall=200), quantized("Q8", wall=190)]
+    )
+    assert curve["comparable"] is True
+    assert [p["quantization"] for p in curve["points"]] == ["Q4", "Q8"]
+
+
+def test_a_second_model_makes_it_not_a_quantization_curve() -> None:
+    """The difference between the points becomes the sum of every axis that moved.
+
+    Reporting that as a quantization effect would be the most confidently wrong
+    number in the module.
+    """
+    from tooltrace.telemetry.efficiency import quantization_curve
+
+    curve = quantization_curve(
+        [quantized("Q4"), quantized("Q8"), quantized("Q8", config={"model": "llama3"})]
+    )
+    assert curve["comparable"] is False
+    assert "model" in curve["confounded_by"]
+    assert "not a quantization curve" in curve["statement"]
+
+
+def test_a_second_machine_also_confounds_it() -> None:
+    from tooltrace.telemetry.efficiency import quantization_curve
+
+    curve = quantization_curve([quantized("Q4"), quantized("Q8", environment={"machine": "arm64"})])
+    assert "machine" in curve["confounded_by"]
+
+
+def test_one_level_is_not_a_curve() -> None:
+    from tooltrace.telemetry.efficiency import quantization_curve
+
+    curve = quantization_curve([quantized("Q4"), quantized("Q4")])
+    assert curve["comparable"] is False
+    assert "at least two points" in curve["reason"]
+
+
+def test_runs_declaring_no_quantization_are_excluded_not_bucketed() -> None:
+    """An "unknown" bucket would mix every unlabelled run into one row and call
+    it a quantization level."""
+    from tooltrace.telemetry.efficiency import quantization_curve
+
+    curve = quantization_curve([quantized("Q4"), run(), run()])
+    assert curve["unlabelled_runs"] == 2
+    assert [p["quantization"] for p in curve["points"]] == ["Q4"]
+
+
+def test_a_thin_level_is_flagged() -> None:
+    from tooltrace.telemetry.efficiency import quantization_curve
+
+    curve = quantization_curve([quantized("Q4"), quantized("Q8")])
+    assert all(point["sample_is_small"] for point in curve["points"])
+
+
+def test_the_curve_reaches_the_combined_report() -> None:
+    """An analysis behind a function nobody calls is an orphan."""
+    assert "quantization" in report([quantized("Q4")])
