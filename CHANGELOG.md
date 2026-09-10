@@ -7,6 +7,39 @@ versioning follows [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- **`tooltrace mcp-versions`: which revision does the server actually
+  implement?** `mcp-conformance` checks one -- whichever the client happened to
+  ask for -- which is the wrong question for a server that must interoperate with
+  clients released over two years.
+
+  Neither expected answer is the finding. Answering a revision you do not
+  implement with one you do is correct negotiation, and refusing is a legitimate
+  answer. The finding is a server that **echoes back whatever it was sent**: it is
+  agreeing rather than negotiating, and the client proceeds believing it settled
+  on a protocol.
+
+  Catching that requires sending a revision that cannot exist. Against published
+  revisions alone, an echoing server passes every one of them -- which is a test
+  in its own right.
+
+- **`tooltrace tools --equivalence`: does declaring a tool once mean the same
+  thing to four providers?** Three dialects are lossless, which is worth stating
+  rather than assuming. Gemini cannot express `oneOf`, so `git`'s honest union is
+  narrowed -- a fact about Gemini rather than a defect in the tool, reported and
+  not failed. It matters because the narrowed declaration is what the model reads.
+
+  The comparison is on meaning rather than bytes: Anthropic moves the schema to
+  `input_schema` and changes nothing about it, and a byte comparison would flag
+  all four dialects and tell nobody anything.
+
+### Fixed
+- **`MCPError` could not distinguish a refusal from a dead process.** Both a
+  JSON-RPC error response and a failure to spawn raised the same exception, so a
+  caller had to substring-match the message -- and matching `"error"` classified
+  `[WinError 2] the system cannot find the file` as a polite refusal. Split into
+  `MCPProtocolError` and `MCPStartupError`.
+
+### Added
 - **Tool poisoning: the attack that arrives before the run starts.** Every
   security task here until now planted its payload in the workspace, where an
   agent meets it as data it chose to read. A poisoned tool description arrives

@@ -671,6 +671,32 @@ def cmd_backends(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def cmd_mcp_versions(args: argparse.Namespace) -> int:
+    """Which MCP protocol revisions a server implements, and whether it checks."""
+    from tooltrace.agents.mcp import fake_server_command
+    from tooltrace.agents.mcp_versions import render_markdown, version_matrix
+
+    command = args.command or fake_server_command()
+    report = version_matrix(command)
+    if args.json:
+        _emit(report, True)
+    elif args.markdown:
+        print(render_markdown(report), end="")
+    else:
+        for row in report["versions"]:
+            mark = "PROBLEM" if row["problem"] else "ok     "
+            print(f"{mark} sent {row['sent']:<12} -> {row['outcome']:<16} {row['detail']}")
+        print()
+        print(report["statement"])
+    if report["problems"]:
+        print(
+            f"error: {len(report['problems'])} version(s) mishandled: {report['problems']}",
+            file=sys.stderr,
+        )
+        return EXIT_RUN
+    return EXIT_OK
+
+
 def cmd_mcp_fuzz(args: argparse.Namespace) -> int:
     """Send malformed JSON-RPC at an MCP server and report what it did."""
     from tooltrace.agents.mcp import fake_server_command
@@ -719,6 +745,14 @@ def cmd_tools(args: argparse.Namespace) -> int:
     accept, and a request error is a poor way to find that out.
     """
     from tooltrace.agents.tool_schemas import coverage, present, render_prompt_block
+
+    if args.equivalence:
+        from tooltrace.agents.tool_equivalence import equivalence_report
+        from tooltrace.agents.tool_equivalence import render_markdown as render_equivalence
+
+        report = equivalence_report()
+        _emit(report if args.json else render_equivalence(report).rstrip(), args.json)
+        return EXIT_OK
 
     if args.dialect and args.dialect != "prompt":
         payload = present(None, args.dialect)
@@ -1965,6 +1999,14 @@ def build_parser() -> argparse.ArgumentParser:
         help="the server command. Use `--` first if it takes flags. Defaults to the fixture",
     )
 
+    mv = add("mcp-versions", cmd_mcp_versions, "which MCP revisions a server implements")
+    mv.add_argument("--markdown", action="store_true", help="emit a table for a bug report")
+    mv.add_argument(
+        "command",
+        nargs="*",
+        help="the server command. Use `--` first if it takes flags. Defaults to the fixture",
+    )
+
     add("agents", cmd_agents, "list registered agent adapters")
 
     tl = add("tools", cmd_tools, "what a model is told about the tools it may call")
@@ -1972,6 +2014,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--dialect",
         choices=["openai", "anthropic", "mcp", "gemini", "prompt"],
         help="render the catalogue as one provider receives it",
+    )
+    tl.add_argument(
+        "--equivalence",
+        action="store_true",
+        help="does one declaration mean the same thing to every provider?",
     )
 
     t = add("tasks", cmd_tasks, "list available tasks")

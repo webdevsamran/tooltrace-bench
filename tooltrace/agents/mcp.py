@@ -20,6 +20,21 @@ class MCPError(RuntimeError):
     pass
 
 
+class MCPStartupError(MCPError):
+    """The server process could not be started, or closed the stream."""
+
+
+class MCPProtocolError(MCPError):
+    """The server answered with a JSON-RPC error.
+
+    Separate from :class:`MCPStartupError` because a caller has to tell "the
+    server refused this request" from "there is no server". Both used to be one
+    exception whose message a caller had to substring-match, and matching
+    `"error"` in it classified `[WinError 2] the system cannot find the file`
+    as a polite refusal.
+    """
+
+
 class MCPClient:
     """Minimal MCP client: initialize, tools/list, tools/call over stdio."""
 
@@ -44,7 +59,7 @@ class MCPClient:
                 stderr=subprocess.DEVNULL,
             )
         except OSError as exc:
-            raise MCPError(f"failed to start MCP server {self._command}: {exc}") from exc
+            raise MCPStartupError(f"failed to start MCP server {self._command}: {exc}") from exc
         result = self._request(
             "initialize",
             {
@@ -86,7 +101,7 @@ class MCPClient:
         assert self._proc is not None and self._proc.stdout is not None
         line = self._proc.stdout.readline()
         if not line:
-            raise MCPError("MCP server closed the stream")
+            raise MCPStartupError("MCP server closed the stream")
         message: dict[str, Any] = json.loads(line.decode("utf-8"))
         return message
 
@@ -98,7 +113,7 @@ class MCPClient:
             msg = self._recv()
             if msg.get("id") == req_id:
                 if "error" in msg:
-                    raise MCPError(f"{method} failed: {msg['error']}")
+                    raise MCPProtocolError(f"{method} failed: {msg['error']}")
                 result: dict[str, Any] = msg.get("result", {})
                 return result
 
