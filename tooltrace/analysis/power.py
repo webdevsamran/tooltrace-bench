@@ -148,10 +148,17 @@ def variance_decomposition(runs: list[dict[str, Any]]) -> dict[str, Any]:
     Reporting a single standard deviation conflates them, which is how a stable
     agent on a diverse task set gets described as flaky.
 
-    The honest limit, stated in the output: this cannot separate the *model's*
-    nondeterminism from the *harness's*. Both live inside the within-configuration
-    term. Separating them needs a fixed-seed control arm, which
-    `docs/statistics.md` describes and no adapter currently guarantees.
+    When the runs carry a seed, the within-configuration term is split again.
+    Runs sharing an agent, a task *and* a seed have the model held as fixed as a
+    provider allows, so what varies between them is the harness and the machine;
+    what varies between seeds is the model's sampling on top of that. That is the
+    fixed-seed control arm this docstring used to say did not exist.
+
+    The limit that remains, and it is stated in the output: no provider
+    *guarantees* a seed. OpenAI documents it as best-effort behind a
+    `system_fingerprint` that changes when the backend does, so the seeded term
+    **bounds** the harness's contribution rather than isolating it. Reporting it
+    as an exact split would be inventing a control.
     """
     groups: dict[tuple[str, str], list[float]] = defaultdict(list)
     for run in runs:
@@ -191,11 +198,80 @@ def variance_decomposition(runs: list[dict[str, Any]]) -> dict[str, Any]:
         # variance is nondeterminism" and "there was no variance" are different
         # statements and only one of them is interesting.
         "nondeterminism_share": round(within / total, 6) if total > 0 else None,
+        **_seeded_split(runs),
         "note": (
             "Within-configuration variance covers the model's nondeterminism and the "
-            "harness's together; this cannot separate them without a fixed-seed control "
-            "arm. Between-task variance is the benchmark working, not instability."
+            "harness's together. `seeded` splits them where the runs carry a seed. "
+            "Between-task variance is the benchmark working, not instability."
         ),
+    }
+
+
+def _seeded_split(runs: list[dict[str, Any]]) -> dict[str, Any]:
+    """Harness-and-machine variance versus the model's, where seeds allow it.
+
+    Within a fixed (agent, task, seed) the model is held as fixed as a provider
+    allows, so the variance left is the harness's and the machine's. Subtracting
+    that from the unseeded within-configuration variance leaves the model's
+    sampling.
+
+    Returned under one key so the caller gets it without asking, rather than
+    through a second function nobody would remember to call -- which is how the
+    orphaned analysis in this repository keeps happening.
+    """
+    from tooltrace.agents.seeds import seed_of
+
+    seeded: dict[tuple[str, str, int], list[float]] = defaultdict(list)
+    unseeded = 0
+    for run in runs:
+        seed = seed_of(run.get("agent_config") if isinstance(run.get("agent_config"), dict) else {})
+        if seed is None:
+            unseeded += 1
+            continue
+        key = (str(run.get("agent", "")), str(run.get("task_id", "")), seed)
+        seeded[key].append(1.0 if run.get("success") else 0.0)
+
+    repeated = {k: v for k, v in seeded.items() if len(v) > 1}
+    if not repeated:
+        return {
+            "seeded": {
+                "measurable": False,
+                "reason": (
+                    "no agent/task/seed combination was run more than once. A fixed-seed "
+                    "control arm needs repeats at one seed; without it the model's "
+                    "nondeterminism and the harness's stay in one number"
+                    + (f" ({unseeded} run(s) carried no seed at all)" if unseeded else "")
+                ),
+            }
+        }
+
+    within_terms = [(len(v), pvariance(v)) for v in repeated.values()]
+    weight = sum(w for w, _ in within_terms)
+    harness = sum(w * var for w, var in within_terms) / weight
+
+    # Across seeds, holding agent and task fixed: what the model contributes.
+    by_configuration: dict[tuple[str, str], list[float]] = defaultdict(list)
+    for (agent, task, _seed), values in seeded.items():
+        by_configuration[(agent, task)].append(fmean(values))
+    across = [pvariance(v) for v in by_configuration.values() if len(v) > 1]
+    model = fmean(across) if across else None
+
+    return {
+        "seeded": {
+            "measurable": True,
+            "seeds": len({k[2] for k in seeded}),
+            "runs": sum(len(v) for v in seeded.values()),
+            "unseeded_runs": unseeded,
+            "harness_and_machine_variance": round(harness, 6),
+            # None rather than 0 when only one seed was used: "the model
+            # contributed nothing" and "we only tried one seed" are different.
+            "model_sampling_variance": round(model, 6) if model is not None else None,
+            "caveat": (
+                "No provider guarantees a seed -- OpenAI documents it as best-effort "
+                "behind a `system_fingerprint` that changes with the backend. This "
+                "bounds the harness's contribution rather than isolating it."
+            ),
+        }
     }
 
 

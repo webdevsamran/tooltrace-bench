@@ -32,6 +32,7 @@ from typing import Any
 import httpx
 
 from tooltrace.agents.chat_base import ChatProtocolAgent
+from tooltrace.agents.seeds import seed_of
 
 DEFAULT_BASE_URL = "https://generativelanguage.googleapis.com/v1beta"
 
@@ -62,13 +63,18 @@ class GeminiAgent(ChatProtocolAgent):
         ]
         contents.append({"role": "user", "parts": [{"text": user}]})
 
+        generation: dict[str, Any] = {
+            "temperature": float(self.config.get("temperature", 0.0)),  # type: ignore[arg-type]
+            "responseMimeType": "application/json",
+        }
+        seed = seed_of(self.config)
+        if seed is not None:
+            generation["seed"] = seed
+
         payload: dict[str, Any] = {
             "systemInstruction": {"parts": [{"text": system}]},
             "contents": contents,
-            "generationConfig": {
-                "temperature": float(self.config.get("temperature", 0.0)),  # type: ignore[arg-type]
-                "responseMimeType": "application/json",
-            },
+            "generationConfig": generation,
         }
         # In a header, not the query string: a key in a URL ends up in proxy
         # logs, browser history and error reports.

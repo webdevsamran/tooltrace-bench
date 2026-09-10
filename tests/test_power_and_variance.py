@@ -167,9 +167,23 @@ def test_zero_variance_reports_no_share_rather_than_zero() -> None:
     assert got["nondeterminism_share"] is None
 
 
-def test_it_states_that_it_cannot_separate_model_from_harness() -> None:
+def test_unseeded_runs_keep_model_and_harness_in_one_number() -> None:
+    """The limit that used to be permanent, and is now conditional.
+
+    Without seeds this still cannot separate the model's nondeterminism from the
+    harness's, and the report has to say so rather than leaving a reader to
+    assume the within-configuration term means one of them.
+    """
     got = variance_decomposition(rows(("a", "t", True), ("a", "t", False)))
-    assert "cannot separate them" in got["note"]
+    assert "the harness's together" in got["note"]
+    assert got["seeded"]["measurable"] is False
+    assert "no seed" in got["seeded"]["reason"]
+
+
+def test_the_note_points_at_the_control_arm_rather_than_declaring_defeat() -> None:
+    """It used to end at "cannot separate them", which was true and unhelpful."""
+    got = variance_decomposition(rows(("a", "t", True), ("a", "t", False)))
+    assert "`seeded` splits them" in got["note"]
 
 
 def test_two_agents_are_separate_configurations() -> None:

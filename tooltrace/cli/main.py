@@ -886,6 +886,20 @@ def cmd_tools(args: argparse.Namespace) -> int:
     """
     from tooltrace.agents.tool_schemas import coverage, present, render_prompt_block
 
+    if args.seeds:
+        from tooltrace.agents.seeds import report as seed_report
+
+        payload = seed_report()
+        if args.json:
+            _emit(payload, True)
+        else:
+            for row in payload["adapters"]:
+                print(f"  {row['adapter']:<16} {row['state']:<15} {row['field']}")
+                print(f"      {row['note']}")
+            print()
+            print(payload["statement"])
+        return EXIT_OK
+
     if args.equivalence:
         from tooltrace.agents.tool_equivalence import equivalence_report
         from tooltrace.agents.tool_equivalence import render_markdown as render_equivalence
@@ -895,8 +909,8 @@ def cmd_tools(args: argparse.Namespace) -> int:
         return EXIT_OK
 
     if args.dialect and args.dialect != "prompt":
-        payload = present(None, args.dialect)
-        _emit(payload if args.json else json.dumps(payload, indent=2), args.json)
+        rendered = present(None, args.dialect)
+        _emit(rendered if args.json else json.dumps(rendered, indent=2), args.json)
         return EXIT_OK
 
     report = coverage()
@@ -2273,6 +2287,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--equivalence",
         action="store_true",
         help="does one declaration mean the same thing to every provider?",
+    )
+    tl.add_argument(
+        "--seeds",
+        action="store_true",
+        help="which adapters pass a seed to the model, and what that guarantees",
     )
 
     t = add("tasks", cmd_tasks, "list available tasks")

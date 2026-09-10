@@ -7,6 +7,29 @@ versioning follows [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- **A seed now reaches the model, which is the control arm
+  `variance_decomposition` said did not exist.** `--seed` had only ever shuffled
+  the task subset, so within-configuration variance covered the model's
+  nondeterminism and the harness's together and the docstring said so.
+
+  With seeds on the runs, that term splits: variance within a fixed
+  (agent, task, seed) is the harness and the machine, because the model is held as
+  fixed as the provider allows; variance *across* seeds is the model's sampling on
+  top. The split arrives from the existing entry point rather than beside it,
+  because an analysis behind a function nobody remembers to call is an orphan --
+  this repository has shipped several.
+
+  The honest half is the table rather than the arithmetic. `tooltrace tools
+  --seeds` reports what a seed does at each adapter, and **no adapter claims a
+  guarantee**: OpenAI documents `seed` as best-effort behind a
+  `system_fingerprint` that changes with the backend, Gemini the same, and
+  Anthropic's Messages API has no seed parameter at all. So the seeded term
+  *bounds* the harness's contribution rather than isolating it, and the number
+  carries that caveat wherever it goes. One seed reports `null` for the model term
+  rather than `0`: nobody varied it, which is not the same as it contributing
+  nothing.
+
+### Added
 - **`tooltrace platforms`: getting a run set into Langfuse, Phoenix, Datadog, W&B
   or MLflow** -- and being honest about how little that takes.
 
