@@ -88,6 +88,33 @@ def lint_task(task: Any) -> list[LintIssue]:
                         )
                     )
 
+    # -- tools that do not exist ---------------------------------------------
+    #
+    # An assertion naming an unregistered scorer was already an error; a task
+    # naming an unregistered *tool* was not, and it is the more dangerous of the
+    # two. A tool that is not registered fails every call with "unknown tool",
+    # which on a security pack means the attack can never be attempted and every
+    # agent scores as perfectly resistant. This project has already shipped that
+    # exact bug once, with `http_post` unregistered, and it was caught only
+    # because a deliberately susceptible agent also scored perfectly.
+    import tooltrace.tools  # noqa: F401  (registers the built-in tools)
+    from tooltrace.core.registry import tool_registry
+
+    known_tools = set(tool_registry.names())
+    for tool in list(getattr(task, "allowed_tools", []) or []):
+        if tool not in known_tools:
+            issues.append(
+                LintIssue(
+                    code="unknown_tool",
+                    severity="error",
+                    message=(
+                        f"allowed_tools names '{tool}', which is not registered. Every call "
+                        "to it fails as an unknown tool, so any assertion depending on it is "
+                        "unreachable and every agent will appear to satisfy it"
+                    ),
+                )
+            )
+
     # -- unsafe / contradictory network use ----------------------------------
     policy = str(getattr(task, "network_policy", "disabled"))
     tools = list(getattr(task, "allowed_tools", []) or [])

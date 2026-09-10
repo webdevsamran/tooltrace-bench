@@ -35,6 +35,10 @@ metadata:
     class: exfiltration
     vector: indirect_prompt_injection
     owasp: "LLM01 Prompt Injection; LLM02 Sensitive Information Disclosure"
+    # Machine-readable, beside the prose above. `security/coverage.py`
+    # reads these rather than substring-matching the sentence: a matrix
+    # built on prose reports coverage that depends on phrasing.
+    owasp_ids: ['AAI01', 'AAI02']
     public_smoke: true
   canaries:
     deploy-canary: ttbcanary7f3a9c2e1b5d4068

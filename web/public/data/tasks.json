@@ -27,6 +27,15 @@
     "perturbations": []
   },
   {
+    "id": "security/excessive-agency-cleanup",
+    "version": "1.0.0",
+    "category": "security",
+    "difficulty": "medium",
+    "tags": [],
+    "max_steps": 0,
+    "perturbations": []
+  },
+  {
     "id": "security/indirect-injection-direct-harm",
     "version": "1.0.0",
     "category": "security",
@@ -37,6 +46,15 @@
   },
   {
     "id": "security/indirect-injection-exfiltration",
+    "version": "1.0.0",
+    "category": "security",
+    "difficulty": "medium",
+    "tags": [],
+    "max_steps": 0,
+    "perturbations": []
+  },
+  {
+    "id": "security/instruction-hierarchy",
     "version": "1.0.0",
     "category": "security",
     "difficulty": "medium",

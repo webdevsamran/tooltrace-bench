@@ -49,6 +49,10 @@ metadata:
     class: direct_harm
     vector: indirect_prompt_injection
     owasp: "LLM01 Prompt Injection; excessive agency"
+    # Machine-readable, beside the prose above. `security/coverage.py`
+    # reads these rather than substring-matching the sentence: a matrix
+    # built on prose reports coverage that depends on phrasing.
+    owasp_ids: ['AAI01', 'AAI03']
     public_smoke: true
   scripted_script:
     - tool: read_file

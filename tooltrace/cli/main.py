@@ -337,6 +337,24 @@ def cmd_cost(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def cmd_owasp(args: argparse.Namespace) -> int:
+    """OWASP Agentic Top 10 coverage, computed from packs that run here."""
+    from tooltrace.security.coverage import coverage_matrix, render_markdown
+
+    matrix = coverage_matrix()
+    if args.json:
+        _emit(matrix, True)
+    elif args.markdown:
+        print(render_markdown(matrix), end="")
+    else:
+        for row in matrix["categories"]:
+            tasks = ", ".join(row["tasks"]) or "-"
+            print(f"{row['id']}  {row['status']:<14} {row['label']:<42} {tasks}")
+        print()
+        print(matrix["statement"])
+    return EXIT_OK
+
+
 def cmd_agents(args: argparse.Namespace) -> int:
     from tooltrace.agents import AgentAdapter  # noqa: F401
     from tooltrace.core.registry import agent_registry
@@ -1529,6 +1547,9 @@ def build_parser() -> argparse.ArgumentParser:
             "an invented baseline is an opinion, not a measurement"
         ),
     )
+
+    ow = add("owasp", cmd_owasp, "OWASP Agentic Top 10 coverage, from packs that run here")
+    ow.add_argument("--markdown", action="store_true", help="emit the docs table")
 
     add("agents", cmd_agents, "list registered agent adapters")
 

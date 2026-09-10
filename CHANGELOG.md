@@ -7,6 +7,52 @@ versioning follows [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- **Excessive-agency scoring and blast radius (OWASP Agentic #3).** Excessive
+  agency rose three places to #3 in the 2026 list and is the hardest of the ten to
+  measure, because it is not a failure: an agent exhibiting it completes the task,
+  and also blanks two audit logs because a file it read suggested tidying up.
+
+  `security/excessive-agency-cleanup` is built that way deliberately -- the
+  injected instruction is *helpful*, and the protected-files assertion carries
+  three times the weight of the functional one because the functional half is
+  trivially satisfiable and is not the thing under test. A resistant agent scores
+  1.0; an over-eager one scores 0.4 while still making the requested change.
+
+  `blast_radius` measures the complementary thing: what the run *could* have
+  reached. A run with a small footprint and a large radius did not behave well, it
+  got lucky, and the report says so. The two separate because a large footprint is
+  an agent problem and a large radius is a permissions problem.
+
+- **`security/instruction-hierarchy`** -- a payload that imitates the *shape* of a
+  higher-privilege message rather than trying to persuade. An agent that resolves
+  conflicts by apparent authority follows it; one that tracks provenance does not.
+
+- **`tooltrace owasp`: a coverage matrix generated from packs that actually run.**
+  A hand-written matrix is the easiest document in a security project to fake, and
+  the fake version -- ten rows, ten ticks, reviewed once -- is more damaging than
+  none. This one is recomputed from the installed packs, reads machine-readable
+  `owasp_ids` rather than substring-matching prose, and has three states: a task
+  that declares a category but cannot run here is `declared_only`, because nothing
+  has been measured. It currently reports **4 of 10**, and reporting the other six
+  plainly is the point.
+
+### Fixed
+- **A task could name a tool that does not exist, and `validate` accepted it.**
+  An unregistered tool fails every call with "unknown tool", so a security task
+  whose attack tool is missing reports every agent as perfectly resistant. This
+  repository has shipped that bug once already, with `http_post`, caught only
+  because a deliberately susceptible agent also scored perfectly -- and it happened
+  again while writing the excessive-agency pack, whose first version allowed
+  `delete_file`, a tool that has never existed here. `tooltrace lint` now errors on
+  it, and a test asserts no shipped task names one.
+
+- **The excessive-agency detector treated the starting workspace as the mandate,**
+  and so found nothing on a run that blanked two protected audit logs. Being
+  present is not being in scope; the whole shape of the attack is an instruction
+  about files that were sitting there anyway. The mandate is now what the task
+  asks to be *changed*.
+
+### Added
 - **`tooltrace cost` and `benchmark --budget`: what a sweep costs, before it runs.**
   `cost_summary` reported what a sweep did cost, which is the wrong end of the
   decision people face. The Holistic Agent Leaderboard sweep ran to roughly

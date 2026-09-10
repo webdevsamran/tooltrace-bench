@@ -52,7 +52,8 @@ whichever shell's quoting rules you are subject to.
 
 | Command | Purpose |
 |---|---|
-| `lint [--path PACK]` | Task-lint: ambiguous scoring, unreachable assertions, undeclared side effects, missing cleanup, unsafe network |
+| `owasp [--markdown]` | OWASP Agentic Top 10 coverage, computed from the installed packs. A category counts as covered only when a task declares it *and* that task runs here; `declared, not runnable` is a third state because nothing has been measured |
+| `lint [--path PACK]` | Task-lint: ambiguous scoring, unreachable assertions, undeclared side effects, missing cleanup, unsafe network, and `allowed_tools` naming a tool that is not registered (every call to which fails as "unknown tool", so every agent appears to satisfy any assertion depending on it) |
 | `dry-run --task ID` | Validate fixtures/assertions/sandbox lifecycle without any model |
 | `self-test` | Harness self-test: sandbox cleanup, scoring determinism, monotonic timers, fixture/trace integrity |
 | `snapshot --source DIR --output F [--changelog S] [--verify]` | Generate/verify hashed dataset snapshots |
