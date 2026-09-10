@@ -264,12 +264,28 @@ An agent that is perfect on one task and hopeless on another, entirely
 repeatably, has *zero* within-configuration variance. A single standard deviation
 calls that flaky. It is not.
 
-The stated limit travels in the output: this **cannot separate the model's
-nondeterminism from the harness's**. Both sit inside the within-configuration
-term, and separating them needs a fixed-seed control arm that no adapter
-currently guarantees. And when there is no variance at all, the share is `null`
-rather than `0` -- "none of the variance is noise" and "there was no variance"
-are different statements.
+When the runs carry a seed, the within-configuration term splits again, and this
+is the fixed-seed control arm the paragraph here used to say did not exist:
+
+- **Harness and machine** -- the same agent, task **and seed**, answering
+  differently. The model is held as fixed as the provider allows, so what moved
+  is not it.
+- **Model sampling** -- the same agent and task at *different* seeds. What the
+  model contributes on top.
+
+The limit that remains travels in the output. **No provider guarantees a seed.**
+OpenAI documents `seed` as best-effort and returns a `system_fingerprint` that
+changes when the backend does; Anthropic's Messages API has no seed parameter at
+all. So the seeded term **bounds** the harness's contribution rather than
+isolating it, and reporting it as an exact split would be inventing a control.
+`tooltrace tools --seeds` says which adapters pass a seed to the model and what
+each one promises, which is nothing.
+
+When there is no variance at all, the share is `null` rather than `0` -- "none of
+the variance is noise" and "there was no variance" are different statements. So
+is the model term at a single seed: one seed cannot say anything about sampling,
+and reporting `0` there would claim the model contributed nothing when the truth
+is that nobody varied it.
 
 ## P(A is better than B)
 

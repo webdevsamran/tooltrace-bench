@@ -28,6 +28,7 @@ import httpx
 
 from tooltrace.agents.chat_base import ChatProtocolAgent, add_counts
 from tooltrace.agents.local_backends import extract_usage
+from tooltrace.agents.seeds import seed_of
 
 #: Re-exported: `local_backends` and the tests both reach for this, and moving
 #: it to `chat_base` without a name here would break them for no reason.
@@ -55,7 +56,7 @@ class OpenAICompatAgent(ChatProtocolAgent):
         api_key = self._api_key()
         if api_key:
             headers["Authorization"] = f"Bearer {api_key}"
-        payload = {
+        payload: dict[str, Any] = {
             "model": model,
             "temperature": float(self.config.get("temperature", 0.0)),  # type: ignore[arg-type]
             "response_format": {"type": "json_object"},
@@ -65,6 +66,13 @@ class OpenAICompatAgent(ChatProtocolAgent):
                 {"role": "user", "content": user},
             ],
         }
+        # Sent only when set. An unconditional `"seed": None` is rejected by some
+        # OpenAI-compatible servers, which would make configuring nothing worse
+        # than configuring something.
+        seed = seed_of(self.config)
+        if seed is not None:
+            payload["seed"] = seed
+
         with httpx.Client(timeout=timeout) as client:
             resp = client.post(f"{base_url}/chat/completions", json=payload, headers=headers)
         resp.raise_for_status()
