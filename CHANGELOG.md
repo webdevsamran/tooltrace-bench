@@ -7,6 +7,28 @@ versioning follows [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- **MCP over HTTP, including the streaming kind.** The client spoke stdio and
+  only stdio, which covers a server you start yourself as a subprocess and
+  nothing else. Every hosted MCP server is reached over HTTP, so every
+  conformance report this project could produce was a report about the easy half
+  of the ecosystem. `mcp-conformance` and `mcp-versions` both take `--url` now,
+  and the checks do not change with the transport -- which is the point of running
+  them over each: the protocol is the same, so a difference in the results is a
+  difference in the server.
+
+  The third transport is why this is a layer rather than one `httpx.post`. A
+  streamable reply may carry a progress notification **before** the result, and
+  the content type is the server's choice made per response. A client that reads
+  the first `data:` frame and calls it the answer works against every server that
+  does not stream and breaks against every one that does. `transport_name` reports
+  what the server actually did rather than what was configured.
+
+  The bundled HTTP fixture serves the same handshake in both reply styles, and
+  its SSE mode sends that leading notification deliberately: a fixture that only
+  ever sends the happy shape proves the client handles the happy shape. It binds
+  to `127.0.0.1` on an ephemeral port, with no setting that would change either.
+
+### Added
 - **`tooltrace mcp-versions`: which revision does the server actually
   implement?** `mcp-conformance` checks one -- whichever the client happened to
   ask for -- which is the wrong question for a server that must interoperate with

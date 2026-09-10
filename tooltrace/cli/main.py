@@ -676,8 +676,10 @@ def cmd_mcp_versions(args: argparse.Namespace) -> int:
     from tooltrace.agents.mcp import fake_server_command
     from tooltrace.agents.mcp_versions import render_markdown, version_matrix
 
-    command = args.command or fake_server_command()
-    report = version_matrix(command)
+    if args.url:
+        report = version_matrix(url=args.url)
+    else:
+        report = version_matrix(args.command or fake_server_command())
     if args.json:
         _emit(report, True)
     elif args.markdown:
@@ -1801,19 +1803,27 @@ def cmd_evidence(args: argparse.Namespace) -> int:
 
 
 def cmd_mcp_conformance(args: argparse.Namespace) -> int:
-    """Check an MCP server against the protocol, over stdio.
+    """Check an MCP server against the protocol, over stdio or HTTP.
 
     MCP has effectively won the agent-to-tool layer, which makes "does this
     server behave correctly" a question many people now have. Exit is non-zero
     only on a *required* failure: a missing tool description is a real
     usability problem and not a protocol violation, and conflating them would
     make this an opinion rather than a measurement.
+
+    `--url` reaches a hosted server. The checks do not change with the
+    transport, which is the point of being able to run them over each: the
+    protocol is the same, so a difference in the results is a difference in the
+    server rather than in the question.
     """
     from tooltrace.agents.mcp import fake_server_command
     from tooltrace.agents.mcp_conformance import report
 
-    command = list(args.command) if args.command else fake_server_command()
-    result = report(command)
+    if args.url:
+        result = report(url=args.url)
+    else:
+        command = list(args.command) if args.command else fake_server_command()
+        result = report(command)
 
     if not args.json:
         for check in result["checks"]:
@@ -2001,6 +2011,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     mv = add("mcp-versions", cmd_mcp_versions, "which MCP revisions a server implements")
     mv.add_argument("--markdown", action="store_true", help="emit a table for a bug report")
+    mv.add_argument("--url", help="reach a hosted server over HTTP instead of stdio")
     mv.add_argument(
         "command",
         nargs="*",
@@ -2162,6 +2173,9 @@ def build_parser() -> argparse.ArgumentParser:
     )
 
     mc = add("mcp-conformance", cmd_mcp_conformance, "check an MCP server against the protocol")
+    mc.add_argument(
+        "--url", help="reach a hosted server over HTTP instead of starting one over stdio"
+    )
     mc.add_argument(
         "command",
         nargs="*",

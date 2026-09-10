@@ -63,19 +63,22 @@ def _classify(sent: str, answered: str | None) -> tuple[str, str]:
 
 
 def version_matrix(
-    command: list[str],
+    command: list[str] | None = None,
     versions: tuple[str, ...] = KNOWN_VERSIONS + IMPOSSIBLE_VERSIONS,
+    *,
+    url: str | None = None,
 ) -> dict[str, Any]:
-    """Handshake once per version, on a fresh process each time.
+    """Handshake once per version, on a fresh connection each time.
 
-    A fresh process per version for the same reason the fuzzer uses one: a
-    server left in a bad state by the third handshake would make the fourth
-    measure the damage rather than the input.
+    A fresh connection per version for the same reason the fuzzer uses a fresh
+    process: a server left in a bad state by the third handshake would make the
+    fourth measure the damage rather than the input. Over HTTP that means a new
+    session, since the session id is issued by the initialize being tested.
     """
     rows: list[dict[str, Any]] = []
 
     for version in versions:
-        client = MCPClient(command, protocol_version=version)
+        client = MCPClient(command, protocol_version=version, url=url)
         try:
             result = client.start()
         except (MCPProtocolError, MCPStartupError) as exc:

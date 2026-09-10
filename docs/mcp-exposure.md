@@ -154,3 +154,36 @@ tool would have accepted.
 The comparison is on *meaning*, not bytes. Anthropic moves the schema to
 `input_schema` and changes nothing about it; a byte comparison would flag all
 four dialects and tell nobody anything.
+
+## Transports: stdio, HTTP, and HTTP that streams
+
+The client here spoke stdio and only stdio, which covers a server you start
+yourself as a subprocess and nothing else. Every hosted MCP server -- which is
+most of the ones a team does not run itself -- is reached over HTTP, so a
+conformance report that could not reach one was a report about the easy half of
+the ecosystem.
+
+The JSON-RPC is identical on all three. Only the framing differs:
+
+| Transport | Framing | Reached with |
+|---|---|---|
+| stdio | one JSON object per line on the process's pipes | `-- COMMAND...` |
+| HTTP | one POST per request, the reply in the body | `--url` |
+| Streamable HTTP | the same POST, answered with `text/event-stream` | `--url` |
+
+The third is why this is a transport layer rather than one `httpx.post`. A
+streamed reply may carry a progress notification **before** the result, and the
+content type is the server's choice made *per response* -- so a client has to
+handle both on every call rather than deciding once at configuration time. A
+client that reads the first `data:` frame and calls it the answer works against
+every server that does not stream and breaks against every one that does.
+
+`transport_name` reports what the server actually did rather than what was
+configured: an HTTP client says `streamable-http` once a reply has arrived as an
+event stream.
+
+The bundled HTTP fixture (`tooltrace/agents/mcp_http_fixture.py`) serves the
+same handshake as the stdio one, in both reply styles, and its SSE mode sends
+that leading notification deliberately. A fixture that only ever sends the happy
+shape proves the client handles the happy shape. It binds to `127.0.0.1` on an
+ephemeral port and has no setting that would change either.

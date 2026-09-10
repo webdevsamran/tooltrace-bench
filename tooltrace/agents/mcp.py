@@ -10,10 +10,15 @@ for deterministic tests.
 
 from __future__ import annotations
 
-import json
-import subprocess
 import sys
 from typing import Any
+
+from tooltrace.agents.mcp_transports import (
+    HttpTransport,
+    StdioTransport,
+    Transport,
+    TransportError,
+)
 
 
 class MCPError(RuntimeError):
@@ -36,30 +41,61 @@ class MCPProtocolError(MCPError):
 
 
 class MCPClient:
-    """Minimal MCP client: initialize, tools/list, tools/call over stdio."""
+    """Minimal MCP client: initialize, tools/list, tools/call.
 
-    def __init__(self, command: list[str], protocol_version: str = "2024-11-05") -> None:
-        if not command:
-            raise MCPError("command required")
-        self._command = command
+    The transport is a parameter rather than a fact about this class. It spoke
+    stdio and only stdio, which covers a server you start yourself and nothing
+    else -- every hosted MCP server is reached over HTTP, and a conformance
+    report that cannot reach them is a report about the easy half of the
+    ecosystem.
+
+    The JSON-RPC below is identical on every transport. Only the framing
+    differs, which is why `_request` can read until it sees its own id without
+    knowing whether the messages came off a pipe or out of an event stream.
+    """
+
+    def __init__(
+        self,
+        command: list[str] | None = None,
+        protocol_version: str = "2024-11-05",
+        *,
+        transport: Transport | None = None,
+        url: str | None = None,
+    ) -> None:
+        if transport is None:
+            if url:
+                transport = HttpTransport(url)
+            elif command:
+                transport = StdioTransport(command)
+            else:
+                raise MCPError("command, url or transport required")
+        self._command = list(command or [])
+        self._transport = transport
         self._protocol_version = protocol_version
-        self._proc: subprocess.Popen[bytes] | None = None
         self._next_id = 1
         self.call_log: list[dict[str, Any]] = []
+
+    @property
+    def transport_name(self) -> str:
+        """What the transport turned out to be.
+
+        Not always what was asked for: an HTTP transport reports
+        `streamable-http` once a server has answered with an event stream,
+        because the distinction is the server's choice made per response rather
+        than a client configuration.
+        """
+        return self._transport.name
 
     # -- lifecycle -----------------------------------------------------------
 
     def start(self) -> dict[str, Any]:
-        """Spawn the server process and perform the initialize handshake."""
-        try:
-            self._proc = subprocess.Popen(
-                self._command,
-                stdin=subprocess.PIPE,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.DEVNULL,
-            )
-        except OSError as exc:
-            raise MCPStartupError(f"failed to start MCP server {self._command}: {exc}") from exc
+        """Connect the transport and perform the initialize handshake."""
+        starter = getattr(self._transport, "start", None)
+        if callable(starter):
+            try:
+                starter()
+            except TransportError as exc:
+                raise MCPStartupError(str(exc)) from exc
         result = self._request(
             "initialize",
             {
@@ -72,15 +108,7 @@ class MCPClient:
         return result
 
     def stop(self) -> None:
-        if self._proc is not None:
-            try:
-                if self._proc.stdin:
-                    self._proc.stdin.close()
-                self._proc.wait(timeout=5)
-            except Exception:
-                self._proc.kill()
-            finally:
-                self._proc = None
+        self._transport.close()
 
     def __enter__(self) -> MCPClient:
         self.start()
@@ -92,18 +120,16 @@ class MCPClient:
     # -- JSON-RPC ------------------------------------------------------------
 
     def _send(self, payload: dict[str, Any]) -> None:
-        assert self._proc is not None and self._proc.stdin is not None
-        data = json.dumps(payload).encode("utf-8")
-        self._proc.stdin.write(data + b"\x0a")
-        self._proc.stdin.flush()
+        try:
+            self._transport.send(payload)
+        except TransportError as exc:
+            raise MCPStartupError(str(exc)) from exc
 
     def _recv(self) -> dict[str, Any]:
-        assert self._proc is not None and self._proc.stdout is not None
-        line = self._proc.stdout.readline()
-        if not line:
-            raise MCPStartupError("MCP server closed the stream")
-        message: dict[str, Any] = json.loads(line.decode("utf-8"))
-        return message
+        try:
+            return self._transport.recv()
+        except TransportError as exc:
+            raise MCPStartupError(str(exc)) from exc
 
     def _request(self, method: str, params: dict[str, Any]) -> dict[str, Any]:
         req_id = self._next_id
