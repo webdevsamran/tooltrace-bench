@@ -19,6 +19,7 @@ import random
 import sys
 import time
 from collections.abc import Callable
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -352,6 +353,184 @@ def cmd_owasp(args: argparse.Namespace) -> int:
             print(f"{row['id']}  {row['status']:<14} {row['label']:<42} {tasks}")
         print()
         print(matrix["statement"])
+    return EXIT_OK
+
+
+def cmd_attest(args: argparse.Namespace) -> int:
+    """Reproduce a bundle and record an attestation, or read the ones it has.
+
+    The trust ladder in `TrustState` promises four levels "never implied without
+    evidence", and every bundle this project has written is `LOCAL`:
+    `promote_trust` had no caller outside the tests. An attestation is the
+    missing evidence, and this command is where it comes from.
+    """
+
+    from tooltrace.analysis.attestation import (
+        build_attestation,
+        machine_relation,
+        promotion_for,
+        render_markdown,
+        verify_attestation,
+    )
+
+    bundle = Path(args.bundle)
+    if not bundle.is_dir():
+        print(f"not a bundle directory: {bundle}", file=sys.stderr)
+        return EXIT_USAGE
+
+    store = bundle / "attestations.jsonl"
+    existing: list[dict[str, Any]] = []
+    if store.is_file():
+        for line in store.read_text(encoding="utf-8").splitlines():
+            if line.strip():
+                existing.append(json.loads(line))
+
+    if args.attester:
+        from tooltrace.artifacts.bundles_repro import reproduce_bundle
+
+        report = reproduce_bundle(bundle, out_dir=None, rerun=True)
+        reproduced = bool(report.verified and report.rerun_success)
+        attestation = build_attestation(
+            bundle,
+            attester=args.attester,
+            attested_at=args.at or datetime.now(UTC).isoformat(),
+            reproduced=reproduced,
+            detail=report.message or "",
+            signature=args.signature or "",
+        )
+        problems = verify_attestation(bundle, attestation)
+        if problems:
+            _emit({"ok": False, "problems": problems}, args.json)
+            return EXIT_RUN
+        # Appended, never rewritten: an attestation store that can be edited in
+        # place is a store whose history nobody can check.
+        with store.open("a", encoding="utf-8") as fh:
+            fh.write(json.dumps(attestation, sort_keys=True) + chr(10))
+        existing.append(attestation)
+
+    for attestation in existing:
+        attestation["_machine"] = machine_relation(bundle, attestation)
+    promotion = promotion_for(bundle, existing)
+
+    if args.promote:
+        from tooltrace.artifacts.bundles_repro import promote_trust
+        from tooltrace.core.models import TrustState
+
+        promote_trust(bundle, TrustState(promotion["state"]))
+        # Every attestation is bound to the manifest digest, which promotion
+        # changes. Rewriting them would be forging them, so they are marked
+        # stale instead and the reason says why.
+        promotion["note"] = (
+            promotion["note"]
+            + " Promotion rewrites the manifest, so attestations made before it no longer "
+            "match its digest. Re-attest after promoting."
+        )
+
+    payload = {
+        "bundle": bundle.name,
+        "attestations": existing,
+        "promotion": promotion,
+        "promoted": bool(args.promote),
+    }
+    if args.json:
+        _emit(payload, True)
+    else:
+        print(render_markdown(bundle.name, existing, promotion), end="")
+    return EXIT_OK
+
+
+def cmd_card(args: argparse.Namespace) -> int:
+    """A system card for one agent, generated from its recorded runs."""
+    from tooltrace.analysis.system_card import build_card, render_card
+    from tooltrace.artifacts.bundles import load_bundle_result
+    from tooltrace.security.coverage import coverage_matrix
+
+    bundles = sorted(Path(args.bundles).glob("*.tooltrace"))
+    if not bundles:
+        print(f"no bundles under {args.bundles}", file=sys.stderr)
+        return EXIT_USAGE
+    runs = [load_bundle_result(b).model_dump(mode="json") for b in bundles]
+
+    agents = sorted({str(r.get("agent")) for r in runs})
+    agent = args.agent or (agents[0] if len(agents) == 1 else "")
+    if not agent:
+        print(f"several agents present; pick one with --agent: {agents}", file=sys.stderr)
+        return EXIT_USAGE
+
+    security_runs = [r for r in runs if str(r.get("task_id", "")).startswith("security/")]
+    card = build_card(
+        runs,
+        agent=agent,
+        generated_at=args.at or max((str(r.get("finished_at") or "") for r in runs), default=""),
+        security={"attempts": len(security_runs)},
+        coverage=coverage_matrix(),
+    )
+    if args.out:
+        out = Path(args.out)
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(render_card(card), encoding="utf-8")
+    if args.json:
+        _emit(card, True)
+    else:
+        print(render_card(card), end="")
+    return EXIT_OK
+
+
+def cmd_self_audit(args: argparse.Namespace) -> int:
+    """Would the evidence you hold actually demonstrate anything?"""
+    from tooltrace.analysis.attestation import machine_relation
+    from tooltrace.analysis.system_card import audit_evidence
+    from tooltrace.artifacts.bundles import load_bundle_result, verify_bundle
+    from tooltrace.security.coverage import coverage_matrix
+
+    bundles = sorted(Path(args.bundles).glob("*.tooltrace"))
+    if not bundles:
+        print(f"no bundles under {args.bundles}", file=sys.stderr)
+        return EXIT_USAGE
+
+    facts = []
+    attested = 0
+    independent = 0
+    security_attempts = 0
+    for bundle in bundles:
+        facts.append({"bundle": bundle.name, "verified": not verify_bundle(bundle)})
+        if str(load_bundle_result(bundle).task_id).startswith("security/"):
+            security_attempts += 1
+        store = bundle / "attestations.jsonl"
+        if store.is_file():
+            for line in store.read_text(encoding="utf-8").splitlines():
+                if not line.strip():
+                    continue
+                attestation = json.loads(line)
+                attested += 1
+                if (
+                    attestation.get("outcome") == "reproduced"
+                    and machine_relation(bundle, attestation) == "different_machine"
+                ):
+                    independent += 1
+
+    report = audit_evidence(
+        bundles=facts,
+        attested=attested,
+        independently_attested=independent,
+        security_attempts=security_attempts,
+        coverage=coverage_matrix(),
+    )
+    if args.json:
+        _emit(report, True)
+    else:
+        for check in report["checks"]:
+            mark = "pass" if check["passed"] else "GAP "
+            print(f"{mark}  {check['check']:<34} {check['detail']}")
+        if report["gaps"]:
+            print()
+            print("Gaps:")
+            for gap in report["gaps"]:
+                print(f"  - {gap}")
+        print()
+        print(report["statement"])
+    # A gap is a finding, not an error: this command reports on evidence, and
+    # exiting non-zero would make it a gate nobody could ever pass.
     return EXIT_OK
 
 
@@ -1550,6 +1729,28 @@ def build_parser() -> argparse.ArgumentParser:
 
     ow = add("owasp", cmd_owasp, "OWASP Agentic Top 10 coverage, from packs that run here")
     ow.add_argument("--markdown", action="store_true", help="emit the docs table")
+
+    at = add("attest", cmd_attest, "reproduce a bundle and record who did it")
+    at.add_argument("bundle")
+    at.add_argument(
+        "--attester", help="who is attesting. Omit to read the bundle's existing attestations"
+    )
+    at.add_argument("--at", help="ISO timestamp; defaults to now")
+    at.add_argument("--signature", help="cosign signature over this attestation, if you have one")
+    at.add_argument(
+        "--promote",
+        action="store_true",
+        help="write the supported trust state into the bundle. Never awards MAINTAINER_VERIFIED",
+    )
+
+    cd = add("card", cmd_card, "generate a system card for an agent from its runs")
+    cd.add_argument("--bundles", default="results")
+    cd.add_argument("--agent", help="required when the bundles cover several agents")
+    cd.add_argument("--at", help="ISO timestamp for the card; defaults to the newest run")
+    cd.add_argument("--out", help="write the markdown card here")
+
+    sa = add("self-audit", cmd_self_audit, "would the evidence you hold demonstrate anything?")
+    sa.add_argument("--bundles", default="results")
 
     add("agents", cmd_agents, "list registered agent adapters")
 

@@ -23,6 +23,9 @@ Exit codes: `0` ok · `2` usage · `3` task/validation · `4` agent · `5` run f
 | `evidence --bundles DIRS [--out DIR]` | Assemble an evidence dossier for a regulated review: runs, verification status, and what each obligation is and is not evidenced by. Never a compliance determination |
 | `verify BUNDLE [--no-schema] [--no-integrity] [--signature F]` | Check a bundle's checksums, schema conformance and anti-gaming integrity (dropped assertions, a task modified after publication, an expected answer visible in the prompt); read-only, exits 5 on any problem. `--signature` additionally verifies a cosign signature: checksums are tamper-*evident* (they detect a change), a signature establishes *who* produced the bundle |
 | `reproduce BUNDLE [--out DIR] [--no-rerun]` | Verify hashes and optionally re-run |
+| `attest BUNDLE [--attester WHO] [--signature S] [--promote]` | Reproduce a bundle and record who did it. **A re-run on the machine that produced the bundle stays `LOCAL`** -- it demonstrates determinism, not independent reproduction. An unsigned attestation from another machine reaches `COMMUNITY_VALIDATED`; a signed one reaches `REPRODUCED`. `MAINTAINER_VERIFIED` is never awarded by a machine |
+| `card [--bundles DIR] [--agent A] [--out F]` | A system card generated from recorded runs. A task with fewer than 10 runs is reported as insufficiently measured rather than as a capability or a limitation, and the *not measured* section is generated too |
+| `self-audit [--bundles DIR]` | Would the evidence you hold demonstrate anything? A checklist with named gaps, deliberately not a percentage. Exits 0 even with gaps: a gap is a finding, not a build failure |
 | `perturb --task ID [--perturbation kind:tool] [--runs N] [--min-recovery-rate R]` | Inject safe faults and measure recovery rate; `--out` writes bundles |
 | `trace BUNDLE [--filter SUBSTR] [--assertions] [--limit N]` | Inspect a bundle trace in the terminal (checksum-verified) |
 

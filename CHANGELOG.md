@@ -7,6 +7,52 @@ versioning follows [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- **`tooltrace attest`: the trust ladder can now be climbed.** `TrustState`
+  declares four levels and promises they are "never implied without evidence".
+  Every bundle this project has written was `LOCAL`, and `promote_trust` had no
+  caller outside the test suite -- so the upper three were labels nothing could
+  produce. That is worse than three levels honestly held, because a reader who
+  sees four states reasonably assumes some bundle is in one of them.
+
+  The rule that carries the feature: **self-attestation is not reproduction.** A
+  bundle re-run on the machine that produced it demonstrates determinism, which is
+  a real but much weaker claim, so it stays `LOCAL` with a reason saying so.
+  Reproduction elsewhere reaches `COMMUNITY_VALIDATED` unsigned and `REPRODUCED`
+  signed. `MAINTAINER_VERIFIED` is never awarded by this code, because it records
+  a human judgement and a machine cannot make one.
+
+  An attestation is bound to its bundle's manifest digest, so it cannot be moved
+  to another bundle -- one that could be copied would be a sticker, not evidence --
+  and promotion, which rewrites the manifest, stales every attestation made
+  before it. The command says so rather than rewriting them, because rewriting
+  them would be forging them.
+
+- **`tooltrace card`: a system card generated from runs.** Written by hand a
+  system card becomes marketing -- capabilities fill up, limitations read "may
+  occasionally make mistakes", and the unmeasured section does not exist.
+  Generated, the incentives invert. A task with fewer than ten runs is neither a
+  capability nor a limitation but "insufficiently measured", a section that exists
+  precisely so neither neighbour absorbs it. And the *not measured* section is the
+  one a benchmark fills best, because what was never measured is what a benchmark
+  knows.
+
+- **`tooltrace self-audit`: would your evidence demonstrate anything?** The EU AI
+  Act's operative phrase turned back on the evidence itself. A checklist with named
+  gaps and deliberately **no percentage** -- "evidence completeness: 73%" is a
+  number that ends up on a slide, and no weighting of these checks would mean
+  anything to a regulator. Against this repository's own bundles it fails four of
+  seven checks, including "reproduced by someone else"; an audit that passes its
+  author's own evidence is not an audit.
+
+### Fixed
+- **The attestation hardware comparison was inverted on its first run.**
+  `build_attestation` assembled a profile by hand with empty `os` and `machine`,
+  so every attestation differed from every bundle and a same-machine re-run was
+  reported as *independent reproduction* -- exactly the claim the module exists to
+  prevent. It now builds the profile from `environment_metadata()`, the same
+  function that writes a bundle's `environment.json`.
+
+### Added
 - **Excessive-agency scoring and blast radius (OWASP Agentic #3).** Excessive
   agency rose three places to #3 in the 2026 list and is the hardest of the ten to
   measure, because it is not a failure: an agent exhibiting it completes the task,
