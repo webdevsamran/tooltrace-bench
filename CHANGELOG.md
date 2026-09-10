@@ -6,6 +6,42 @@ versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- **Native `anthropic` and `gemini` adapters.** Adapters rather than presets,
+  because neither API is reachable through `openai_compat`: Anthropic puts the
+  system prompt at the top level, requires `max_tokens`, carries its version in a
+  header and returns typed content blocks; Gemini spells the assistant role
+  `model`, wraps every turn in `parts`, and calls JSON mode
+  `generationConfig.responseMimeType`. A preset posting the same body to a
+  different path would fail on the first request.
+
+  Both put the API key in a header and read it from an environment variable by
+  name -- Gemini's key in particular stays out of the query string, because a
+  credential in a URL ends up in proxy logs, browser history and error reports.
+
+  The loop they share lives in `chat_base`. Three copies would drift, and a drift
+  there is invisible: each adapter keeps working and a comparison between two
+  models quietly becomes a comparison between two prompts. A test asserts all
+  three send byte-identical system prompts.
+
+  Graded **E** in the feature matrix: the request each API documents and the
+  reply each returns are pinned against recorded shapes, and external validation
+  needs credentials this repository does not have.
+
+### Fixed
+- **The OpenAI adapter never kept a conversation.** It declared `_messages`, sent
+  it on every request, and never appended to it. So a model was asked to act on
+  the last five *observations* with no record of what it had itself decided --
+  "file not found", with no memory of which file it asked for -- and
+  `AgentOutcome.messages` came back empty from every real run. A field that
+  exists, is read, and is never written: the defect this repository keeps finding
+  in itself.
+
+  History is bounded at 12 turns, because an unbounded transcript grows the
+  prompt every step and a benchmark that triples its own token cost on a long
+  task is measuring its own accumulation. A reply that failed to parse never
+  enters it: a turn the model got wrong is not something to reason from next.
+
 ### Fixed
 - **`pr-report` learned `--metrics`, because one of this project's own tests was
   flaky and the flake was telling the truth.** The test compared three runs of

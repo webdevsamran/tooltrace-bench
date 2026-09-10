@@ -71,6 +71,8 @@ Documentation = "https://github.com/webdevsamran/tooltrace-bench/tree/main/docs"
 [project.entry-points."tooltrace.agents"]
 subprocess = "tooltrace.agents.subprocess:SubprocessAgent"
 openai_compat = "tooltrace.agents.openai_compat:OpenAICompatAgent"
+anthropic = "tooltrace.agents.anthropic:AnthropicAgent"
+gemini = "tooltrace.agents.gemini:GeminiAgent"
 scripted = "tooltrace.agents.scripted:ScriptedAgent"
 streaming = "tooltrace.agents.streaming:StreamingAgent"
 

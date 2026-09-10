@@ -303,7 +303,8 @@ so.
 Agents implement a small, stable interface: `initialize`, `run`, an **event stream**, **usage metadata**, and **artifacts/final output**. Discovery is plugin-based via the `tooltrace.agents` entry-point group.
 
 - `subprocess` — run any agent CLI inside the sandbox (opaque, one step).
-- `openai_compat` — an agentic loop against any OpenAI-compatible HTTP endpoint (e.g. a local server). Provider SDKs are **not** required; provider-specific integrations stay optional extras.
+- `openai_compat` — an agentic loop against any OpenAI-compatible HTTP endpoint (e.g. a local server). Provider SDKs are **not** required.
+- `anthropic` / `gemini` — the same loop against the two APIs `openai_compat` cannot reach. These are adapters rather than presets because the wire formats genuinely differ: Anthropic puts the system prompt at the top level and requires `max_tokens`, Gemini spells the assistant role `model` and wraps every turn in `parts`. A preset posting the same body to a different path would fail on the first request. Still no SDK — plain HTTP, and the key is read from an environment variable **by name**, never stored.
 - `streaming` — drive a local agent process that emits **one event per step** over NDJSON on stdin/stdout. The per-step counterpart to `subprocess`: instead of one opaque blocking call, the trace records the actual sequence of decisions. Fully offline (a child process, not a network call) and framework-agnostic — anything that can print a line of JSON can be driven by it. See [`examples/streaming_agent.py`](examples/streaming_agent.py) for a runnable reference.
 - `scripted` — deterministic tool-call scripts for CI, tests and reproducible examples.
 
