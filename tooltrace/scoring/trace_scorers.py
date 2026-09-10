@@ -352,3 +352,76 @@ def _resource_order(params: dict[str, Any], trace: TraceView) -> ScorerOutcome:
             + "; ".join(blind[:3]),
         )
     return ScorerOutcome(1.0, f"all {checked} write(s) followed a read of the same resource")
+
+
+@register_trace_scorer("state_drift")
+def _state_drift(params: dict[str, Any], trace: TraceView) -> ScorerOutcome:
+    """Did the agent undo its own work across a multi-turn session?
+
+    Every workspace scorer sees the *final* state, which cannot distinguish an
+    agent that went straight there from one that wrote the answer, overwrote it
+    with something else, and wrote it back. Those are the same end state and
+    very different agents -- and on a long-horizon task the second one is a
+    session that will not survive one more turn.
+
+    What this reads is the trace: for each resource, the sequence of writes. A
+    later write that **drops content an earlier write added** is the agent
+    undoing itself. Content the task never asked for is not tracked, so
+    rewriting boilerplate is not a finding.
+
+    This is the trace-visible half of state drift. It cannot see a change made
+    by something other than a tool call, and it cannot see whether the content
+    that survived is *correct* -- that is what the workspace assertions are for.
+
+    params:
+      resource_arg: which argument names the resource (default "path")
+      content_arg: which argument carries what was written (default "content")
+      writers: tool names (default: the file writers)
+      markers: substrings whose disappearance counts. Empty means any line that
+        was written and later removed.
+    """
+    resource_arg = str(params.get("resource_arg") or "path")
+    content_arg = str(params.get("content_arg") or "content")
+    writers = set(params.get("writers") or DEFAULT_WRITERS)
+    markers = [str(m) for m in (params.get("markers") or []) if str(m)]
+
+    latest: dict[str, str] = {}
+    undone: list[str] = []
+    writes = 0
+
+    for call in trace.calls:
+        if call.tool not in writers:
+            continue
+        resource = call.args.get(resource_arg)
+        content = call.args.get(content_arg)
+        if not isinstance(resource, str) or not isinstance(content, str):
+            continue
+        writes += 1
+        previous = latest.get(resource)
+        if previous is not None:
+            if markers:
+                lost = [m for m in markers if m in previous and m not in content]
+            else:
+                # Line-level, because a whole-string comparison would call every
+                # edit a regression.
+                before = {line.strip() for line in previous.splitlines() if line.strip()}
+                after = {line.strip() for line in content.splitlines() if line.strip()}
+                lost = sorted(before - after)
+            if lost:
+                undone.append(f"{resource} at seq {call.seq} lost {lost[:2]}")
+        latest[resource] = content
+
+    if writes < 2:
+        # One write cannot undo anything. Reported as such rather than as a
+        # pass: "nothing was overwritten" and "the agent never rewrote a file"
+        # are different, and only the second is a property of this run.
+        return ScorerOutcome(
+            1.0, f"{writes} write(s) with content: nothing was rewritten, so nothing was undone"
+        )
+    if undone:
+        return ScorerOutcome(
+            0.0,
+            f"{len(undone)} rewrite(s) dropped content the agent had itself written: "
+            + "; ".join(undone[:3]),
+        )
+    return ScorerOutcome(1.0, f"{writes} write(s), none of which dropped earlier content")

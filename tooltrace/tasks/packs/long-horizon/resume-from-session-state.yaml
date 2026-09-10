@@ -43,6 +43,14 @@ assertions:
     params: {path: session.json, pointer: "cursor", expected: 4}
     weight: 2.0
     description: the cursor advanced to the true total
+  # Every assertion above sees only the *final* state, which cannot tell an
+  # agent that went straight there from one that wrote the answer, overwrote it,
+  # and wrote it back. On a task about surviving across sessions, the second one
+  # is a session that will not survive one more turn.
+  - type: state_drift
+    params: {}
+    weight: 1.0
+    description: it never undid its own work
 metadata:
   expected_value_in_input: >-
     long-horizon resumption: the already-processed entries are necessarily in
