@@ -109,3 +109,48 @@ working system.
 The fixture still *accepts* three `should_reject` cases -- a missing version
 field, a `1.0` version, an object id. That is tolerance rather than breakage, it
 is reported, and it does not fail.
+
+## Which revision does it actually implement?
+
+`mcp-conformance` checks one revision -- whichever the client happened to ask
+for. That is the wrong question for a server that has to interoperate with
+clients released over two years. `mcp-versions` runs the handshake once per
+published revision, on a fresh process each time, and records what came back.
+
+Neither answer you would expect is the finding:
+
+| Outcome | Meaning | Problem |
+|---|---|---|
+| `agreed` | The server implements the revision it was asked for | no |
+| `downgraded` | It answered with a different published revision -- correct negotiation | no |
+| `rejected` | It refused, which is a legitimate answer | no |
+| `echoed_unknown` | It answered with the revision it was *sent*, including one that never existed | **yes** |
+| `no_version` | The handshake completed without saying which protocol it settled on | **yes** |
+| `crashed` | The process died or never started | **yes** |
+
+The finding is `echoed_unknown`. A server that repeats the client's field is
+agreeing rather than negotiating: the client proceeds believing it settled on a
+protocol, and the mismatch surfaces later as a field that is missing for no
+visible reason.
+
+Catching it requires sending a revision that **cannot** exist -- `9999-01-01`.
+Test only against published revisions and an echoing server passes every single
+one, which is what the test named
+`test_an_echoing_server_still_looks_fine_on_real_versions` pins.
+
+## Does one tool declaration mean the same thing to four providers?
+
+`tooltrace tools --equivalence` reads each dialect's rendering back and compares
+it to the declaration it came from. Three of the four are lossless, which is
+worth stating rather than assuming. Gemini is not: it cannot express `oneOf`, so
+`git`'s honest union -- a list of arguments, or one string -- is narrowed to the
+first branch.
+
+That is a fact about Gemini rather than a defect in the tool, so it is reported
+and does not fail. It matters because the narrowed declaration is what the model
+reads: it will not send what the declaration no longer permits, whatever the
+tool would have accepted.
+
+The comparison is on *meaning*, not bytes. Anthropic moves the schema to
+`input_schema` and changes nothing about it; a byte comparison would flag all
+four dialects and tell nobody anything.
