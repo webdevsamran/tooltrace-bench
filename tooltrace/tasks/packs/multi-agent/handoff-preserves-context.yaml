@@ -1,0 +1,54 @@
+id: multi-agent/handoff-preserves-context
+version: 1.0.0
+category: multi-agent
+difficulty: medium
+objective: >-
+  You are the second agent in a pipeline. handoff.json holds the first agent's
+  findings. Apply the fix it identified to service.py, and record in
+  handoff.json that you completed it by setting "status" to "done".
+description: >-
+  Collaboration measured as the thing that actually breaks: the handoff. Real
+  multi-agent failures are rarely about reasoning and usually about context lost
+  at a boundary -- the second agent redoing the first one's analysis, or acting on
+  a stale conclusion. Here the handoff already contains the answer, and the only
+  way to fail is to ignore it.
+max_steps: 8
+allowed_tools: [read_file, patch_file, write_file]
+network_policy: disabled
+starting_workspace:
+  handoff.json: |
+    {"from": "analyst", "finding": "handler doubles instead of tripling", "fix": "return n * 3", "status": "pending"}
+  service.py: |
+    import time
+
+    def handler(n):
+        time.sleep(0)
+        return n * 2
+assertions:
+  - type: file_contains
+    params: {path: service.py, text: "return n * 3"}
+    weight: 3.0
+    description: the handed-off fix was applied
+  - type: json_equals
+    params:
+      path: handoff.json
+      pointer: "status"
+      expected: "done"
+    weight: 2.0
+    description: the handoff was closed
+metadata:
+  # Declared, not assumed. `analysis/integrity.py` reports this in
+  # `declared_extraction` so every task claiming the exemption can be
+  # listed, which is what stops it becoming a way to mute the check.
+  expected_value_in_input: >-
+    hand-off: the first agent already supplied the fix, and applying what a predecessor found is the collaboration skill being measured
+  scripted_script:
+    - tool: read_file
+      args: {path: handoff.json}
+    - tool: patch_file
+      args: {path: service.py, search: "return n * 2", replace: "return n * 3"}
+    - tool: write_file
+      args:
+        path: handoff.json
+        content: |
+          {"from": "analyst", "finding": "handler doubles instead of tripling", "fix": "return n * 3", "status": "done"}

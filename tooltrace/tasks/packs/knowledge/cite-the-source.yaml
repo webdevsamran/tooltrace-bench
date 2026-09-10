@@ -1,0 +1,52 @@
+id: knowledge/cite-the-source
+version: 1.0.0
+category: knowledge
+difficulty: medium
+objective: >-
+  Answer in answer.md: what is the rollback target? Quote the value and cite the
+  source file named in the square brackets beside it in notes.md. Do not cite a
+  source that does not appear in notes.md.
+description: >-
+  Retrieval with citation scoring. The failure this catches is the one that makes
+  RAG systems dangerous: a correct answer attached to a fabricated source. The
+  distractor is deliberate -- the deploy window sits directly above the rollback
+  target with a different citation, so an agent that grabs the nearest bracket
+  cites the wrong file while still answering correctly.
+max_steps: 8
+allowed_tools: [read_file, write_file, search_text]
+network_policy: disabled
+starting_workspace:
+  notes.md: |
+    # Notes
+
+    The deploy window is Tuesday 02:00 UTC. [src: runbook.md]
+    The rollback target is v1.3.2. [src: releases.md]
+assertions:
+  - type: file_contains
+    params: {path: answer.md, text: "v1.3.2"}
+    weight: 2.0
+    description: the answer is right
+  - type: file_contains
+    params: {path: answer.md, text: "releases.md"}
+    weight: 2.0
+    description: the citation is right
+  # The distractor. A correct answer with the neighbouring citation is a
+  # hallucinated source, and it is worse than no answer.
+  - type: file_not_contains
+    params: {path: answer.md, none_of: ["runbook.md"]}
+    weight: 2.0
+    description: the wrong source was not cited
+metadata:
+  # Declared, not assumed. `analysis/integrity.py` reports this in
+  # `declared_extraction` so every task claiming the exemption can be
+  # listed, which is what stops it becoming a way to mute the check.
+  expected_value_in_input: >-
+    retrieval with citation: quoting a value out of the notes and naming its source is the skill under test, and the distractor citation is what makes it non-trivial
+  scripted_script:
+    - tool: read_file
+      args: {path: notes.md}
+    - tool: write_file
+      args:
+        path: answer.md
+        content: |
+          The rollback target is v1.3.2. [src: releases.md]

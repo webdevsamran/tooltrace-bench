@@ -7,6 +7,85 @@ versioning follows [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- **Mid-run interventions, and the metric they unlock.** `UserAction` and
+  `CheckpointStage` have been declarable since the task protocol was written and
+  nothing had ever performed one -- which is precisely why autonomy reported
+  `measurable: false`. `tooltrace/runners/interventions.py` performs them: a
+  simulated user can write, append, delete or send a message at a declared step,
+  and a checkpoint can approve or deny.
+
+  The distinction that carries the feature is **enforced versus advisory**. An
+  enforced denial stops the run, and tests the harness plus whether the agent
+  acted before its approval arrived -- an agent cannot fail it by ignoring the
+  denial, because it never gets the chance. An advisory denial is delivered and
+  the agent may proceed, which tests the agent: does it respect a refusal it
+  could ignore? Both are real questions and neither answers the other, so
+  collapsing them would let a compliant harness stand in for a compliant agent.
+
+  Interventions are declarative and keyed to a step, never conditional on what
+  the agent did: a user who reacts to the agent is an adversary, and an adversary
+  that reacts is not reproducible. Every one lands in the trace, and none can
+  write outside the workspace.
+
+  Autonomy is now counted **from the trace**, not from the task file. An
+  intervention declared at a step the run never reached did not happen, and
+  counting it would restate the task rather than measure the run.
+
+- **Thirteen new task packs**, taking the repository from 15 packs / 22 tasks to
+  28 packs / 38 tasks: `adversarial-user`, `human-in-the-loop`, `long-horizon`,
+  `browser`, `database`, `devops`, `knowledge`, `terminal`, `concurrency`,
+  `finance`, `healthcare`, `legal`, `multi-agent`.
+
+  Each is built around a specific plausible mistake rather than a generic task:
+  the ledger summed with the wrong signs (which gives a reasonable-looking
+  1650.50), the citation taken from the neighbouring line, the concurrency "fix"
+  that deletes the threads, the clause helpfully tidied into a different clause,
+  the redaction that faithfully preserves the patient's name.
+
+- **Every pack is now proven capable of failing.**
+  `tests/test_new_packs_discriminate.py` runs a deliberately wrong agent at each
+  one and asserts it does not pass. A task nobody has watched fail is a task that
+  might be measuring nothing, and this repository has shipped that bug twice --
+  once with `http_post` unregistered, so every injection failed as "unknown tool"
+  and every agent looked perfectly resistant, and once with a pack allowing a
+  `delete_file` tool that has never existed here. A further test requires any new
+  pack to arrive with a wrong agent, so the guarantee cannot erode quietly.
+
+- **`json_equals` accepts a `pointer`.** It previously *ignored* the parameter
+  and compared the whole document, so a task asserting one field got "JSON
+  differs" with no hint that its argument had been dropped. Restating an entire
+  document to assert one field also makes a task brittle to unrelated changes.
+  The dotted-path walker is now shared with `json_set_equals`, so the two cannot
+  drift on syntax.
+
+- **A declared-extraction exemption for the anti-gaming leak check.** Retrieval,
+  citation, redaction and hand-off tasks all have their answer in the input
+  *because copying it is the skill*, and structure cannot separate that from a
+  genuine leak. A task declares `metadata.expected_value_in_input` with a reason,
+  and the report lists every task claiming it under `declared_extraction` --
+  visible rather than silently honoured, which is what stops it becoming a way to
+  switch the check off.
+
+### Fixed
+- **`tooltrace lint` errored on a correctly designed shipped task.** Trace-aware
+  scorers live in their own registry, and the linter only knew about the
+  workspace kind -- so `tool-call-structure/read-before-write` reported three
+  "unregistered scorer" errors for scorers that are registered. A linter that
+  errors on correct design trains people to ignore it, which is the same failure
+  the leak check had.
+
+- **The feature-status pack check rejected more specific evidence than it
+  accepted.** Its pattern required the backtick to close immediately after the
+  pack name, so a row citing a *file inside* a pack failed while one citing the
+  bare directory passed -- pushing authors towards vaguer citations, the opposite
+  of what that document is for.
+
+- **Four feature-status rows were graded `S` ("declarable, nothing ships") for
+  domains that now ship packs.** Database and knowledge are `I`; browser and
+  devops are `P`, because a saved HTML file is not a live page and a CI config is
+  not a container build.
+
+### Added
 - **`tooltrace drift`: the failure a success-rate monitor cannot see.** Half of
   enterprises have shipped an agent that passed internal evaluation and still
   caused a customer-facing failure, and that gap is usually a slide rather than a

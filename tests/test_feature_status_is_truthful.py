@@ -101,7 +101,12 @@ def test_no_row_claims_a_task_pack_that_is_not_on_disk() -> None:
         # "Cross-pack dedup", or a policy scope written "tools/packs/network".
         if state != "I" or not _PACK_SUBJECT.search(capability):
             continue
-        cited = re.findall(r"`([^`]*packs?/([a-z0-9-]+))`", evidence)
+        # The trailing `[^`]*` lets a row cite a *file inside* the pack rather
+        # than only the directory. The earlier pattern required the backtick to
+        # close immediately after the pack name, so it rejected more specific
+        # evidence than it accepted -- which pushes authors towards vaguer
+        # citations, the opposite of what this file is for.
+        cited = re.findall(r"`([^`]*packs?/([a-z0-9-]+)[^`]*)`", evidence)
         starred = "packs/*" in evidence
         if not starred and not any(name in packs for _, name in cited):
             offenders.append((num, capability))
@@ -125,8 +130,15 @@ def test_schema_only_rows_really_do_have_a_domain_and_nothing_more() -> None:
     )
     packs = {p.name for p in (_ROOT / "tooltrace" / "tasks" / "packs").iterdir() if p.is_dir()}
     schema_only = [(n, c, e) for n, c, _, e in _rows() if _grade(n) == "S"]
-    # 7, not 8: row 16 (defensive security) now ships a real pack.
-    assert len(schema_only) == 7, f"expected 7 schema-only rows, found {len(schema_only)}"
+    # Three. It was eight, then seven when the security pack landed, and four
+    # more left the grade when the database, browser, knowledge and devops packs
+    # arrived -- browser and devops as **P** rather than **I**, because a saved
+    # HTML file is not a live page and a CI config is not a container build.
+    #
+    # The number is asserted rather than merely computed so that a row cannot
+    # drift *into* this grade unnoticed: `S` means a domain is declarable and
+    # nothing runs, and that claim should only ever get rarer.
+    assert len(schema_only) == 3, f"expected 3 schema-only rows, found {len(schema_only)}"
     for num, capability, evidence in schema_only:
         named = re.findall(r"`Domain\.([a-z_]+)`", evidence)
         assert named, f"row {num} is graded S but names no Domain value: {capability}"

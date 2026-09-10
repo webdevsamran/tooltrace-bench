@@ -165,6 +165,18 @@ TraceEventType = Literal[
     "workspace_diff",
     "validation",
     "retry_recovery",
+    # A simulated user changed the world mid-run, or a dual-control gate fired.
+    # Additive to the enum without a `TRACE_SCHEMA_VERSION` bump: only a task
+    # that *declares* an intervention can produce one, no task shipped before
+    # this declared any, and bumping the version would make every committed
+    # bundle incomparable with every new one to buy compatibility with a reader
+    # that would never meet these events anyway.
+    #
+    # They are separate types rather than `agent_message` on purpose. Recording
+    # a user's action as the agent's would misattribute who did it, and a trace
+    # whose causes are misattributed is worse than one missing them.
+    "user_action",
+    "checkpoint",
     "task_end",
 ]
 

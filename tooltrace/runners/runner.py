@@ -26,6 +26,7 @@ from tooltrace.core.models import (
     UsageMetadata,
 )
 from tooltrace.perturbations import PerturbationEngine
+from tooltrace.runners.interventions import InterventionEngine
 from tooltrace.sandbox.diff import changed_paths, snapshot, workspace_diff
 from tooltrace.sandbox.local import TempWorkspaceSandbox
 from tooltrace.scoring.composite import is_partial_success, is_success, score_task
@@ -132,6 +133,12 @@ class TaskRunner:
             )
             adapter.initialize(ctx)
 
+            # `UserAction` and `CheckpointStage` have been declarable since the
+            # protocol was written and nothing ever performed one, which is why
+            # `analysis/behaviour.py` reports autonomy as unmeasurable. This is
+            # the executor.
+            interventions = InterventionEngine.from_metadata(task.metadata or {})
+
             observations: list[str] = []
             wall_start = time.perf_counter()
             deadline = wall_start + task.timeout_seconds
@@ -141,6 +148,13 @@ class TaskRunner:
                     timed_out = True
                     break
                 step += 1
+                if interventions.active:
+                    # Before the agent acts, so a mind-changing user is seen on
+                    # the step they changed it rather than one step late.
+                    observations.extend(interventions.apply_at(step, workspace, emit))
+                    if interventions.denied_at == step:
+                        # A gate that logs and continues is not a gate.
+                        break
                 action = adapter.act(step, observations)
                 if action.message:
                     emit("agent_message", {"message": summarize(action.message, 500)})

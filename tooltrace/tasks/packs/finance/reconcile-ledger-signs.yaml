@@ -1,0 +1,37 @@
+id: finance/reconcile-ledger-signs
+version: 1.0.0
+category: finance
+difficulty: medium
+objective: >-
+  Write balance.txt containing the net balance of ledger.csv as a decimal with
+  two places. Debits are negative and must be subtracted, not added.
+description: >-
+  High-risk under the EU AI Act, and a domain where a plausible wrong number is
+  far worse than a refusal. The sign convention is the trap: summing absolute
+  values gives 1650.50 and looks entirely reasonable.
+max_steps: 8
+allowed_tools: [read_file, write_file, calculator]
+network_policy: disabled
+starting_workspace:
+  ledger.csv: |
+    date,amount,currency
+    2026-01-05,1200.00,USD
+    2026-01-06,-450.50,USD
+assertions:
+  - type: file_contains
+    params: {path: balance.txt, text: "749.50"}
+    weight: 3.0
+    description: the net balance is right
+  # The plausible wrong answer, named so a near-miss is not a pass.
+  - type: file_not_contains
+    params: {path: balance.txt, none_of: ["1650.50", "1650.5"]}
+    weight: 2.0
+    description: debits were not added as credits
+metadata:
+  scripted_script:
+    - tool: read_file
+      args: {path: ledger.csv}
+    - tool: calculator
+      args: {expression: "1200.00 - 450.50"}
+    - tool: write_file
+      args: {path: balance.txt, content: "749.50\n"}

@@ -1,0 +1,50 @@
+id: database/fix-inactive-user-query
+version: 1.0.0
+category: database
+difficulty: medium
+objective: >-
+  query.sql is meant to list the names of inactive users. It returns active ones
+  instead. Fix query.sql so it selects users whose active column is 0.
+description: >-
+  A disposable SQLite database built from schema.sql by the check itself, so the
+  task needs no database server and no fixture binary. The bug is an inverted
+  predicate, which is the most common query defect and one that a test suite
+  passes right over when the row count happens to match.
+max_steps: 8
+allowed_tools: [read_file, patch_file, write_file, shell]
+network_policy: disabled
+requires_tools: [python]
+starting_workspace:
+  schema.sql: |
+    CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT, active INTEGER);
+    INSERT INTO users VALUES (1, "Ada", 1);
+    INSERT INTO users VALUES (2, "Lin", 0);
+  query.sql: |
+    SELECT name FROM users WHERE active = 1;
+  check.py: |
+    import sqlite3, pathlib
+    db = sqlite3.connect(":memory:")
+    db.executescript(pathlib.Path("schema.sql").read_text())
+    rows = [r[0] for r in db.execute(pathlib.Path("query.sql").read_text())]
+    pathlib.Path("result.txt").write_text(",".join(sorted(rows)))
+assertions:
+  - type: command_exit
+    params: {command: "python check.py", expect: 0}
+    weight: 1.0
+    description: the query runs
+  - type: file_contains
+    params: {path: result.txt, text: "Lin"}
+    weight: 2.0
+    description: it returns the inactive user
+  - type: file_not_contains
+    params: {path: result.txt, none_of: ["Ada"]}
+    weight: 2.0
+    description: it does not return the active one
+metadata:
+  scripted_script:
+    - tool: read_file
+      args: {path: query.sql}
+    - tool: patch_file
+      args: {path: query.sql, search: "active = 1", replace: "active = 0"}
+    - tool: shell
+      args: {command: "python check.py"}

@@ -1,0 +1,50 @@
+id: browser/extract-product-table
+version: 1.0.0
+category: browser
+difficulty: medium
+objective: >-
+  products.html contains product entries. Write products.csv with a header row
+  name,price and one row per product, in document order.
+description: >-
+  Extraction from *saved* HTML rather than a live page. This project is offline
+  by default and ships no browser tool, so a task that fetched a URL would be
+  untestable here and non-deterministic anywhere. What it does measure is the
+  half that actually breaks in practice: pulling structure out of markup without
+  being confused by the tags around it.
+max_steps: 8
+allowed_tools: [read_file, write_file, search_text]
+network_policy: disabled
+starting_workspace:
+  products.html: |
+    <html><body>
+    <div class="product"><span class="name">Widget</span><span class="price">12.50</span></div>
+    <div class="product"><span class="name">Gadget</span><span class="price">7.25</span></div>
+    </body></html>
+assertions:
+  - type: csv_equals
+    params:
+      path: products.csv
+      expected_csv: |
+        name,price
+        Widget,12.50
+        Gadget,7.25
+    weight: 3.0
+    description: extracted rows match, in document order
+  # Markup must not survive into the output. The most common real failure.
+  - type: file_not_contains
+    params:
+      path: products.csv
+      none_of: ["<span", "</span>", "<div"]
+    weight: 1.0
+    description: no markup leaked into the output
+metadata:
+  scripted_script:
+    - tool: read_file
+      args: {path: products.html}
+    - tool: write_file
+      args:
+        path: products.csv
+        content: |
+          name,price
+          Widget,12.50
+          Gadget,7.25

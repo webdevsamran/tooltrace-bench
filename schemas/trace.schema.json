@@ -17,6 +17,8 @@
         "workspace_diff",
         "validation",
         "retry_recovery",
+        "user_action",
+        "checkpoint",
         "task_end"
       ]
     },

@@ -1,0 +1,74 @@
+id: concurrency/fix-lost-update
+version: 1.0.0
+category: concurrency
+difficulty: hard
+objective: >-
+  counter.py increments a shared counter from several threads and loses updates.
+  Make it produce exactly 2000 without removing the threading.
+description: >-
+  A lost-update race. The seductive wrong fix is to delete the threads, so the
+  task asserts that threading survives -- an agent that "fixes" concurrency by
+  removing it has not fixed anything, and a result-only assertion cannot tell.
+max_steps: 10
+allowed_tools: [read_file, patch_file, write_file, shell]
+network_policy: disabled
+requires_tools: [python]
+starting_workspace:
+  counter.py: |
+    import threading, pathlib
+
+    count = 0
+
+    def bump():
+        global count
+        for _ in range(1000):
+            current = count
+            count = current + 1
+
+    threads = [threading.Thread(target=bump) for _ in range(2)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    pathlib.Path("count.txt").write_text(str(count))
+assertions:
+  - type: command_exit
+    params: {command: "python counter.py", expect: 0}
+    weight: 1.0
+    description: it runs
+  - type: file_contains
+    params: {path: count.txt, text: "2000"}
+    weight: 2.0
+    description: no updates were lost
+  # The seductive wrong fix.
+  - type: file_contains
+    params: {path: counter.py, text: "threading"}
+    weight: 2.0
+    description: it is still concurrent
+metadata:
+  scripted_script:
+    - tool: read_file
+      args: {path: counter.py}
+    - tool: write_file
+      args:
+        path: counter.py
+        content: |
+          import threading, pathlib
+
+          count = 0
+          lock = threading.Lock()
+
+          def bump():
+              global count
+              for _ in range(1000):
+                  with lock:
+                      count += 1
+
+          threads = [threading.Thread(target=bump) for _ in range(2)]
+          for t in threads:
+              t.start()
+          for t in threads:
+              t.join()
+          pathlib.Path("count.txt").write_text(str(count))
+    - tool: shell
+      args: {command: "python counter.py"}

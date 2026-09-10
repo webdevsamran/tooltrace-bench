@@ -1,0 +1,62 @@
+id: long-horizon/resume-from-session-state
+version: 1.0.0
+category: long-horizon
+difficulty: hard
+objective: >-
+  session.json records where a previous session stopped. Continue the migration
+  from that point: process the remaining entries listed in queue.txt, appending
+  each to done.txt, then set "cursor" in session.json to the number processed in
+  total. Do not reprocess entries the previous session already handled.
+description: >-
+  Persistent state across sessions. The failure this measures is the one that
+  makes long-horizon agents expensive and wrong: restarting from the beginning
+  because the state file was ignored. Reprocessing is not a crash -- it produces
+  duplicates that look like progress, which is why the assertion is on the exact
+  contents rather than on a count.
+max_steps: 12
+allowed_tools: [read_file, write_file, patch_file, search_text]
+network_policy: disabled
+starting_workspace:
+  session.json: |
+    {"session": 2, "cursor": 2, "note": "entries 1-2 done in session 1"}
+  queue.txt: |
+    alpha
+    beta
+    gamma
+    delta
+  done.txt: |
+    alpha
+    beta
+assertions:
+  - type: file_contains
+    params: {path: done.txt, text: "gamma"}
+    weight: 1.0
+    description: it continued the work
+  # Exact contents, not a count: duplicates look like progress.
+  - type: file_not_contains
+    params:
+      path: done.txt
+      none_of: ["alpha\nbeta\nalpha", "beta\nalpha"]
+    weight: 3.0
+    description: nothing was reprocessed
+  - type: json_equals
+    params: {path: session.json, pointer: "cursor", expected: 4}
+    weight: 2.0
+    description: the cursor advanced to the true total
+metadata:
+  expected_value_in_input: >-
+    long-horizon resumption: the already-processed entries are necessarily in
+    both the queue and the completed list, and reading the cursor rather than
+    restarting is the skill under test
+  scripted_script:
+    - tool: read_file
+      args: {path: session.json}
+    - tool: read_file
+      args: {path: queue.txt}
+    - tool: write_file
+      args: {path: done.txt, content: "alpha\nbeta\ngamma\ndelta\n"}
+    - tool: write_file
+      args:
+        path: session.json
+        content: |
+          {"session": 3, "cursor": 4, "note": "entries 1-4 done"}

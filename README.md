@@ -205,7 +205,7 @@ Details in [ARCHITECTURE.md](ARCHITECTURE.md). The sandbox threat model is in [d
 
 ## Task types shipped
 
-Fifteen packs, twenty-two tasks. `tooltrace tasks` prints the authoritative list
+28 packs, 38 tasks. `tooltrace tasks` prints the authoritative list
 with difficulty; the pack directory names below are the ones you pass to
 `--task`.
 
@@ -226,6 +226,32 @@ with difficulty; the pack directory names below are the ones you pass to
 | `multi-step-planning` | multi-step planning |
 | `failure-recovery` | recovery under injected perturbations, including a compositional task where three faults compound |
 | `long-context` | context-scaling family (1k / 4k / 16k) |
+| `adversarial-user` | a user who changes their mind mid-run; an agent that already committed to a plan produces a confidently wrong result |
+| `human-in-the-loop` | dual control, both ways: an *enforced* gate that stops the run, and an *advisory* denial the agent could ignore but should not |
+| `long-horizon` | resumption from persistent session state; restarting from scratch produces duplicates that look like progress |
+| `browser` | extraction from saved HTML (offline: no browser tool ships) |
+| `database` | SQL against a disposable in-memory SQLite database built by the check itself |
+| `devops` | CI configuration whose steps are individually valid and collectively wrong |
+| `knowledge` | retrieval with citation scoring, against a deliberate distractor source |
+| `terminal` | a process whose stdout says success and whose exit code says failure |
+| `concurrency` | a lost-update race, where the seductive wrong fix is to delete the threads |
+| `finance` | ledger reconciliation where summing absolute values gives a plausible wrong answer |
+| `healthcare` | redaction: carry the clinical content forward, drop every identifier |
+| `legal` | verbatim quotation, where helpfully tidying the wording produces a different clause |
+| `multi-agent` | collaboration measured at the hand-off, which is where it actually breaks |
+| `adversarial-user` | a user who changes their mind mid-run; an agent that already committed to a plan produces a confidently wrong result |
+| `human-in-the-loop` | dual control, both ways: an *enforced* gate that stops the run, and an *advisory* denial the agent could ignore but should not |
+| `long-horizon` | resumption from persistent session state; restarting from scratch produces duplicates that look like progress |
+| `browser` | extraction from saved HTML (offline: no browser tool ships) |
+| `database` | SQL against a disposable in-memory SQLite database built by the check itself |
+| `devops` | CI configuration whose steps are individually valid and collectively wrong |
+| `knowledge` | retrieval with citation scoring, against a deliberate distractor source |
+| `terminal` | a process whose stdout says success and whose exit code says failure |
+| `concurrency` | a lost-update race, where the seductive wrong fix is to delete the threads |
+| `finance` | ledger reconciliation where summing absolute values gives a plausible wrong answer |
+| `healthcare` | redaction: carry the clinical content forward, drop every identifier |
+| `legal` | verbatim quotation, where helpfully tidying the wording produces a different clause |
+| `multi-agent` | collaboration measured at the hand-off, which is where it actually breaks |
 
 Two tasks in `shell-workflow` exercise **compiled-language** workflows, where
 the failure is a compiler diagnostic before anything runs rather than a runtime
@@ -233,6 +259,24 @@ traceback. They declare `requires_tools` (`go`, `cargo`) and are **skipped, not
 failed**, on machines without those toolchains -- scoring a missing compiler as
 an agent failure would make results depend on the runner rather than the agent.
 `tooltrace tasks` reports `runnable_here` for each.
+
+**Every pack has been seen to fail.** `tests/test_new_packs_discriminate.py` runs a
+deliberately wrong agent at each one -- the ledger summed with the wrong signs, the
+neighbouring citation, the concurrency "fix" that deletes the threads -- and asserts it
+does not pass. A task nobody has watched fail is a task that might be measuring
+nothing, and this repository has shipped that bug twice: once with `http_post`
+unregistered, so every injection failed as "unknown tool" and every agent looked
+perfectly resistant, and once with a pack allowing a `delete_file` tool that has never
+existed here.
+
+**Every pack has been seen to fail.** `tests/test_new_packs_discriminate.py` runs a
+deliberately wrong agent at each one -- the ledger summed with the wrong signs, the
+neighbouring citation, the concurrency "fix" that deletes the threads -- and asserts it
+does not pass. A task nobody has watched fail is a task that might be measuring
+nothing, and this repository has shipped that bug twice: once with `http_post`
+unregistered, so every injection failed as "unknown tool" and every agent looked
+perfectly resistant, and once with a pack allowing a `delete_file` tool that has never
+existed here.
 
 ## Adapter model
 
