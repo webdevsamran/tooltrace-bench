@@ -906,6 +906,21 @@ tbody tr:hover { background: var(--bg-sunken); }
   .hero { padding: var(--s-5) 0 var(--s-4); }
 }
 
+/* Aligned run comparison. A diverged row is marked by a left border as well as
+   a tint: colour alone fails a reader who cannot distinguish these two, and the
+   whole point of the row is that it differs. */
+.compare-trace { width: 100%; border-collapse: collapse; margin-top: var(--s-3); }
+.compare-trace th, .compare-trace td {
+  text-align: left; vertical-align: top; padding: var(--s-2) var(--s-3);
+  border-bottom: 1px solid var(--border); font-size: 0.9rem;
+}
+.compare-trace tbody tr.diverged td, .compare-trace tbody tr.diverged th {
+  background: var(--warn-soft);
+}
+.compare-trace tbody tr.diverged th { border-left: 3px solid var(--warn); }
+.compare-trace tbody tr.first th { border-left-width: 6px; }
+.compare-trace .muted { font-size: 0.82rem; }
+
 @media print {
   .topbar, .sidebar, .subbar, .footer, .skip-link { display: none !important; }
   .card { box-shadow: none; break-inside: avoid; }

@@ -9,6 +9,7 @@ import {
 import type { TraceLine } from '../components'
 import { useUrlState } from '../lib/useUrlState'
 import { clusterFailures, stepLink } from '../lib/clusters'
+import { alignTraces, summarise } from '../lib/alignTraces'
 
 // Fetch a bundle's trace + diff lazily from the raw-data directory.
 async function fetchBundleDetail(bundle: string) {
@@ -337,4 +338,174 @@ export function FailureAnalysisPage() {
       )}
     </div>
   )
+}
+
+/**
+ * Two runs, side by side, aligned on what they actually did.
+ *
+ * The existing Compare page compares *agents* in aggregate, which answers a
+ * different question. This one answers "these two runs of the same task went
+ * differently — where?", and the whole difficulty is that a naive side-by-side
+ * goes out of register at the first extra call. Every row after that compares
+ * unrelated steps while looking like a comparison, which produces confident
+ * wrong readings and is worse than showing nothing.
+ *
+ * So the rows come from a diff (see `lib/alignTraces`), and the view leads with
+ * the step where the runs first diverged — everything before it is common
+ * ground, and everything worth reading starts there.
+ */
+export function RunComparePage() {
+  const results = useAsync(getResults)
+  const [left, setLeft] = useUrlState('left')
+  const [right, setRight] = useUrlState('right')
+  const leftDetail = useAsync(
+    () => (left ? fetchBundleDetail(left) : Promise.resolve({ trace: [], diff: '' })),
+    [left],
+  )
+  const rightDetail = useAsync(
+    () => (right ? fetchBundleDetail(right) : Promise.resolve({ trace: [], diff: '' })),
+    [right],
+  )
+
+  if (results.loading) return <Loading />
+  if (results.error) return <ErrorState message={results.error} />
+  const rows = results.data ?? []
+  const leftRow = rows.find((r) => r.bundle === left)
+  const rightRow = rows.find((r) => r.bundle === right)
+
+  const aligned =
+    leftRow && rightRow ? alignTraces(leftDetail.data?.trace ?? [], rightDetail.data?.trace ?? []) : []
+  const summary = aligned.length ? summarise(aligned) : null
+  // Comparing runs of different tasks is comparing two different measurements
+  // and calling the difference a behaviour change. Said out loud rather than
+  // refused: someone may genuinely want to look.
+  const differentTasks = leftRow && rightRow && leftRow.task_id !== rightRow.task_id
+
+  return (
+    <section>
+      <h1>Compare two runs</h1>
+      <p className="muted">
+        Aligned on what each run actually did, not row by row. A naive side-by-side goes out of
+        register at the first extra call, and every row after that compares unrelated steps.
+      </p>
+
+      <div className="compare-pickers">
+        <label>
+          Left
+          <select value={left} onChange={(e) => setLeft(e.target.value)}>
+            <option value="">select a run…</option>
+            {rows.map((r) => (
+              <option key={r.bundle} value={r.bundle}>
+                {r.run_id} · {r.task_id} · {r.agent}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Right
+          <select value={right} onChange={(e) => setRight(e.target.value)}>
+            <option value="">select a run…</option>
+            {rows.map((r) => (
+              <option key={r.bundle} value={r.bundle}>
+                {r.run_id} · {r.task_id} · {r.agent}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+
+      {!leftRow || !rightRow ? (
+        <EmptyState hint="Pick two runs to compare. The selection lives in the URL, so a comparison is a link." />
+      ) : (
+        <>
+          {differentTasks && (
+            <p className="callout callout-warn" role="note">
+              These runs are of <strong>different tasks</strong> ({leftRow.task_id} vs{' '}
+              {rightRow.task_id}). Any difference between them is a difference in the task as much
+              as in the agent.
+            </p>
+          )}
+
+          <div className="grid stats">
+            <div className="card">
+              <SuccessBadge ok={leftRow.success} partial={leftRow.partial_success} />
+              <span>left · {leftRow.failure_reason}</span>
+            </div>
+            <div className="card">
+              <SuccessBadge ok={rightRow.success} partial={rightRow.partial_success} />
+              <span>right · {rightRow.failure_reason}</span>
+            </div>
+            <div className="card">
+              <strong>
+                {leftRow.score_total.toFixed(2)} / {rightRow.score_total.toFixed(2)}
+              </strong>
+              <span>score</span>
+            </div>
+            <div className="card">
+              <strong>
+                {leftRow.steps} / {rightRow.steps}
+              </strong>
+              <span>steps</span>
+            </div>
+          </div>
+
+          {leftDetail.loading || rightDetail.loading ? (
+            <Loading label="Loading traces…" />
+          ) : aligned.length === 0 ? (
+            <EmptyState hint="Neither run recorded a comparable step." />
+          ) : (
+            <>
+              <p aria-live="polite">{summary?.statement}</p>
+              <table className="compare-trace">
+                <caption className="sr-only">
+                  Aligned steps from both runs; rows present on only one side are marked
+                </caption>
+                <thead>
+                  <tr>
+                    <th scope="col">#</th>
+                    <th scope="col">Left</th>
+                    <th scope="col">Right</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {aligned.map((row, index) => (
+                    <tr
+                      key={index}
+                      className={
+                        row.side === 'both'
+                          ? undefined
+                          : index === summary?.divergedAt
+                            ? 'diverged first'
+                            : 'diverged'
+                      }
+                    >
+                      <th scope="row">{index + 1}</th>
+                      <td>{row.left ? <StepCell step={row.left} /> : <OnlyOther side="right" />}</td>
+                      <td>{row.right ? <StepCell step={row.right} /> : <OnlyOther side="left" />}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </>
+          )}
+        </>
+      )}
+    </section>
+  )
+}
+
+function StepCell({ step }: { step: TraceLine }) {
+  return (
+    <span>
+      <code>{step.tool ?? step.type}</code>
+      {step.status && step.status !== 'ok' && <> · {step.status}</>}
+      {step.summary && <div className="muted">{step.summary}</div>}
+    </span>
+  )
+}
+
+/** A row present on only one side. Named rather than left blank: an empty cell
+ *  reads as "nothing happened" when it means "this step is not in this run". */
+function OnlyOther({ side }: { side: 'left' | 'right' }) {
+  return <span className="muted">— only in the {side === 'left' ? 'right' : 'left'} run</span>
 }

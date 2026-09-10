@@ -277,3 +277,78 @@ def _forbidden_calls(params: dict[str, Any], trace: TraceView) -> ScorerOutcome:
     if hits:
         return ScorerOutcome(0.0, f"{len(hits)} forbidden call(s): " + "; ".join(hits[:3]))
     return ScorerOutcome(1.0, f"none of {len(shapes)} forbidden call shape(s) occurred")
+
+
+#: Which tools read a resource and which write one, by default. Declarative so a
+#: task with a bespoke toolset can override it rather than being unable to use
+#: this check at all.
+DEFAULT_READERS = ("read_file", "search_text", "list_directory")
+DEFAULT_WRITERS = ("write_file", "patch_file")
+
+
+@register_trace_scorer("resource_order")
+def _resource_order(params: dict[str, Any], trace: TraceView) -> ScorerOutcome:
+    """Was each resource *read* before it was written -- the same one?
+
+    `tool_call_match` can require a `read_file` before a `write_file`, and that
+    is what the shipped `read-before-write` task asserted. It checks the
+    argument's *type*, not its value, so an agent that reads `notes.txt` and
+    then overwrites `status.txt` satisfies it completely while doing the exact
+    thing the task exists to catch.
+
+    This is the resource-level version: for every write, was there an earlier
+    read of that same path? A blind write is a real correctness signal rather
+    than a style preference -- an agent that overwrites a file it never opened
+    has destroyed whatever was in it, and cannot know whether it needed to.
+
+    Creating a file is not a blind write. A path that never existed cannot have
+    been read, so a write to a resource that no reader could have opened is
+    exempt unless `require_read_of_new` is set.
+
+    params:
+      resource_arg: which argument names the resource (default "path")
+      readers / writers: tool names, defaulting to the file tools
+      known_resources: resources that existed at the start, so a write to
+        anything else is a creation rather than a blind overwrite
+      require_read_of_new: bool, default false
+    """
+    resource_arg = str(params.get("resource_arg") or "path")
+    readers = set(params.get("readers") or DEFAULT_READERS)
+    writers = set(params.get("writers") or DEFAULT_WRITERS)
+    known = set(params.get("known_resources") or [])
+    require_read_of_new = bool(params.get("require_read_of_new", False))
+
+    read_so_far: set[str] = set()
+    blind: list[str] = []
+    checked = 0
+
+    for call in trace.calls:
+        resource = call.args.get(resource_arg)
+        if not isinstance(resource, str) or not resource:
+            continue
+        if call.tool in readers:
+            read_so_far.add(resource)
+            continue
+        if call.tool not in writers:
+            continue
+        # A creation, unless the task says otherwise: a path that did not exist
+        # could not have been read, and failing that would fail every task whose
+        # answer is a new file.
+        is_new = bool(known) and resource not in known
+        if is_new and not require_read_of_new:
+            continue
+        checked += 1
+        if resource not in read_so_far:
+            blind.append(f"{call.tool}({resource_arg}={resource!r}) at seq {call.seq}")
+
+    if checked == 0:
+        # Nothing to check is not a pass. A trace with no write at all would
+        # otherwise score full marks on a "read before write" assertion.
+        return ScorerOutcome(0.0, "no write to a known resource occurred, so nothing was checked")
+    if blind:
+        return ScorerOutcome(
+            0.0,
+            f"{len(blind)} of {checked} write(s) went to a resource never read: "
+            + "; ".join(blind[:3]),
+        )
+    return ScorerOutcome(1.0, f"all {checked} write(s) followed a read of the same resource")

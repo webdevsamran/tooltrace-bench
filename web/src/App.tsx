@@ -31,6 +31,7 @@ const EvidencePage = page(() => import('./pages/assurance'), (m) => m.EvidencePa
 const RecoveryAnalysisPage = page(() => import('./pages/operations'), (m) => m.RecoveryAnalysisPage)
 const CostEfficiencyPage = page(() => import('./pages/operations'), (m) => m.CostEfficiencyPage)
 const ParetoExplorerPage = page(() => import('./pages/operations'), (m) => m.ParetoExplorerPage)
+const RunComparePage = page(() => import('./pages/results'), (m) => m.RunComparePage)
 const DatasetBrowserPage = page(() => import('./pages/operations'), (m) => m.DatasetBrowserPage)
 const PluginCatalogPage = page(() => import('./pages/operations'), (m) => m.PluginCatalogPage)
 const WorkspaceDashboardPage = page(() => import('./pages/workspace/dashboard'), (m) => m.WorkspaceDashboardPage)
@@ -86,6 +87,7 @@ export const NAV_SECTIONS: readonly NavSection[] = [
     home: '/compare',
     items: [
       ['/compare', 'Compare'],
+      ['/compare/runs', 'Run diff'],
       ['/trends', 'Trends'],
       ['/failures', 'Failures'],
       ['/recovery', 'Recovery'],
@@ -292,6 +294,7 @@ export default function App() {
                 <Route path="/tasks/:taskId" element={<TaskDetailPage />} />
                 <Route path="/results/:bundle" element={<ResultDetailPage />} />
                 <Route path="/compare" element={<ComparePage />} />
+                <Route path="/compare/runs" element={<RunComparePage />} />
                 <Route path="/trends" element={<ReliabilityTrendsPage />} />
                 <Route path="/failures" element={<FailureAnalysisPage />} />
                 <Route path="/traces" element={<TraceExplorerPage />} />

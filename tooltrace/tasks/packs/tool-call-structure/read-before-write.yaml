@@ -27,6 +27,15 @@ assertions:
           args: { path: "string", content: "string" }
     weight: 1.0
     description: read before write
+  # ...and it read *this* file, not some other one. The assertion above checks
+  # the argument's type; an agent that reads notes.txt and then overwrites
+  # status.txt satisfies it completely while doing the exact thing this task
+  # exists to catch.
+  - type: resource_order
+    params:
+      known_resources: [status.txt]
+    weight: 2.0
+    description: the file it wrote is the file it read
   - type: tools_used
     params:
       required: [read_file, write_file]

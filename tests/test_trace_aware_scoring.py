@@ -220,6 +220,9 @@ def test_a_correct_run_scores_on_both_axes() -> None:
     assert result.score.components == {
         "status corrected": 1.0,
         "read before write": 1.0,
+        # Resource-level, added after `read before write` turned out to compare
+        # the argument's type rather than its value.
+        "the file it wrote is the file it read": 1.0,
         "both tools used": 1.0,
         "no failed calls": 1.0,
     }

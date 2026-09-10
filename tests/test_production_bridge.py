@@ -132,7 +132,12 @@ def test_trace_assertions_are_scored_and_workspace_ones_are_named() -> None:
     task = _task(_TRACE_TASK)
     score, _details, skipped = score_trace_only(task, TraceView())
     assert "status corrected" in skipped, "a workspace assertion must be reported as skipped"
-    assert set(score.components) == {"read before write", "both tools used", "no failed calls"}
+    assert set(score.components) == {
+        "read before write",
+        "the file it wrote is the file it read",
+        "both tools used",
+        "no failed calls",
+    }
 
 
 def test_a_task_with_no_trace_assertions_scores_nothing_and_says_so() -> None:
