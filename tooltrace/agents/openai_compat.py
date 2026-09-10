@@ -146,7 +146,9 @@ class OpenAICompatAgent(AgentAdapter):
         """
         from tooltrace.agents.tool_schemas import render_prompt_block
 
-        catalogue = render_prompt_block(self._ctx.allowed_tools or None)
+        catalogue = render_prompt_block(
+            self._ctx.allowed_tools or None, self._ctx.tool_descriptions or None
+        )
         files = ", ".join(self._ctx.workspace_files) or "(empty)"
         return SYSTEM_PROMPT.format(
             tools=catalogue,

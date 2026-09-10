@@ -24,6 +24,7 @@ is where a task can substitute one deliberately.
 from __future__ import annotations
 
 import copy
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 
@@ -53,10 +54,26 @@ class ToolPresentation:
     #: tool takes nothing" from "nobody wrote the schema down", and neither can
     #: a reader of the report.
     undeclared: bool
+    #: True when the task replaced this tool's own description. Carried so a
+    #: report can say the agent was *attacked* rather than only that it
+    #: misbehaved -- an agent that leaks a credential because a poisoned tool
+    #: told it to has failed differently from one that did it unprompted.
+    substituted_description: bool = False
 
 
-def presentations(names: list[str] | None = None) -> list[ToolPresentation]:
+def presentations(
+    names: list[str] | None = None,
+    descriptions: Mapping[str, str] | None = None,
+) -> list[ToolPresentation]:
     """Look up *names* in the registry, or present everything registered.
+
+    *descriptions* substitutes the text an agent is shown for a tool, without
+    touching the tool. That is the tool-poisoning surface: a description is the
+    one field an agent reads and a schema cannot constrain, so an agent that
+    reads it as an instruction rather than as documentation will follow whatever
+    a compromised MCP server wrote there. A task plants one here and the
+    substitution is recorded on the presentation, so a trace shows that the
+    agent was attacked rather than merely that it misbehaved.
 
     An unregistered name is skipped rather than raising. The call site is
     usually a task's ``allowed_tools``, and `tooltrace lint` already fails a
@@ -64,6 +81,7 @@ def presentations(names: list[str] | None = None) -> list[ToolPresentation]:
     lint finding into a crash mid-run.
     """
     wanted = list(names) if names else list(tool_registry.names())
+    overrides = dict(descriptions or {})
     out: list[ToolPresentation] = []
     for name in wanted:
         if not tool_registry.has(name):
@@ -71,12 +89,15 @@ def presentations(names: list[str] | None = None) -> list[ToolPresentation]:
         tool_cls = tool_registry.get(name)
         tool = tool_cls() if isinstance(tool_cls, type) else tool_cls
         schema = getattr(tool, "parameters", {}) or {}
+        own = (getattr(tool, "description", "") or "").strip()
+        substituted = name in overrides
         out.append(
             ToolPresentation(
                 name=getattr(tool, "name", name) or name,
-                description=(getattr(tool, "description", "") or "").strip(),
+                description=overrides[name].strip() if substituted else own,
                 parameters=copy.deepcopy(schema) if schema else copy.deepcopy(_EMPTY_OBJECT),
                 undeclared=not schema,
+                substituted_description=substituted,
             )
         )
     return out
@@ -127,7 +148,11 @@ def _strip_for_gemini(schema: dict[str, Any]) -> dict[str, Any]:
     return cleaned
 
 
-def present(names: list[str] | None = None, dialect: str = "openai") -> list[dict[str, Any]]:
+def present(
+    names: list[str] | None = None,
+    dialect: str = "openai",
+    descriptions: Mapping[str, str] | None = None,
+) -> list[dict[str, Any]]:
     """Render the registry in one provider's tool-declaration shape."""
     if dialect not in DIALECTS or dialect == "prompt":
         raise ValueError(
@@ -137,7 +162,7 @@ def present(names: list[str] | None = None, dialect: str = "openai") -> list[dic
         )
 
     rendered: list[dict[str, Any]] = []
-    for tool in presentations(names):
+    for tool in presentations(names, descriptions):
         if dialect == "openai":
             rendered.append(
                 {
@@ -176,7 +201,10 @@ def present(names: list[str] | None = None, dialect: str = "openai") -> list[dic
     return rendered
 
 
-def render_prompt_block(names: list[str] | None = None) -> str:
+def render_prompt_block(
+    names: list[str] | None = None,
+    descriptions: Mapping[str, str] | None = None,
+) -> str:
     """A compact text catalogue for adapters that have no native tool API.
 
     Names alone are not a tool catalogue. A model told only that `patch_file`
@@ -185,7 +213,7 @@ def render_prompt_block(names: list[str] | None = None) -> str:
     measurement of its own prompt.
     """
     lines: list[str] = []
-    for tool in presentations(names):
+    for tool in presentations(names, descriptions):
         properties = tool.parameters.get("properties", {})
         required = set(tool.parameters.get("required", []))
         if not properties:

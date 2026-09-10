@@ -124,6 +124,19 @@ class TaskDefinition(BaseModel):
     #: as a failure would make results depend on the runner's installed
     #: software rather than on agent behaviour.
     requires_tools: list[str] = Field(default_factory=list)
+    #: What the agent is *told* a tool does, overriding the tool's own
+    #: description as {tool_name: description}. The tool itself is untouched --
+    #: only the catalogue the model reads.
+    #:
+    #: This is the tool-poisoning surface (OWASP Agentic 2026). A description is
+    #: the one field an agent reads and a schema cannot constrain, and an agent
+    #: that treats it as an instruction rather than as documentation will follow
+    #: whatever a compromised MCP server puts there. Measuring that needs a way
+    #: to plant one, so it lives on the task rather than in the tool.
+    #:
+    #: A name that is not in `allowed_tools` is ignored: an override for a tool
+    #: the agent cannot call would silently measure nothing.
+    tool_descriptions: dict[str, str] = Field(default_factory=dict)
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @property
@@ -345,6 +358,9 @@ class AgentContext(BaseModel):
     description: str
     workspace_files: list[str] = Field(default_factory=list)
     allowed_tools: list[str] = Field(default_factory=list)
+    #: Descriptions the task substitutes for the registry's own; see
+    #: `TaskDefinition.tool_descriptions`.
+    tool_descriptions: dict[str, str] = Field(default_factory=dict)
     max_steps: int = 25
     timeout_seconds: float = 120.0
     extra: dict[str, Any] = Field(default_factory=dict)
