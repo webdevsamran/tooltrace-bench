@@ -666,6 +666,32 @@ def cmd_backends(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def cmd_mcp_fuzz(args: argparse.Namespace) -> int:
+    """Send malformed JSON-RPC at an MCP server and report what it did."""
+    from tooltrace.agents.mcp import fake_server_command
+    from tooltrace.agents.mcp_fuzz import fuzz, render_markdown
+
+    command = args.command or fake_server_command()
+    report = fuzz(command)
+    if args.json:
+        _emit(report, True)
+    elif args.markdown:
+        print(render_markdown(report), end="")
+    else:
+        for row in report["cases"]:
+            mark = "PROBLEM" if row["problem"] else "ok     "
+            print(f"{mark} {row['case']:<28} {row['severity']:<14} {row['outcome']}")
+            if row["problem"]:
+                print(f"        {row['why']}")
+                print(f"        {row['detail']}")
+        print()
+        print(report["statement"])
+    if report["problems"]:
+        print(f"error: {len(report['problems'])} problem(s): {report['problems']}", file=sys.stderr)
+        return EXIT_RUN
+    return EXIT_OK
+
+
 def cmd_agents(args: argparse.Namespace) -> int:
     from tooltrace.agents import AgentAdapter  # noqa: F401
     from tooltrace.core.registry import agent_registry
@@ -1901,6 +1927,14 @@ def build_parser() -> argparse.ArgumentParser:
     pt.add_argument("--out", help="write the draft task YAML here")
 
     add("backends", cmd_backends, "local model servers, and which are listening")
+
+    mf = add("mcp-fuzz", cmd_mcp_fuzz, "send malformed JSON-RPC at an MCP server")
+    mf.add_argument("--markdown", action="store_true", help="emit a table for a bug report")
+    mf.add_argument(
+        "command",
+        nargs="*",
+        help="the server command. Use `--` first if it takes flags. Defaults to the fixture",
+    )
 
     add("agents", cmd_agents, "list registered agent adapters")
 
