@@ -52,3 +52,26 @@ this is why v1-era results never silently blend into v2 rankings.
 - Any future breaking change will bump the schema version again and ship a
   new migration function plus invalidation/supersession records for affected
   published datasets.
+
+## Coming from another benchmark
+
+`tooltrace import` converts a record from SWE-bench, BFCL, tau-bench or
+AgentBench into a task here. **Every output is a draft**, and the loss report
+attached to it is more of the point than the conversion: a silently converted
+SWE-bench instance that scores 0.4 tells a reader nothing unless they know which
+half of the original grading survived.
+
+| Source | What converts | What does not |
+|---|---|---|
+| **SWE-bench** | The oracle. "Hidden tests pass" is the same shape as `tests_pass` | The repository. This sandbox is a temp workspace with declared files, not a checkout at a SHA, and nothing here will clone one. The FAIL_TO_PASS / PASS_TO_PASS split also collapses into one ratio |
+| **BFCL** | Nearly all of it. Its grading is a structural match on the emitted call, which is exactly `tool_call_match` | The workspace, because there never was one -- BFCL executes nothing. Its function catalogue is also not registered here, so every call fails as an unknown tool until someone maps them |
+| **tau-bench** | The first instruction and the final-state check | The simulated user, which is an LLM this project does not run. The converted task is **strictly easier** than the original |
+| **AgentBench** | The OS and DB environments | Everything else. The rest grade with a model judge or a bespoke checker, and are **refused** rather than approximated |
+
+That last row is the rule the module follows everywhere: an approximated oracle
+is a task that scores something nobody chose, and a refusal that shows up in the
+output is more useful than a task that runs and means nothing. A refused record
+is reported alongside the drafts rather than dropped, because a record that
+vanished would look like one that was never there.
+
+Nothing fetches anything. Each importer takes a record you already have.

@@ -79,6 +79,8 @@ whichever shell's quoting rules you are subject to.
 
 | Command | Purpose |
 |---|---|
+| `import --format swe-bench\|bfcl\|tau-bench\|agentbench --source FILE [--out DIR]` | Convert tasks from another benchmark into **drafts**. Every one of those measures something real and none measures what this project measures, so a converted task is not the original task -- what each conversion drops travels in the task's own metadata rather than being printed once. AgentBench environments graded by a model judge are refused rather than approximated: an approximated oracle is a task that scores something nobody chose |
+| `sample --source FILE [--out F] [--policy stratified\|uniform\|all] [--rate R] [--seed S]` | Choose which production traces to score. **Uniform is the usual default and the wrong one**: the thing worth finding is failure, failure is rare, and 1% of traffic yields 1% of the failures. Stratified keeps everything that already looks wrong -- which makes the sample deliberately biased, so the policy is written beside the traces and `estimate_rate` inverts the weights to recover the population figure. Selection is deterministic given the seed |
 | `ingest --format F --in FILE [--out JSONL] [--task-id ID] [--agent A] [--score-against TASK_ID]` | Convert external traces (OTel GenAI spans / OpenAI steps) into ToolTrace events, and optionally score the trajectory against a task's trace assertions; workspace assertions are reported as skipped |
 
 Ingested traces flow through `tooltrace trace`, replay and scoring unchanged — see

@@ -125,3 +125,51 @@ Two deliberate choices:
 - **`objective_is_within_interval`** says when the window cannot settle the
   question at all. Ten runs with no failures do not establish a 99% objective;
   the interval contains it, and the statement says so.
+
+## Sampling: which traces to score when you cannot score them all
+
+At a few thousand traces a day, scoring everything is a bill that arrives every
+day. Something has to choose, and the choice is where most of the damage in a
+production evaluation pipeline gets done.
+
+**Uniform random sampling is the usual default and the wrong one.** The thing
+worth finding is failure, and failure is rare. Sample 1% of traffic uniformly
+and you see 1% of the failures: a class that happens twice a week becomes a
+class you see roughly once a year, and every review meeting looks at a sample in
+which everything worked.
+
+The default here is stratified:
+
+| Stratum | Kept | Why |
+|---|---|---|
+| `errored` | 100% | What the pipeline exists to find, and rare enough that sampling it at all loses most of it |
+| `long` | 25% | More than 25 steps. An agent that took forty steps to *succeed* has a problem the success rate cannot see |
+| `clean` | 1% | For a baseline, not for discovery |
+
+### The correction is the feature
+
+A stratified sample is **biased on purpose**, and any rate computed directly
+from it is a statement about the sampling policy rather than about the agent. On
+a population with a 2% failure rate, a sample that keeps every error reads at
+around 70%.
+
+`estimate_rate` inverts the sampling weights and recovers the population figure.
+It uses the **realised** rate per stratum rather than the requested one -- with a
+small population they differ, and projecting from a rate that was never taken
+would be arithmetic about an intention. It also reports how many scored traces
+each stratum's contribution rests on: a stratum sampled down to three traces
+contributes an estimate wide enough to swallow the answer, and that is said
+rather than averaged in silently.
+
+### Determinism
+
+Selection is a hash of the trace id and the seed, not a draw from a random
+number generator. A sequence-dependent draw would make the sample depend on the
+order traces arrived in, so a re-run that processed them differently would keep
+a different set -- which would quietly make a sampled evaluation unreproducible.
+
+A trace with no id is kept rather than dropped: losing one because it was
+missing a field would bias the sample in a direction nobody chose.
+
+When `--out` is given, the policy is written beside the sample. A kept subset on
+its own is a file nobody can correct for later.

@@ -449,11 +449,65 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, { error: E
 }
 
 /** Banner shown when the browser reports offline connectivity. */
-export function OfflineBanner({ online }: { online: boolean }) {
+/**
+ * When the cached data on screen was produced, fetched only while offline.
+ *
+ * Deliberately not read in the app shell. A fetch there would couple every
+ * page to it, and it would run on every visit to pay for a banner most people
+ * never see. Here it costs nothing until the browser says the network is gone,
+ * at which point the service worker answers from cache.
+ */
+function useGeneratedAt(enabled: boolean): string | null {
+  const [generatedAt, setGeneratedAt] = _useState<string | null>(null)
+  _useEffect(() => {
+    if (!enabled) return
+    let alive = true
+    import('./api')
+      .then((api) => api.getIndex())
+      .then((index) => {
+        if (alive) setGeneratedAt(index.generated_at ?? null)
+      })
+      // Nothing cached and no network: the banner then says the age is
+      // unknown, which is the truth rather than a silent omission.
+      .catch(() => undefined)
+    return () => {
+      alive = false
+    }
+  }, [enabled])
+  return generatedAt
+}
+
+export function OfflineBanner({
+  online,
+  generatedAt: provided,
+}: {
+  online: boolean
+  /**
+   * When the data on screen was produced. The single most important thing to
+   * say offline: a reliability figure looks exactly the same whether it was
+   * fetched a second ago or a month ago, and a reader of a cached dashboard has
+   * no other way to tell. "You are offline" alone leaves them to assume the
+   * numbers are current.
+   *
+   * Passed in by a test; otherwise looked up while offline.
+   */
+  generatedAt?: string | null
+}) {
+  const looked = useGeneratedAt(!online && provided === undefined)
+  const generatedAt = provided ?? looked
   if (online) return null
   return (
     <div className="offline-banner" role="status">
-      You are offline — showing cached/static data. Live server features are unavailable.
+      You are offline — showing cached data
+      {generatedAt ? (
+        <>
+          {' '}
+          generated <time dateTime={generatedAt}>{generatedAt.slice(0, 10)}</time>
+        </>
+      ) : (
+        <> of unknown age</>
+      )}
+      . Live server features are unavailable, and nothing here has been refreshed since.
     </div>
   )
 }
