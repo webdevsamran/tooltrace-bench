@@ -6,6 +6,47 @@ versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+- **The leaderboard could not tell Qwen from Llama.** It grouped runs by adapter
+  name, which is fine while every agent is a different adapter and wrong the
+  moment anybody benchmarks local models: `openai_compat` drives Ollama,
+  llama.cpp, LM Studio, vLLM and SGLang, so a sweep across five models produced
+  **one row named `openai_compat`** whose success rate was the average of five
+  different models. The local-model presets shipped earlier in this cycle made
+  that the expected case rather than a corner one.
+
+  A competitor is now the adapter *and* the model. A run that declares no model
+  keeps the bare adapter name rather than acquiring an invented one -- appending
+  "(unknown)" to every scripted run would be noise, and pretending a model was
+  declared would be worse. The published rows carry both parts as well as the
+  label, so a view can group by either without re-parsing a display string.
+
+  The cost-accuracy frontier reads the same identity. Two views that disagreed
+  about who the competitors are would put an agent on the frontier that the
+  leaderboard does not list, and a test now pins that they agree.
+
+### Added
+- **A merge-queue reliability gate.** `pr-reliability.yml` compares a pull
+  request against its own merge base, which is the right question for review and
+  the wrong one at merge time: a queue batches several approved changes and
+  merges the **combination**, and two changes that are each harmless can be a
+  regression together. Nothing checked that combination until it was already on
+  the default branch.
+
+  A queue gate has one failure mode that matters more than any bug in it -- being
+  turned off -- so four decisions are about surviving its first week. It sweeps
+  the batch and the default branch in the same job on the same runner, because a
+  baseline recorded on another machine carries that machine's latency. It gates
+  on behaviour and token count, **not wall-clock**, since blocking a merge on a
+  noisy neighbour is exactly how a gate gets removed. It blocks only on an
+  *established* regression, because a queue that stalls on absent evidence is one
+  somebody switches off. And a crashed gate blocks too: a gate that cannot tell
+  "the code got worse" from "the gate crashed" would let the second one through.
+
+  A batch is never cancelled by the next one. Two batches are two different
+  combinations, and cancelling one would leave it ungated -- which is the exact
+  case the workflow exists for.
+
 ### Added
 - **The dashboard works offline, and says how old what you are reading is.** It
   was already static-first -- it reads pre-generated JSON, so there is nothing to

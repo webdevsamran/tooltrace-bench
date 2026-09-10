@@ -46,6 +46,22 @@ RESULTS = ROOT / "results"
 WEB_PUBLIC = ROOT / "web" / "public"
 
 
+def _identity(result) -> str:
+    """What the leaderboard treats as one competitor.
+
+    The adapter name alone is wrong: `openai_compat` drives Ollama, llama.cpp,
+    LM Studio, vLLM and SGLang, so every local model in a sweep landed on one
+    row named after the adapter. The model is the thing being compared.
+
+    A run that declares no model keeps the bare adapter name rather than
+    acquiring an invented one -- "(unknown)" appended to every scripted run
+    would be noise, and pretending a model was declared would be worse.
+    """
+    config = result.agent_config or {}
+    model = str(config.get("model") or "").strip()
+    return f"{result.agent} · {model}" if model else str(result.agent)
+
+
 def generated_at_stamp(results_rows: list[dict]) -> str:
     return max((r["created_at"] for r in results_rows), default="")
 
@@ -213,7 +229,11 @@ def main() -> int:
                 "perturbations": [],
             },
         )
-        per_agent[result.agent].append(result)
+        # Keyed by adapter *and* model, not adapter alone. Five local models
+        # all run through `openai_compat`, so grouping by adapter collapsed
+        # them into a single leaderboard row named after the adapter -- a
+        # leaderboard that cannot tell Qwen from Llama is not a leaderboard.
+        per_agent[_identity(result)].append(result)
         verified_bundles.append(bundle)
         try:
             metadata_by_task.setdefault(result.task_id, dict(load_bundle_task(bundle).metadata))
@@ -243,6 +263,10 @@ def main() -> int:
         agents_rows.append(
             {
                 "name": agent,
+                # The parts as well as the label, so a view can group by either
+                # without re-parsing a display string.
+                "adapter": rs[0].agent,
+                "model": (rs[0].agent_config or {}).get("model") or None,
                 "runs": len(rs),
                 "success_rate": sum(1 for r in rs if r.success) / len(rs),
                 "mean_score": sum(r.score.total for r in rs) / len(rs),
@@ -289,6 +313,9 @@ def main() -> int:
     # axes at once -- could be computed and never asked. Unpriced agents are
     # carried as points and excluded from the frontier, because a frontier that
     # silently ranked an unpriced agent as cheapest would be worse than none.
+    # The same identity the leaderboard uses. Two views that disagree about who
+    # the competitors are would put an agent on the frontier that the
+    # leaderboard does not list.
     points = cost_accuracy_points(
         {agent: [r.model_dump(mode="json") for r in rs] for agent, rs in per_agent.items()}
     )
