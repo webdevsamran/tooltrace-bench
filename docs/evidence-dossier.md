@@ -125,3 +125,91 @@ with named gaps cannot be summarised into a grade, which is the point.
 Run against this repository's own bundles it currently fails four of seven
 checks, including "reproduced by someone else". An audit that passes its author's
 own evidence is not an audit.
+
+## Other control sets: NIST AI RMF and ISO/IEC 42001
+
+`--framework nist-ai-rmf` and `--framework iso-42001` re-file the **same facts**
+in another vocabulary. Nothing is re-derived: two mappings of one run set that
+could disagree would be the failure a mapping exists to prevent.
+
+Every mapping reports three states, and the third is the reason the feature
+exists:
+
+| State | Meaning |
+|---|---|
+| `evidenced` | These runs provide evidence for this control |
+| `not_run` | This project could evidence it and these runs did not |
+| `out_of_scope` | **No benchmark can evidence it**, ever |
+
+A mapping that quietly listed only the controls it could reach would read, to a
+reviewer skimming a table, as a project that covers NIST AI RMF. It does not and
+it cannot:
+
+- **NIST AI RMF.** GOVERN is organisational in its entirety -- policies,
+  accountability, culture -- and no run evidences a policy. MAP is about context
+  and intended use, which is a property of your deployment. MEASURE is where a
+  benchmark lives, and it covers some categories there and not others. MANAGE is
+  about what you *do* with a finding.
+- **ISO/IEC 42001.** It certifies a *management system*. Clauses 4-10 are
+  leadership, planning, competence and continual improvement, and no evaluation
+  output speaks to them. What a harness contributes is evidence for a handful of
+  Annex A controls, which an auditor reads alongside everything else. This is not
+  a certification and cannot be presented as progress toward one.
+
+## When each obligation became evidenceable
+
+`--history` answers a narrower question than the changelog: from which release
+could this tool speak to a given obligation *at all*? A dossier produced before
+a capability shipped is silent on that obligation for a reason that has nothing
+to do with the agent, and a reviewer cannot otherwise tell the two apart.
+
+Releases that added nothing are listed too. Omitting them would make the record
+read as steady regulatory progress rather than as a record. The list is
+machine-checked against `CHANGELOG.md` in both directions -- a regulatory
+document that has quietly drifted from the release history is worse than none,
+because it is the one a reviewer would trust.
+
+Becoming *able to evidence* an obligation is not satisfying it, and the output
+says so.
+
+## Before you share a bundle: `tooltrace redaction`
+
+Sharing a trace means sharing whatever the agent read and wrote. The report says
+what was removed on capture, what personal-data shapes survive, and -- at the
+same prominence -- two things it will not say:
+
+**A clean scan is not proof of absence.** Every detector matches a *shape*. An
+email address has one. A person's name does not, and neither does a sentence
+about them, and neither does a medical record number that looks like an order
+id. "No PII found" would be read as "safe to publish" and would be wrong in
+exactly the cases that matter most. The `safe_to_publish` field is `null`,
+deliberately, and the categories with no shape are listed by name in every
+output.
+
+**It is not differential privacy.** DP means calibrated noise under an epsilon
+budget. A bundle's entire value is that a third party can reproduce it byte for
+byte and get the same checksums; noise would break the reproduction the artifact
+exists to support. The two properties are in direct conflict, so this does
+redaction and says so rather than borrowing a word that implies a guarantee.
+
+Personal-data findings never fail the command -- whether an email address in a
+trace is a problem depends on whose it is and where the bundle is going, and a
+tool that refused to proceed would be making that call for the publisher. A
+*secret* still matching after sanitisation does fail it, with exit code 9,
+because that is a defect in the sanitiser rather than a property of the run.
+
+## Auditor mode
+
+An external reviewer needs to see the evidence, must not be able to change it,
+must lose access when the audit ends, and must be able to tell -- as must anyone
+they show a screenshot to -- that they were looking at a shared view.
+`auditor_grant` issues exactly that: a read-only role, an absolute expiry the
+token store enforces, and a watermark carried **on the token** so every response
+served under it can include it. A watermark applied at render time is one
+somebody can render without.
+
+The fix underneath was that expiry had never been enforced at all. The store
+recorded `expires_hint_days` and `verify` returned the record whatever its age,
+so every token this server ever issued was permanent. A grant "for the duration
+of the audit" that outlives the audit is how a temporary reviewer becomes a
+permanent one, and the field name made it look deliberate.

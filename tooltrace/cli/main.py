@@ -37,6 +37,10 @@ EXIT_TASK = 3
 EXIT_AGENT = 4
 EXIT_RUN = 5
 EXIT_REGRESSION = 8
+#: Mirrors `SecretScanError.exit_code`, which the module docstring and
+#: `docs/cli-reference.md` have both documented since before any CLI command
+#: could return it.
+EXIT_SECRETS = 9
 
 
 def _emit(data: object, as_json: bool) -> None:
@@ -1955,6 +1959,69 @@ def cmd_ingest(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def _expand_bundles(patterns: list[str]) -> list[Path]:
+    """Bundle directories from a mix of bundle paths and containing directories.
+
+    A `.tooltrace` bundle *is* a directory, so "is it a directory" cannot
+    distinguish a bundle from a folder of bundles. The old test was exactly
+    that, which meant naming a single bundle globbed inside it, found nothing,
+    and reported "no .tooltrace bundles found" -- for a bundle that was sitting
+    right there. What separates the two is the manifest.
+    """
+    bundles: list[Path] = []
+    for pattern in patterns:
+        path = Path(pattern)
+        if not path.is_dir():
+            continue
+        # A manifest, or the name. Either alone is enough on purpose: a bundle
+        # whose manifest is missing is corrupt, and silently skipping it would
+        # hide that. Picked up here, it is reported as unreadable instead --
+        # vanishing from a count is the worse failure of the two.
+        if (path / "manifest.json").is_file() or path.name.endswith(".tooltrace"):
+            bundles.append(path)
+        else:
+            bundles.extend(b for b in sorted(path.glob("*.tooltrace")) if b.is_dir())
+    return bundles
+
+
+def cmd_redaction(args: argparse.Namespace) -> int:
+    """What a bundle had removed, what shapes remain, and what nobody can certify.
+
+    Exits non-zero only when a *secret* pattern still matches after
+    sanitisation, which is a defect in the sanitiser. Personal-data shapes are
+    reported and never fail: whether an email address in a trace is a problem
+    depends on whose it is and where the bundle is going, and a tool that
+    refused to proceed would be making that call for the publisher.
+    """
+    from tooltrace.runners.runner import _now_iso
+    from tooltrace.security.redaction import certificate, render_markdown, write_record
+
+    bundles = _expand_bundles(args.bundles)
+    if not bundles:
+        print("error: no .tooltrace bundles found", file=sys.stderr)
+        return EXIT_USAGE
+
+    record = certificate(bundles, generated_at=_now_iso())
+    if args.out:
+        for path in write_record(record, Path(args.out)):
+            print(f"wrote {path}")
+
+    if args.json:
+        _emit(record, True)
+    else:
+        print(render_markdown(record), end="")
+
+    residual = [b["bundle"] for b in record["bundles"] if b.get("residual_secret_classes")]
+    if residual:
+        print(
+            f"error: {len(residual)} bundle(s) still match a secret pattern after "
+            f"sanitisation: {residual}",
+            file=sys.stderr,
+        )
+        return EXIT_SECRETS
+    return EXIT_OK
+
+
 def cmd_evidence(args: argparse.Namespace) -> int:
     """Assemble an evidence dossier from bundles for a regulated review.
 
@@ -1966,13 +2033,11 @@ def cmd_evidence(args: argparse.Namespace) -> int:
     machine produced it would lend it unearned authority.
     """
     from tooltrace.analysis.evidence import build_dossier, render_markdown, verify_chain
+    from tooltrace.analysis.frameworks import map_controls, regulatory_changelog
+    from tooltrace.analysis.frameworks import render_markdown as render_framework
     from tooltrace.runners.runner import _now_iso
 
-    bundles: list[Path] = []
-    for pattern in args.bundles:
-        path = Path(pattern)
-        bundles.extend(sorted(path.glob("*.tooltrace")) if path.is_dir() else [path])
-    bundles = [b for b in bundles if b.is_dir()]
+    bundles = _expand_bundles(args.bundles)
     if not bundles:
         print("error: no .tooltrace bundles found", file=sys.stderr)
         return EXIT_USAGE
@@ -1988,11 +2053,27 @@ def cmd_evidence(args: argparse.Namespace) -> int:
         print(f"error: the dossier's own hash chain does not verify: {problems}", file=sys.stderr)
         return EXIT_RUN
 
+    # The same facts, re-filed against whichever control set the reviewer asked
+    # for. Re-deriving them per framework would let two mappings of one run set
+    # disagree, which is the failure a mapping exists to prevent.
+    mappings = [map_controls(name, dossier["runs"]) for name in (args.framework or [])]
+    # When each obligation first became evidenceable at all. A dossier produced
+    # before a capability shipped is silent on that obligation for a reason
+    # that has nothing to do with the agent, and a reviewer cannot tell the two
+    # apart without this.
+    history = regulatory_changelog() if args.history else None
+
     if args.out:
         out = Path(args.out)
         out.mkdir(parents=True, exist_ok=True)
         (out / "evidence.json").write_text(json.dumps(dossier, indent=2), encoding="utf-8")
-        (out / "evidence.md").write_text(render_markdown(dossier), encoding="utf-8")
+        markdown = render_markdown(dossier)
+        for mapping in mappings:
+            (out / f"{mapping['framework']}.json").write_text(
+                json.dumps(mapping, indent=2), encoding="utf-8"
+            )
+            markdown += chr(10) + render_framework(mapping)
+        (out / "evidence.md").write_text(markdown, encoding="utf-8")
 
     unverified = [r["bundle"] for r in dossier["runs"] if not r["verified"]]
     if unverified:
@@ -2016,6 +2097,15 @@ def cmd_evidence(args: argparse.Namespace) -> int:
                 }
                 for o in dossier["obligations"]
             ],
+            "frameworks": [
+                {
+                    "framework": m["framework"],
+                    "counts": m["counts"],
+                    "statement": m["statement"],
+                }
+                for m in mappings
+            ],
+            "regulatory_changelog": history,
             "out": str(args.out) if args.out else None,
             "is_compliance_determination": False,
         },
@@ -2454,9 +2544,30 @@ def build_parser() -> argparse.ArgumentParser:
         help="command that starts the MCP server over stdio; put `--` first if it takes flags, e.g. `mcp-conformance -- python -m my_server` (default: the bundled deterministic fixture)",
     )
 
+    rd = add("redaction", cmd_redaction, "what a bundle had removed, and what shapes remain")
+    rd.add_argument(
+        "--bundles", nargs="+", required=True, help="bundle dirs or a directory of them"
+    )
+    rd.add_argument("--out", help="write redaction.json and redaction.md here")
+
     ev = add("evidence", cmd_evidence, "assemble an evidence dossier from bundles")
     ev.add_argument(
         "--bundles", nargs="+", required=True, help="bundle dirs or a directory of them"
+    )
+    ev.add_argument(
+        "--framework",
+        action="append",
+        choices=["nist-ai-rmf", "iso-42001"],
+        help=(
+            "also file the same evidence against another control set. Repeatable. "
+            "Every mapping lists the controls no benchmark can evidence, so a partial "
+            "mapping is never read as coverage"
+        ),
+    )
+    ev.add_argument(
+        "--history",
+        action="store_true",
+        help="when each obligation first became evidenceable, release by release",
     )
     ev.add_argument("--out", help="write evidence.json and evidence.md here")
 

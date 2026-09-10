@@ -27,6 +27,7 @@ import threading
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
@@ -38,9 +39,23 @@ from tooltrace.tasks.governance import utc_now_iso
 # RBAC (features 105, 106, 108)
 # ---------------------------------------------------------------------------
 
-ROLES = ("viewer", "runner", "task_author", "reviewer", "admin", "service_account")
+ROLES = (
+    "viewer",
+    "auditor",
+    "runner",
+    "task_author",
+    "reviewer",
+    "admin",
+    "service_account",
+)
 ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
     "viewer": frozenset({"read_public", "read_results"}),
+    # Read-only like a viewer, and a separate role rather than a reuse of one.
+    # An auditor's grant is time-boxed and watermarked, and both of those are
+    # properties of the *grant*; keeping the role distinct is what lets a
+    # response say which it is, and what lets an access log answer "who saw
+    # this, under whose authority, and when did that end".
+    "auditor": frozenset({"read_public", "read_results", "read_evidence"}),
     "runner": frozenset({"read_public", "read_results", "run_experiments"}),
     "task_author": frozenset({"read_public", "read_results", "run_experiments", "author_tasks"}),
     "reviewer": frozenset(
@@ -50,6 +65,7 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
         {
             "read_public",
             "read_results",
+            "read_evidence",
             "run_experiments",
             "author_tasks",
             "review_publication",
@@ -74,20 +90,47 @@ class User:
 
 class TokenStore:
     """API tokens stored hashed (sha256); rotation metadata kept; raw token is
-    shown exactly once at creation."""
+    shown exactly once at creation.
 
-    def __init__(self) -> None:
+    **Expiry is enforced, not hinted.** This stored `expires_hint_days` and
+    `verify` returned the record whatever its age, so every token this server
+    ever issued was permanent. That is a defect rather than an unwired field: a
+    time-boxed grant that never ends is the opposite of what the caller asked
+    for, and an auditor link is the case where it matters most.
+
+    The clock is injectable so an expiry can be tested without waiting a day
+    and without a test that passes only until it does not.
+    """
+
+    def __init__(self, now: Callable[[], datetime] | None = None) -> None:
         self._hashes: dict[str, dict[str, Any]] = {}
+        self._now = now or (lambda: datetime.now(UTC))
 
-    def issue(self, owner: str, workspace_id: str, scopes: list[str], ttl_days: int = 90) -> str:
+    def issue(
+        self,
+        owner: str,
+        workspace_id: str,
+        scopes: list[str],
+        ttl_days: int = 90,
+        *,
+        watermark: str | None = None,
+    ) -> str:
         raw = "ttk_" + secrets.token_urlsafe(24)
         digest = hashlib.sha256(raw.encode()).hexdigest()
+        issued = self._now()
         self._hashes[digest] = {
             "owner": owner,
             "workspace_id": workspace_id,
             "scopes": scopes,
-            "issued_at": utc_now_iso(),
-            "expires_hint_days": ttl_days,
+            "issued_at": issued.isoformat(),
+            # An absolute instant, not a duration. A duration has to be added to
+            # something at read time, and the something is what gets forgotten.
+            "expires_at": (issued + timedelta(days=ttl_days)).isoformat(),
+            "ttl_days": ttl_days,
+            # Travels with the token so every response served under it can say
+            # who it was issued to. A watermark applied at render time is a
+            # watermark somebody can render without.
+            "watermark": watermark,
             "rotated_from": None,
         }
         return raw
@@ -98,14 +141,43 @@ class TokenStore:
         old = hashlib.sha256(raw_token.encode()).hexdigest()
         if old not in self._hashes:
             return None
-        new_raw = self.issue(owner, workspace_id, scopes)
+        previous = self._hashes[old]
+        # The watermark survives rotation. Losing it would turn a watermarked
+        # auditor grant into an anonymous one by rotating it, which is the one
+        # operation an auditor can perform on their own token.
+        new_raw = self.issue(
+            owner,
+            workspace_id,
+            scopes,
+            ttl_days=int(previous.get("ttl_days", 90)),
+            watermark=previous.get("watermark"),
+        )
         digest = hashlib.sha256(new_raw.encode()).hexdigest()
         self._hashes[digest]["rotated_from"] = old[:12]
         del self._hashes[old]
         return new_raw
 
     def verify(self, raw_token: str) -> dict[str, Any] | None:
-        return self._hashes.get(hashlib.sha256(raw_token.encode()).hexdigest())
+        """The token's record, or None when it is unknown **or expired**."""
+        record = self._hashes.get(hashlib.sha256(raw_token.encode()).hexdigest())
+        if record is None:
+            return None
+        if self.expired(record):
+            return None
+        return record
+
+    def expired(self, record: dict[str, Any]) -> bool:
+        raw = record.get("expires_at")
+        if not isinstance(raw, str) or not raw:
+            # A record without an expiry predates enforcement. Treated as live
+            # rather than dead: silently revoking every existing token would be
+            # a worse failure than the one being fixed.
+            return False
+        try:
+            expires = datetime.fromisoformat(raw)
+        except ValueError:
+            return False
+        return self._now() >= expires
 
 
 def authorize(user: User, permission: str, workspace_id: str) -> bool:
@@ -390,6 +462,78 @@ def _token_user(raw_token: str) -> User | None:
     return STATE.users.get(info["owner"])
 
 
+def _token_watermark(raw_token: str | None) -> str | None:
+    """The watermark on the grant a request arrived under, if any."""
+    if not raw_token:
+        return None
+    info = STATE.tokens.verify(raw_token)
+    return str(info["watermark"]) if info and info.get("watermark") else None
+
+
+def auditor_grant(
+    store: TokenStore,
+    users: dict[str, User],
+    *,
+    auditor_name: str,
+    workspace_id: str,
+    issued_by: str,
+    ttl_days: int = 14,
+) -> dict[str, Any]:
+    """A read-only, time-boxed, watermarked grant for an external reviewer.
+
+    Three properties, and each exists because of how this normally goes wrong.
+
+    **Read-only** by role rather than by convention: an auditor holds no
+    permission that writes, so a mistake cannot become a change to the thing
+    under review.
+
+    **Time-boxed** by an absolute instant the store enforces. A grant "for the
+    duration of the audit" that outlives it is how a temporary reviewer becomes
+    a permanent one, and this store previously stored the duration as a *hint*
+    and honoured it never.
+
+    **Watermarked** with who it was issued to, by whom, and when. It rides on
+    the token, so every response served under it can carry it -- a watermark
+    applied at render time is one somebody can render without.
+
+    The raw token is returned exactly once, like every other token here.
+    """
+    user_id = f"auditor:{auditor_name}"
+    watermark = (
+        f"Issued to {auditor_name} by {issued_by} on {utc_now_iso()}; expires in {ttl_days}d"
+    )
+    users[user_id] = User(
+        user_id=user_id,
+        display_name=f"{auditor_name} (auditor)",
+        role="auditor",
+        workspace_id=workspace_id,
+    )
+    raw = store.issue(
+        owner=user_id,
+        workspace_id=workspace_id,
+        scopes=sorted(ROLE_PERMISSIONS["auditor"]),
+        ttl_days=ttl_days,
+        watermark=watermark,
+    )
+    record = store.verify(raw)
+    assert record is not None  # just issued
+    return {
+        "token": raw,
+        "user_id": user_id,
+        "role": "auditor",
+        "scopes": record["scopes"],
+        "issued_at": record["issued_at"],
+        "expires_at": record["expires_at"],
+        "watermark": watermark,
+        "statement": (
+            f"Read-only access for {auditor_name}, expiring {record['expires_at']}. "
+            "The token is shown once. Every response served under it carries the "
+            "watermark above, and the grant stops working at that instant rather "
+            "than relying on anyone to revoke it."
+        ),
+    }
+
+
 ROUTES: dict[
     tuple[str, str], Callable[[dict[str, Any], User | None], tuple[int, dict[str, Any]]]
 ] = {}
@@ -518,11 +662,8 @@ def make_handler() -> type[BaseHTTPRequestHandler]:
                 return
             path = self.path.split("?")[0]
             auth = self.headers.get("Authorization", "")
-            user = (
-                _token_user(auth.removeprefix("Bearer ").strip())
-                if auth.startswith("Bearer ")
-                else None
-            )
+            token = auth.removeprefix("Bearer ").strip() if auth.startswith("Bearer ") else None
+            user = _token_user(token) if token else None
             # dynamic segment: /api/v1/approvals/{id}/decide
             key = (method, path)
             if key not in ROUTES and path.endswith("/decide"):
@@ -535,13 +676,22 @@ def make_handler() -> type[BaseHTTPRequestHandler]:
                 self._send_json(404, {"error": "not found"})
                 return
             status, payload = handler(body, user)
-            self._send_json(status, payload)
+            self._send_json(status, payload, watermark=_token_watermark(token))
 
-        def _send_json(self, status: int, payload: dict[str, Any]) -> None:
+        def _send_json(
+            self, status: int, payload: dict[str, Any], *, watermark: str | None = None
+        ) -> None:
+            # In the body as well as a header. A client that renders the body
+            # and ignores headers -- which is most of them -- would otherwise
+            # display an auditor's view with nothing marking it as one.
+            if watermark:
+                payload = {**payload, "watermark": watermark}
             data = json.dumps(payload).encode()
             self.send_response(status)
             self.send_header("Content-Type", "application/json")
             self.send_header("Content-Length", str(len(data)))
+            if watermark:
+                self.send_header("X-ToolTrace-Watermark", watermark)
             self.end_headers()
             self.wfile.write(data)
 
