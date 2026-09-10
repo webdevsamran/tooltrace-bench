@@ -720,6 +720,64 @@ def cmd_a2a_card(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def cmd_mcp_scan(args: argparse.Namespace) -> int:
+    """Score many MCP servers at once.
+
+    `--from` reads a local file you wrote, whose entries may name a command.
+    `--registry` fetches a list over the network, whose entries may not: running
+    a command string that arrived from a server on the internet is remote code
+    execution, and a reputable registry changes only how likely that is to be
+    abused today. A fetched entry carrying a command is reported as skipped with
+    the reason, because a silent drop reads as a pass.
+    """
+    from tooltrace.agents.mcp_scan import (
+        LOCAL,
+        REMOTE,
+        render_markdown,
+        scan,
+        targets_from_registry,
+    )
+
+    if args.registry:
+        import httpx
+
+        try:
+            response = httpx.get(args.registry, timeout=30.0)
+            response.raise_for_status()
+            payload = response.json()
+        except Exception as exc:
+            print(f"error: could not read {args.registry}: {exc}", file=sys.stderr)
+            return EXIT_RUN
+        targets, origin = targets_from_registry(payload), REMOTE
+    else:
+        path = Path(args.from_file)
+        if not path.is_file():
+            print(f"error: no such file: {path}", file=sys.stderr)
+            return EXIT_TASK
+        loaded = json.loads(path.read_text(encoding="utf-8"))
+        targets = loaded if isinstance(loaded, list) else loaded.get("servers", [])
+        origin = LOCAL
+
+    if not targets:
+        print("error: no servers to scan", file=sys.stderr)
+        return EXIT_USAGE
+
+    report = scan(targets, origin)
+    if args.json:
+        _emit(report, True)
+    elif args.markdown:
+        print(render_markdown(report), end="")
+    else:
+        for row in report["results"]:
+            mark = "ok     " if row["ok"] else "PROBLEM"
+            print(f"{mark} {row['name']:<40} {len(row['problems'])} problem(s)")
+        for skipped in report["skipped"]:
+            print(f"skipped {skipped['name']:<40} {skipped['reason']}")
+        print()
+        print(report["statement"])
+    return EXIT_OK if report["ok"] else EXIT_RUN
+
+
 def cmd_mcp_versions(args: argparse.Namespace) -> int:
     """Which MCP protocol revisions a server implements, and whether it checks."""
     from tooltrace.agents.mcp import fake_server_command
@@ -2072,6 +2130,20 @@ def build_parser() -> argparse.ArgumentParser:
         action="append",
         help="verification key as KID=SECRET, supplied by you and never read from the card",
     )
+
+    ms = add("mcp-scan", cmd_mcp_scan, "score many MCP servers at once")
+    source = ms.add_mutually_exclusive_group(required=True)
+    source.add_argument(
+        "--from",
+        dest="from_file",
+        help="a JSON file of servers you wrote. Only this source may name a command to run",
+    )
+    source.add_argument(
+        "--registry",
+        help="fetch a server list over HTTP. URL targets only -- a command from a registry "
+        "is not executed",
+    )
+    ms.add_argument("--markdown", action="store_true", help="emit a table")
 
     mv = add("mcp-versions", cmd_mcp_versions, "which MCP revisions a server implements")
     mv.add_argument("--markdown", action="store_true", help="emit a table for a bug report")

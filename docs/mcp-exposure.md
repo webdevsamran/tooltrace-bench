@@ -187,3 +187,30 @@ same handshake as the stdio one, in both reply styles, and its SSE mode sends
 that leading notification deliberately. A fixture that only ever sends the happy
 shape proves the client handles the happy shape. It binds to `127.0.0.1` on an
 ephemeral port and has no setting that would change either.
+
+## Scanning many servers, and the one thing a scanner must not do
+
+`mcp-scan` runs conformance, the version matrix and the fuzzer against every
+server in a list and ranks the results worst-first. None of the checks are new;
+the value is comparative, and a table sorted by name buries the row anybody
+needed to see.
+
+A target names either a `url` or a `command`, and a command is **executed**. So
+the source of the list decides what it is allowed to contain:
+
+| Source | May name a URL | May name a command |
+|---|---|---|
+| `--from FILE` (written by you, on this machine) | yes | yes |
+| `--registry URL` (fetched over the network) | yes | **no** |
+
+Running a command string that arrived from a server on the internet is remote
+code execution with a progress bar. That the registry is a reputable one changes
+how likely the abuse is today, not what the code does.
+
+The refusal is loud. A fetched entry carrying a command is reported as skipped,
+with the reason, and the summary says that skipped is not the same as passing --
+because a silently dropped entry reads as a server that behaved.
+
+Fuzzing is stdio-only, and the report says so rather than leaving a blank. The
+malformed cases send raw bytes; an HTTP transport reframes every message, so
+running them over HTTP would test `httpx` rather than the server.

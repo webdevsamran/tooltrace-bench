@@ -7,6 +7,23 @@ versioning follows [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- **`tooltrace mcp-scan`: score many servers at once.** Conformance, the protocol
+  version matrix and the fuzzer against every server in a list, ranked
+  worst-first -- a table sorted by name buries the row anybody needed to see.
+
+  **A `command` may only come from a file on this machine.** A registry fetched
+  over the network contributes URL targets and nothing else: executing a command
+  string that arrived from a server on the internet is remote code execution with
+  a progress bar, and the registry being a reputable one changes how likely that
+  is to be abused today, not what the code does. A fetched entry naming a command
+  is reported as skipped with the reason, and the summary says skipped is not the
+  same as passing -- a silent drop reads as a server that behaved.
+
+  Fuzzing is stdio-only and the report says so rather than leaving a blank: the
+  malformed cases send raw bytes, and an HTTP transport reframes every message,
+  so running them over HTTP would test `httpx` rather than the server.
+
+### Added
 - **Native `anthropic` and `gemini` adapters.** Adapters rather than presets,
   because neither API is reachable through `openai_compat`: Anthropic puts the
   system prompt at the top level, requires `max_tokens`, carries its version in a

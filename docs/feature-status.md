@@ -174,6 +174,7 @@ and a row claiming a task pack has to have that pack on disk.
 | 75ba | MCP transport coverage: stdio, HTTP and streamable HTTP | I | `tooltrace/agents/mcp_transports.py` (`StdioTransport`, `HttpTransport`), `tooltrace/agents/mcp_http_fixture.py` |
 | 75bb | A2A Agent Card conformance and signature verification | I | `tooltrace/agents/a2a.py` (`card_conformance`, `signature_report`), `tooltrace/cli/main.py` (`cmd_a2a_card`) |
 | 75bc | Native Anthropic and Gemini adapters on a shared chat loop | E | `tooltrace/agents/anthropic.py`, `tooltrace/agents/gemini.py`, `tooltrace/agents/chat_base.py` (`ChatProtocolAgent`) |
+| 75bd | Batch MCP server scanning with a no-remote-execution boundary | I | `tooltrace/agents/mcp_scan.py` (`scan`, `targets_from_registry`), `tooltrace/cli/main.py` (`cmd_mcp_scan`) |
 | 76 | Failure clustering (deterministic vectors; semantic labeled) | I | `tooltrace/analysis/core.py` (`cluster_failures`) |
 | 77 | Root-cause drill-down aggregate → trace/assertion | I | `tooltrace/analysis/failures.py` (`Classification.seq`), `tooltrace/metrics/aggregate.py` (`failure_step`), `tooltrace/cli/main.py` (`cmd_trace`), `web/src/lib/clusters.ts` (`clusterFailures`, `stepLink`) |
 | 78 | Reproducibility score (metadata completeness, not validity) | I | `tooltrace/analysis/core.py` (`reproducibility_score`) |
