@@ -345,3 +345,129 @@ def test_write_returns_problems_without_touching_anything(tmp_path: Path) -> Non
     assert write(plan_) != []
     assert plan_.files == []
     assert (tmp_path / CONFIG_NAME).read_text(encoding="utf-8") == "keep"
+
+
+# --- CI beyond GitHub --------------------------------------------------------
+
+
+def test_every_ci_system_writes_to_the_path_that_system_reads() -> None:
+    """The path is part of the contract.
+
+    GitLab reads `.gitlab-ci.yml` from the repository root and nowhere else, and
+    a correct pipeline in the wrong file is an inert file that looks like
+    coverage.
+    """
+    from tooltrace.cli.init import CI_PATHS, ci_config
+
+    expected = {
+        "github": ".github/workflows/tooltrace.yml",
+        "gitlab": ".gitlab-ci.yml",
+        "jenkins": "Jenkinsfile",
+        "circleci": ".circleci/config.yml",
+    }
+    for system, want in expected.items():
+        path, _ = ci_config(system, "scripted", "")
+        assert path.as_posix() == want
+        assert CI_PATHS[system].as_posix() == want
+
+
+def test_the_script_based_systems_run_an_identical_command() -> None:
+    """A pipeline that drifts between platforms makes a green GitHub run mean
+    nothing about GitLab, which is the entire reason for a second template."""
+    from tooltrace.cli.init import CI_SYSTEMS, ci_config
+
+    for system in CI_SYSTEMS:
+        if system == "github":
+            continue
+        _, content = ci_config(system, "openai_compat", "p/one")
+        assert "tooltrace benchmark --agent openai_compat --task p/one --runs 3" in content
+
+
+def test_github_passes_the_same_agent_task_and_run_count_to_the_action() -> None:
+    """It cannot carry the same command -- it calls the action -- so the check is
+    that it asks for the same measurement, not that it spells it the same way."""
+    from tooltrace.cli.init import ci_config
+
+    _, github = ci_config("github", "openai_compat", "p/one")
+    assert "agent: openai_compat" in github
+    assert "tasks: p/one" in github
+    assert "runs: 3" in github
+
+
+def test_only_github_uses_the_composite_action() -> None:
+    """A marketplace action does not exist off GitHub.
+
+    Emitting one anyway would generate a file that cannot run, which is the
+    class of artifact this project keeps finding in itself.
+    """
+    from tooltrace.cli.init import CI_SYSTEMS, ci_config
+
+    _, github = ci_config("github", "scripted", "")
+    assert "webdevsamran/tooltrace-bench@main" in github
+    for system in CI_SYSTEMS:
+        if system == "github":
+            continue
+        _, content = ci_config(system, "scripted", "")
+        assert "uses:" not in content
+        assert "webdevsamran/tooltrace-bench@" not in content
+
+
+def test_every_template_says_the_threshold_is_not_a_guess() -> None:
+    from tooltrace.cli.init import CI_SYSTEMS, ci_config
+
+    for system in CI_SYSTEMS:
+        _, content = ci_config(system, "scripted", "")
+        assert "guess" in content, f"{system} drops the note that only lives in one file otherwise"
+
+
+def test_every_template_admits_the_package_is_not_on_pypi_yet() -> None:
+    """Except GitHub's, which installs through the action rather than pip."""
+    from tooltrace.cli.init import CI_SYSTEMS, ci_config
+
+    for system in CI_SYSTEMS:
+        _, content = ci_config(system, "scripted", "")
+        if "pip install tooltrace-bench" in content:
+            assert "not on PyPI yet" in content
+
+
+def test_an_unknown_ci_system_is_refused() -> None:
+    import pytest as _pytest
+    from tooltrace.cli.init import ci_config
+
+    with _pytest.raises(ValueError, match="unknown CI system"):
+        ci_config("teamcity", "scripted", "")
+
+
+def test_init_writes_the_chosen_system_and_nothing_else(tmp_path) -> None:
+    from tooltrace.cli.init import run_init
+
+    code, payload = run_init(
+        tmp_path, adapter="scripted", ci_system="gitlab", do_verify=False, interactive=False
+    )
+    assert code == 0
+    written = {Path(f).name for f in payload["plan"]["files"]}
+    assert ".gitlab-ci.yml" in written
+    assert not (tmp_path / ".github").exists()
+
+
+def test_the_plan_records_which_system_it_wrote(tmp_path) -> None:
+    from tooltrace.cli.init import run_init
+
+    _, payload = run_init(
+        tmp_path, adapter="scripted", ci_system="jenkins", do_verify=False, interactive=False
+    )
+    assert payload["plan"]["ci_system"] == "jenkins"
+
+
+def test_no_ci_records_no_system_rather_than_a_default(tmp_path) -> None:
+    """Reporting `github` for a run that wrote nothing would be a small lie."""
+    from tooltrace.cli.init import run_init
+
+    _, payload = run_init(
+        tmp_path,
+        adapter="scripted",
+        write_workflow=False,
+        do_verify=False,
+        interactive=False,
+    )
+    assert payload["plan"]["ci_system"] is None

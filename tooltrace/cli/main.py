@@ -137,6 +137,7 @@ def cmd_init(args: argparse.Namespace) -> int:
         api_key_env=args.api_key_env or "",
         task=args.task or "",
         write_workflow=not args.no_ci,
+        ci_system=args.ci,
         force=args.force,
         do_verify=not args.no_run,
     )
@@ -2052,7 +2053,13 @@ def build_parser() -> argparse.ArgumentParser:
         help="openai_compat: NAME of the env var holding the key. Never the key itself.",
     )
     i.add_argument("--task", help="task to run first (default: a short offline one)")
-    i.add_argument("--no-ci", action="store_true", help="do not write a GitHub Actions workflow")
+    i.add_argument("--no-ci", action="store_true", help="do not write any CI configuration")
+    i.add_argument(
+        "--ci",
+        default="github",
+        choices=["github", "gitlab", "jenkins", "circleci"],
+        help="which CI system to write configuration for (default: github)",
+    )
     i.add_argument("--no-run", action="store_true", help="write the files without running a task")
     i.add_argument("--force", action="store_true", help="overwrite existing files")
 

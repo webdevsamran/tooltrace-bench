@@ -35,3 +35,13 @@ repos:
         entry: python -m tooltrace.security.scan_repo
         language: system
         pass_filenames: false
+      # A prompt is code. Changing the system prompt or a tool description
+      # changes what every agent sees and what every score means, and it is the
+      # one edit that passes ruff, mypy and the whole test suite while silently
+      # invalidating a baseline. This does not block the change -- it says out
+      # loud that the comparison to yesterday's numbers no longer holds.
+      - id: prompt-changed
+        name: warn when an agent prompt or tool description changes
+        entry: python scripts/prompt_change_notice.py
+        language: system
+        files: ^(tooltrace/agents/chat_base\.py|tooltrace/agents/tool_schemas\.py|tooltrace/tools/.*\.py)$

@@ -7,6 +7,39 @@ versioning follows [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- **`pr-report` gates on token count.** A prompt change that leaves every score
+  identical and doubles the tokens is a regression -- it costs money on every
+  future run -- and no other metric in the report would notice it. Threshold is
+  15% of the baseline, tighter than latency's 20%, because token counts are less
+  noisy: nothing else is competing for the provider's tokeniser.
+
+  This needed a fifth verdict. A run that reports no usage now yields
+  **`not_measured`**, not `inconclusive`, and the distinction changes what a
+  reader should do: an inconclusive row asks for more runs, a not-measured row
+  asks for an adapter that reports the number at all. Collapsing them would make
+  a token gate read as permanently uncertain against every agent that never emits
+  usage -- which is most of them. A run reporting nothing contributes no value
+  rather than a zero, because coercing it would make "we stopped measuring" the
+  largest efficiency win in the project's history.
+
+- **`tooltrace init --ci gitlab|jenkins|circleci`.** Each writes to the path that
+  system actually reads: a correct pipeline in the wrong file is an inert file
+  that looks like coverage. The three script-based templates run an identical
+  command, because a pipeline that drifts between platforms makes a green GitHub
+  run mean nothing about GitLab -- which is the entire reason for a second
+  template. Only GitHub gets the composite action; emitting one elsewhere would
+  generate a file that cannot run.
+
+- **A pre-commit hook that notices a prompt change.** A prompt is code, and it is
+  the one kind that passes ruff, mypy and the whole test suite while silently
+  making yesterday's numbers incomparable to today's: the agent did not get better
+  or worse, it was asked a different question.
+
+  It never blocks. A hook that refuses a legitimate prompt improvement is removed
+  within a week, and then nobody hears about the next one either. It says what
+  changed, what that means for recorded baselines, and what to run.
+
+### Added
 - **The cost-accuracy frontier is now something you can look at.**
   `pareto_frontier` shipped in `metrics/economics.py` with no caller outside its
   own tests, along with `cost_accuracy_points` -- so the question they answer,
