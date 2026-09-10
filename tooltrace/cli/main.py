@@ -212,7 +212,12 @@ def cmd_pr_report(args: argparse.Namespace) -> int:
         print("pr-report needs bundles on both sides", file=sys.stderr)
         return EXIT_USAGE
 
-    report = compare_samples(baseline_rows, current_rows)
+    # `--metrics` exists for shared CI runners. `wall_ms` is wall-clock, and a
+    # noisy neighbour on the runner is not a change in the agent -- a gate that
+    # fails for that reason gets switched off, which costs the four metrics that
+    # were worth gating on. Narrowing the gate is better than losing it.
+    wanted = [m.strip() for m in args.metrics.split(",") if m.strip()] if args.metrics else None
+    report = compare_samples(baseline_rows, current_rows, metrics=wanted)
     # A comparison across different task sets or artifact versions attributes a
     # difference in measurement to the code. Refused, not annotated.
     report.incomparable.extend(cohort_problems(baseline_meta, current_meta))
@@ -668,6 +673,50 @@ def cmd_backends(args: argparse.Namespace) -> int:
         print("nothing is listening on any known local port")
     print()
     print(report["statement"])
+    return EXIT_OK
+
+
+def cmd_a2a_card(args: argparse.Namespace) -> int:
+    """Check an A2A Agent Card, and say what its signature does and does not prove."""
+    from tooltrace.agents.a2a import report
+
+    path = Path(args.card)
+    if not path.is_file():
+        print(f"error: no such card: {path}", file=sys.stderr)
+        return EXIT_TASK
+    try:
+        card = json.loads(path.read_text(encoding="utf-8"))
+    except ValueError as exc:
+        print(f"error: {path} is not JSON: {exc}", file=sys.stderr)
+        return EXIT_TASK
+    if not isinstance(card, dict):
+        print(f"error: {path} is not an object", file=sys.stderr)
+        return EXIT_TASK
+
+    keys: dict[str, bytes] | None = None
+    if args.key:
+        # From the caller, never from the card. A signature checked against a
+        # key the document itself names proves the document agrees with itself.
+        keys = {}
+        for pair in args.key:
+            kid, _, secret = pair.partition("=")
+            keys[kid if secret else "default"] = (secret or kid).encode("utf-8")
+
+    result = report(card, keys)
+    if args.json:
+        _emit(result, True)
+    else:
+        for check in result["checks"]:
+            mark = "pass" if check["passed"] else "FAIL"
+            print(f"  [{mark:>4}] {check['severity']:<11} {check['name']}: {check['detail']}")
+        print()
+        print(result["statement"])
+    if result["required_failures"]:
+        print(
+            f"error: {len(result['required_failures'])} required field(s) missing",
+            file=sys.stderr,
+        )
+        return EXIT_TASK
     return EXIT_OK
 
 
@@ -1930,6 +1979,13 @@ def build_parser() -> argparse.ArgumentParser:
     pr.add_argument("--baseline", required=True, help="directory of baseline bundles")
     pr.add_argument("--current", required=True, help="directory of this branch's bundles")
     pr.add_argument("--out", help="write the markdown comment here")
+    pr.add_argument(
+        "--metrics",
+        help=(
+            "comma-separated metrics to gate on (default: all). On a shared CI runner, "
+            "`success_rate,score,steps,failed_tool_calls` excludes wall-clock"
+        ),
+    )
 
     pw = add("power", cmd_power, "what a planned sweep can detect, before you run it")
     pw.add_argument("--runs", type=int, default=30, help="runs per arm you intend to do")
@@ -2007,6 +2063,14 @@ def build_parser() -> argparse.ArgumentParser:
         "command",
         nargs="*",
         help="the server command. Use `--` first if it takes flags. Defaults to the fixture",
+    )
+
+    ac = add("a2a-card", cmd_a2a_card, "check an A2A Agent Card and its signature")
+    ac.add_argument("card", help="path to an agent-card.json")
+    ac.add_argument(
+        "--key",
+        action="append",
+        help="verification key as KID=SECRET, supplied by you and never read from the card",
     )
 
     mv = add("mcp-versions", cmd_mcp_versions, "which MCP revisions a server implements")

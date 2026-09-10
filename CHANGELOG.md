@@ -6,6 +6,44 @@ versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+- **`pr-report` learned `--metrics`, because one of this project's own tests was
+  flaky and the flake was telling the truth.** The test compared three runs of
+  the scripted agent against three more of the same agent on the same task and
+  asserted no regression. Every behavioural metric is identical by construction
+  there -- but `wall_ms` is wall-clock, and under a loaded suite the two arms
+  differed by more than the 20% `pr-report` treats as worth blocking on. The
+  report was right; the assertion was wrong.
+
+  A team on a shared CI runner would hit exactly that on real pull requests,
+  switch the gate off, and lose the four metrics that *were* worth gating on.
+  `--metrics success_rate,score,steps,failed_tool_calls` narrows the gate
+  instead, which beats losing it.
+
+### Added
+- **`tooltrace a2a-card`: what an Agent Card declares, and what a signature on it
+  proves.** An Agent Card is the A2A equivalent of `tools/list`, and v1.0 added
+  JWS signatures -- which is what turns a self-description into a trust artifact.
+
+  Conformance and provenance are checked separately because they answer different
+  questions. A missing `url` makes a card unusable; a missing skill description
+  makes it unhelpful; an unsigned card is neither, and most cards in the wild are
+  unsigned, so `ok` covers conformance only.
+
+  The signature half is mostly a refusal. A JWS proves the card was signed by
+  whoever holds the key and says nothing about *which* key that should be -- so a
+  verifier that fetches the key from a URL inside the document it is verifying has
+  established that the document agrees with itself. **The key comes from the
+  caller here or the card is reported unverified.** An unchecked signature never
+  reads as a verified one, which is the property the tests pin hardest.
+
+  HS256 is verified with the standard library. Asymmetric algorithms need
+  `cryptography`, which this package does not depend on, so an RS256 card is
+  reported `no_verifier` rather than valid or invalid -- saying "unverified" beats
+  reporting "verified" on the strength of a check that did not happen. And HS256
+  on a public card is itself a finding the report states: a symmetric key means
+  everyone who can verify can also forge.
+
 ### Added
 - **MCP over HTTP, including the streaming kind.** The client spoke stdio and
   only stdio, which covers a server you start yourself as a subprocess and
