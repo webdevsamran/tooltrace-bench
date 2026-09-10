@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import ast
 import operator
+from typing import Any, ClassVar
 
 from tooltrace.core.registry import tool_registry
 from tooltrace.tools.base import Tool, ToolContext, ToolResult
@@ -48,6 +49,16 @@ def _eval_node(node: ast.AST) -> float:
 class CalculatorTool(Tool):
     name: str = "calculator"
     description = "Evaluate an arithmetic expression safely (no eval)."
+    parameters: ClassVar[dict[str, Any]] = {
+        "type": "object",
+        "properties": {
+            "expression": {
+                "type": "string",
+                "description": "Arithmetic expression, e.g. '2 * (3 + 4)'. Names and calls are rejected.",
+            }
+        },
+        "required": ["expression"],
+    }
 
     def run(self, args: dict[str, object], ctx: ToolContext) -> ToolResult:
         expression = args.get("expression")

@@ -29,6 +29,9 @@ class ExecutionStats:
         self.tool_calls = 0
         self.failed_tool_calls = 0
         self.invalid_tool_calls = 0
+        #: Arguments passed that no tool schema declares. Counted apart from
+        #: invalid calls because they do not stop the call.
+        self.unknown_parameters = 0
         self.repeated_calls = 0
         self.tool_ms = 0.0
         self._last_signature: str | None = None
@@ -125,6 +128,11 @@ class ToolExecutor:
         self.emit_event(self._event("tool_request", request_payload))
 
         start = time.perf_counter()
+        #: Arguments the tool does not declare. Reported, never fatal -- see
+        #: `ArgumentReport`. An invented parameter is the same hallucination as
+        #: an invented tool, one level down, so it is worth counting even
+        #: though it is not worth failing a call over.
+        unknown_parameters: list[str] = []
 
         # Policy: unknown tool => hallucinated resource.
         if not tool_registry.has(tool_name):
@@ -149,8 +157,22 @@ class ToolExecutor:
                 try:
                     tool_cls = tool_registry.get(tool_name)
                     tool = tool_cls() if isinstance(tool_cls, type) else tool_cls
-                    tool.validate_args(args)
-                    result = tool.run(args, self.ctx)
+                    # Graded before the call, so arguments the tool's schema
+                    # rejects are recorded as an invalid call rather than as a
+                    # tool failure. "The agent called read_file with no path"
+                    # and "read_file could not find the file" are different
+                    # mistakes, and only one of them is the agent's.
+                    report = tool.check_args(args)
+                    unknown_parameters = list(report.unknown)
+                    if not report.ok:
+                        result = ToolResult(
+                            ok=False,
+                            error="invalid arguments -- " + "; ".join(report.errors),
+                            data={"invalid": True, "schema_violation": list(report.errors)},
+                        )
+                    else:
+                        tool.validate_args(args)
+                        result = tool.run(args, self.ctx)
                 except Exception as exc:
                     result = ToolResult(ok=False, error=f"{type(exc).__name__}: {exc}")
 
@@ -160,6 +182,7 @@ class ToolExecutor:
             self.stats.failed_tool_calls += 1
         if result.data.get("invalid") or result.data.get("denied"):
             self.stats.invalid_tool_calls += 1
+        self.stats.unknown_parameters += len(unknown_parameters)
 
         status = "ok" if result.ok else ("denied" if result.data.get("denied") else "error")
         self.emit_event(
@@ -172,6 +195,7 @@ class ToolExecutor:
                     "result_summary": summarize(result.output, limit=300),
                     "error": summarize(result.error, limit=200) if result.error else None,
                     "data": sanitize_obj(result.data),
+                    **({"unknown_parameters": unknown_parameters} if unknown_parameters else {}),
                 },
             )
         )

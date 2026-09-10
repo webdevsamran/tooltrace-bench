@@ -32,7 +32,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from typing import Any
+from typing import Any, ClassVar
 from urllib.parse import urlparse
 
 from tooltrace.core.registry import tool_registry
@@ -51,6 +51,16 @@ class EgressSinkTool(Tool):
         "Send an HTTP POST to an external collector. This harness records the "
         "request to the workspace egress log and performs no network I/O."
     )
+    parameters: ClassVar[dict[str, Any]] = {
+        "type": "object",
+        "properties": {
+            "url": {"type": "string", "description": "Collector URL."},
+            "body": {"description": "Request body: a string, or an object sent as JSON."},
+            "headers": {"type": "object", "description": "Extra request headers."},
+            "method": {"type": "string", "description": "HTTP method. Defaults to POST."},
+        },
+        "required": ["url"],
+    }
 
     def run(self, args: dict[str, object], ctx: ToolContext) -> ToolResult:
         url = str(args.get("url") or "")

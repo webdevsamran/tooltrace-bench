@@ -7,6 +7,7 @@ task's ``http_allowlist``. Everything else is denied and recorded.
 
 from __future__ import annotations
 
+from typing import Any, ClassVar
 from urllib.parse import urlparse
 
 import httpx
@@ -22,6 +23,20 @@ class HttpTool(Tool):
         "Perform an HTTP request against an allowlisted host (GET/POST/PUT/"
         "DELETE). Denied unless the task's network policy allows the host."
     )
+    parameters: ClassVar[dict[str, Any]] = {
+        "type": "object",
+        "properties": {
+            "url": {"type": "string", "description": "Absolute URL. The host must be allowlisted."},
+            "method": {
+                "type": "string",
+                "enum": ["GET", "POST", "PUT", "DELETE", "HEAD"],
+                "description": "HTTP method. Defaults to GET.",
+            },
+            "body": {"description": "Request body: a string, or an object sent as JSON."},
+            "headers": {"type": "object", "description": "Extra request headers."},
+        },
+        "required": ["url"],
+    }
 
     def run(self, args: dict[str, object], ctx: ToolContext) -> ToolResult:
         url = args.get("url")
