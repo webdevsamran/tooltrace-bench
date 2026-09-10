@@ -146,6 +146,10 @@ and a row claiming a task pack has to have that pack on disk.
 | 75y | Third-party reproduction attestation; trust ladder made reachable | I | `tooltrace/analysis/attestation.py` (`build_attestation`, `promotion_for`), `tooltrace/cli/main.py` (`cmd_attest`) |
 | 75z | System card generated from real run data | I | `tooltrace/analysis/system_card.py` (`build_card`, `render_card`), `tooltrace/cli/main.py` (`cmd_card`) |
 | 75aa | "Demonstrate, don't claim" self-audit of evidence completeness | I | `tooltrace/analysis/system_card.py` (`audit_evidence`), `tooltrace/cli/main.py` (`cmd_self_audit`) |
+| 75ab | Drift detection across five metrics, not just accuracy | I | `tooltrace/analysis/drift.py` (`compare_windows`), `tooltrace/cli/main.py` (`cmd_drift`) |
+| 75ac | Silent-quality-decay detection (behaviour moves, accuracy holds) | I | `tooltrace/analysis/drift.py` (`silent_decay`) |
+| 75ad | SLO error budgets for agent reliability | I | `tooltrace/analysis/drift.py` (`error_budget`) |
+| 75ae | Golden-dataset promotion: a production failure becomes a draft task | I | `tooltrace/ingest/promote.py` (`promote_trace`, `readiness`), `tooltrace/cli/main.py` (`cmd_promote_trace`) |
 | 76 | Failure clustering (deterministic vectors; semantic labeled) | I | `tooltrace/analysis/core.py` (`cluster_failures`) |
 | 77 | Root-cause drill-down aggregate → trace/assertion | I | `tooltrace/analysis/failures.py` (`Classification.seq`), `tooltrace/metrics/aggregate.py` (`failure_step`), `tooltrace/cli/main.py` (`cmd_trace`), `web/src/lib/clusters.ts` (`clusterFailures`, `stepLink`) |
 | 78 | Reproducibility score (metadata completeness, not validity) | I | `tooltrace/analysis/core.py` (`reproducibility_score`) |

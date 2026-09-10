@@ -63,3 +63,65 @@ a year later.
   exported without a result attribute, because `from_otel_spans` derives status
   from that attribute's presence — but a trace is a summary, and re-importing
   one does not reconstruct the run.
+
+## After the incident: turn it into a task
+
+`ingest` converts a production trace into this project's event format and
+`score_trace_only` scores what a trajectory alone can answer. Both stop one step
+short of what anyone wants after an incident, which is to make sure it does not
+happen again.
+
+`tooltrace promote-trace` takes that step, and is careful about which half of the
+job is mechanical.
+
+**What it generates.** The tools called, in order, with their argument *shapes* --
+not their values. Pinning the exact paths from one incident would produce an
+assertion that only ever matches that incident. Plus a "no failed calls"
+assertion, but only when the incident actually had failures: generating it for a
+clean trace would assert something the incident never demonstrated.
+
+**What it refuses to generate.** A workspace, an expected output, or any
+correctness assertion. A production trace does not contain the filesystem it ran
+against, and a task with an invented workspace tests the invention. Those
+sections ship empty with a `TODO` naming each, and `readiness()` reports the
+draft as unfinished until a human fills them in -- including the specific warning
+that a trajectory-only task passes for an agent that made all the right calls and
+produced the wrong result.
+
+**And it never claims to reproduce the incident.** It encodes the trajectory the
+incident had. Whether that trajectory is *why* it failed is a judgement for
+whoever saw it.
+
+## Drift, and the failure a success-rate monitor cannot see
+
+Half of enterprises have shipped an agent that passed internal evaluation and
+still caused a customer-facing failure. That gap is usually not a break; it is a
+slide -- a model updated behind an API, a prompt edited, a tool's output format
+changed.
+
+`tooltrace drift` compares two windows across five metrics rather than one, and
+the reason is a specific case: **an agent whose success rate is unchanged while
+its step count doubled has changed.** A rate-only monitor is structurally unable
+to report it. When that happens the output sets `silent_decay` and says outright
+that an accuracy-only monitor would have reported nothing.
+
+Two things have to hold before drift is claimed, the same discipline
+`pr-report` uses: the intervals must not overlap, *and* the move must exceed a
+stated threshold. A monitor that fires on noise gets muted, and a muted monitor
+is worse than none because it is believed to be watching.
+
+Windows below ten runs report `measurable: false` rather than a verdict.
+
+## Error budgets
+
+"99% reliability" is unactionable. "Four failures of budget left this window" is a
+decision, and it is the same number expressed usefully. `--objective` reports it.
+
+Two deliberate choices:
+
+- **The remaining budget goes negative** rather than clamping at zero. "At the
+  limit" and "eleven over" call for different responses, and clamping erases the
+  difference.
+- **`objective_is_within_interval`** says when the window cannot settle the
+  question at all. Ten runs with no failures do not establish a 99% objective;
+  the interval contains it, and the statement says so.
