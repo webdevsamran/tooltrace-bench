@@ -1984,6 +1984,41 @@ def _expand_bundles(patterns: list[str]) -> list[Path]:
     return bundles
 
 
+def cmd_counterfactual(args: argparse.Namespace) -> int:
+    """Would the task still pass with one tool taken away?
+
+    Two agents can score identically and be doing entirely different things:
+    one has a plan and adapts, the other walks a path it has walked before.
+    Every other metric here reads a run in which everything worked, so nothing
+    else tells them apart.
+    """
+    from tooltrace.analysis.counterfactual import ablate, render_markdown
+    from tooltrace.runners.runner import TaskRunner
+    from tooltrace.tasks import load_all_tasks
+
+    task = next((t for t in load_all_tasks() if t.id == args.task), None)
+    if task is None:
+        print(f"error: no such task: {args.task}", file=sys.stderr)
+        return EXIT_TASK
+
+    config = json.loads(args.agent_config) if args.agent_config else None
+    if config is None and args.agent == "scripted":
+        # Same resolution `run` does: each task ships the script that solves it,
+        # and an ablation of a baseline that cannot pass measures nothing.
+        script = task.metadata.get("scripted_script")
+        if isinstance(script, list):
+            config = {"script": script}
+    report = ablate(task, args.agent, config, TaskRunner(), runs_per_arm=args.runs)
+
+    if args.json:
+        _emit(report, True)
+    elif not report["measurable"]:
+        print(f"not measurable: {report['reason']}")
+    else:
+        print(render_markdown(report), end="")
+    return EXIT_OK
+
+
 def cmd_hardware(args: argparse.Namespace) -> int:
     """The machine, the latency split, and the four efficiency questions.
 
@@ -2658,6 +2693,17 @@ def build_parser() -> argparse.ArgumentParser:
         "command",
         nargs="*",
         help="command that starts the MCP server over stdio; put `--` first if it takes flags, e.g. `mcp-conformance -- python -m my_server` (default: the bundled deterministic fixture)",
+    )
+
+    cf = add("counterfactual", cmd_counterfactual, "which tools was the agent actually relying on")
+    cf.add_argument("--task", required=True, help="task id to ablate")
+    cf.add_argument("--agent", required=True)
+    cf.add_argument("--agent-config", help="JSON config for the agent")
+    cf.add_argument(
+        "--runs",
+        type=int,
+        default=1,
+        help="runs per arm. One is a coin flip with a nondeterministic agent",
     )
 
     hw = add("hardware", cmd_hardware, "the machine, the latency split, and prefill/cache/energy")

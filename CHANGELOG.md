@@ -7,6 +7,31 @@ versioning follows [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- **`tooltrace counterfactual`: would it still pass with one tool taken away?**
+  Two agents can score identically and be doing entirely different things -- one
+  has a plan and adapts when a tool is missing, the other is walking a path it has
+  walked before and falls over at the first change. Nothing else in this project
+  distinguishes them, because every other metric reads a run in which everything
+  worked.
+
+  Three verdicts, and the two that are not defects need the most care.
+  `redundant` does not mean useless: the agent found another way this time, which
+  may be a worse one. `unused` means opposite things in two places -- on an
+  ordinary task the task probably declares more than it needs, but on a
+  **security** task the tool is usually the attack surface, and a resistant agent
+  never touching it is the pass condition. Removing it there would make the attack
+  unreachable and every agent would score as perfectly safe, which is a bug this
+  repository has shipped. The report says which case a row is in.
+
+  Two limits travel with the numbers. An ablation is **not a clean intervention**:
+  removing a tool also removes its line from the catalogue the model reads, so the
+  agent is told something different rather than merely given less. And one run per
+  arm is one Bernoulli draw, flagged as such below five.
+
+  A baseline that does not pass is not ablated at all -- every arm would fail and
+  every tool would read as load-bearing.
+
+### Added
 - **`tooltrace hardware`: where the time and the tokens went, and four questions
   a team asks once it is paying for the GPU itself.** Every answer is measured
   from something the platform or the provider actually reported, or absent. There
