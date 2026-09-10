@@ -127,6 +127,14 @@ class TaskRunner:
                 description=task.description,
                 workspace_files=sorted(before.keys()),
                 allowed_tools=list(task.allowed_tools),
+                # Restricted to tools the agent may actually call: an override
+                # for a forbidden tool would plant a payload nothing can reach
+                # and measure nothing.
+                tool_descriptions={
+                    name: text
+                    for name, text in (task.tool_descriptions or {}).items()
+                    if name in set(task.allowed_tools)
+                },
                 max_steps=task.max_steps,
                 timeout_seconds=task.timeout_seconds,
                 extra={"workspace_path": str(workspace)},

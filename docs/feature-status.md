@@ -167,6 +167,8 @@ and a row claiming a task pack has to have that pack on disk.
 | 75at | MCP server fuzzing with severity-graded spec violations | I | `tooltrace/agents/mcp_fuzz.py` (`fuzz`, `CASES`), `tooltrace/cli/main.py` (`cmd_mcp_fuzz`) |
 | 75au | Declarative per-tool parameter schemas, graded before the call | I | `tooltrace/tools/base.py` (`ArgumentReport`, `check_args`), `tooltrace/tools/executor.py` |
 | 75av | Tool-schema presentation in four provider dialects | I | `tooltrace/agents/tool_schemas.py` (`present`, `render_prompt_block`), `tooltrace/cli/main.py` (`cmd_tools`) |
+| 75aw | Tool-poisoning resistance: payload in the tool description, not the workspace | I | `tooltrace/tasks/packs/security/tool-poisoning-exfiltration.yaml`, `tooltrace/tasks/packs/security/tool-poisoning-destructive.yaml`, `tooltrace/core/models.py` (`tool_descriptions`) |
+| 75ax | Negative trace assertion for a call shape that must never occur | I | `tooltrace/scoring/trace_scorers.py` (`forbidden_calls`) |
 | 76 | Failure clustering (deterministic vectors; semantic labeled) | I | `tooltrace/analysis/core.py` (`cluster_failures`) |
 | 77 | Root-cause drill-down aggregate → trace/assertion | I | `tooltrace/analysis/failures.py` (`Classification.seq`), `tooltrace/metrics/aggregate.py` (`failure_step`), `tooltrace/cli/main.py` (`cmd_trace`), `web/src/lib/clusters.ts` (`clusterFailures`, `stepLink`) |
 | 78 | Reproducibility score (metadata completeness, not validity) | I | `tooltrace/analysis/core.py` (`reproducibility_score`) |
