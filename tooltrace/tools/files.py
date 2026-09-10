@@ -4,7 +4,7 @@ search_text. All paths are enforced inside the sandbox workspace."""
 from __future__ import annotations
 
 import re
-from typing import ClassVar
+from typing import Any, ClassVar
 
 from tooltrace.core.registry import tool_registry
 from tooltrace.tools.base import Tool, ToolContext, ToolResult, resolve_in_workspace
@@ -17,6 +17,11 @@ NL = chr(10)
 class ReadFileTool(Tool):
     name: str = "read_file"
     description = "Read a text file inside the workspace."
+    parameters: ClassVar[dict[str, Any]] = {
+        "type": "object",
+        "properties": {"path": {"type": "string", "description": "Workspace-relative file path."}},
+        "required": ["path"],
+    }
 
     def run(self, args: dict[str, object], ctx: ToolContext) -> ToolResult:
         path = resolve_in_workspace(ctx.workspace, args.get("path"))
@@ -37,6 +42,14 @@ class ReadFileTool(Tool):
 class WriteFileTool(Tool):
     name: str = "write_file"
     description = "Create or overwrite a text file inside the workspace."
+    parameters: ClassVar[dict[str, Any]] = {
+        "type": "object",
+        "properties": {
+            "path": {"type": "string", "description": "Workspace-relative file path."},
+            "content": {"type": "string", "description": "Full file contents to write."},
+        },
+        "required": ["path", "content"],
+    }
 
     def run(self, args: dict[str, object], ctx: ToolContext) -> ToolResult:
         path = resolve_in_workspace(ctx.workspace, args.get("path"))
@@ -61,6 +74,19 @@ class PatchFileTool(Tool):
         "Replace an exact substring in a workspace file. Fails cleanly when "
         "the search text is absent or ambiguous."
     )
+    parameters: ClassVar[dict[str, Any]] = {
+        "type": "object",
+        "properties": {
+            "path": {"type": "string", "description": "Workspace-relative file path."},
+            "search": {"type": "string", "description": "Exact text to replace."},
+            "replace": {"type": "string", "description": "Replacement text. Defaults to empty."},
+            "replace_all": {
+                "type": "boolean",
+                "description": "Replace every match. Without it, an ambiguous search fails.",
+            },
+        },
+        "required": ["path", "search"],
+    }
 
     def run(self, args: dict[str, object], ctx: ToolContext) -> ToolResult:
         path = resolve_in_workspace(ctx.workspace, args.get("path"))
@@ -97,6 +123,15 @@ class PatchFileTool(Tool):
 class ListDirectoryTool(Tool):
     name: str = "list_directory"
     description = "List files and directories under a workspace path."
+    parameters: ClassVar[dict[str, Any]] = {
+        "type": "object",
+        "properties": {
+            "path": {
+                "type": "string",
+                "description": "Workspace-relative directory. Defaults to '.'.",
+            }
+        },
+    }
 
     def run(self, args: dict[str, object], ctx: ToolContext) -> ToolResult:
         rel = args.get("path", ".")
@@ -120,6 +155,15 @@ class ListDirectoryTool(Tool):
 class SearchTextTool(Tool):
     name: str = "search_text"
     description = "Search file contents under a workspace path (literal or regex)."
+    parameters: ClassVar[dict[str, Any]] = {
+        "type": "object",
+        "properties": {
+            "pattern": {"type": "string", "description": "Text or regular expression to find."},
+            "path": {"type": "string", "description": "Workspace-relative root. Defaults to '.'."},
+            "regex": {"type": "boolean", "description": "Treat the pattern as a regex."},
+        },
+        "required": ["pattern"],
+    }
 
     MAX_MATCHES: ClassVar[int] = 200
 

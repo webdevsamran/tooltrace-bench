@@ -268,6 +268,10 @@ class EvalResult(BaseModel):
     tool_calls: int = 0
     failed_tool_calls: int = 0
     invalid_tool_calls: int = 0
+    #: Arguments passed that the called tool's schema does not declare.
+    #: Never fatal -- an invented parameter is a hallucination one level
+    #: below an invented tool, and worth counting without failing the call.
+    unknown_parameters: int = 0
     repeated_calls: int = 0
     unnecessary_changes: int = 0
     workspace_violations: int = 0

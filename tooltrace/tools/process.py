@@ -12,6 +12,7 @@ import os
 import re
 import subprocess
 import sys
+from typing import Any, ClassVar
 
 from tooltrace.core.registry import tool_registry
 from tooltrace.tools.base import Tool, ToolContext, ToolResult
@@ -83,6 +84,18 @@ class ShellTool(Tool):
         "Run a shell command inside the workspace. Network is disabled by "
         "task policy; the environment is allowlisted."
     )
+    parameters: ClassVar[dict[str, Any]] = {
+        "type": "object",
+        "properties": {
+            "command": {"type": "string", "description": "Shell command line to run."},
+            "timeout_seconds": {
+                "type": "number",
+                "minimum": 0,
+                "description": "Kill the command after this long.",
+            },
+        },
+        "required": ["command"],
+    }
 
     def run(self, args: dict[str, object], ctx: ToolContext) -> ToolResult:
         command = args.get("command")
@@ -103,6 +116,24 @@ class ShellTool(Tool):
 class GitTool(Tool):
     name: str = "git"
     description = "Run `git <args>` inside the workspace repository."
+    parameters: ClassVar[dict[str, Any]] = {
+        "type": "object",
+        "properties": {
+            "args": {
+                "description": "Git arguments as a list, or one string that is split on spaces.",
+                "oneOf": [
+                    {"type": "string"},
+                    {"type": "array", "items": {"type": "string"}},
+                ],
+            },
+            "timeout_seconds": {
+                "type": "number",
+                "minimum": 0,
+                "description": "Kill the command after this long.",
+            },
+        },
+        "required": ["args"],
+    }
 
     def run(self, args: dict[str, object], ctx: ToolContext) -> ToolResult:
         git_args = args.get("args")
@@ -136,6 +167,25 @@ class TestRunnerTool(Tool):
     description = (
         "Run the workspace test suite (pytest by default) and report a deterministic pass ratio."
     )
+    parameters: ClassVar[dict[str, Any]] = {
+        "type": "object",
+        "properties": {
+            "path": {
+                "type": "string",
+                "description": "Workspace-relative target. Defaults to '.'.",
+            },
+            "framework": {
+                "type": "string",
+                "enum": ["pytest"],
+                "description": "Only pytest is supported today.",
+            },
+            "timeout_seconds": {
+                "type": "number",
+                "minimum": 0,
+                "description": "Kill the command after this long.",
+            },
+        },
+    }
 
     def run(self, args: dict[str, object], ctx: ToolContext) -> ToolResult:
         target = args.get("path", ".")

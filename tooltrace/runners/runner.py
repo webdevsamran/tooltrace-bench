@@ -232,6 +232,7 @@ class TaskRunner:
                 tool_calls=executor.stats.tool_calls,
                 failed_tool_calls=executor.stats.failed_tool_calls,
                 invalid_tool_calls=executor.stats.invalid_tool_calls,
+                unknown_parameters=executor.stats.unknown_parameters,
                 repeated_calls=executor.stats.repeated_calls,
                 unnecessary_changes=self._count_unnecessary(changed, task),
                 workspace_violations=sum(

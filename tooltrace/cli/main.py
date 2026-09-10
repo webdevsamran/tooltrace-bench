@@ -54,6 +54,7 @@ def _emit(data: object, as_json: bool) -> None:
 def cmd_doctor(args: argparse.Namespace) -> int:
     import platform
 
+    from tooltrace.agents.tool_schemas import coverage as tool_schema_coverage
     from tooltrace.core.registry import (
         ENTRY_POINT_GROUPS,
         agent_registry,
@@ -77,6 +78,10 @@ def cmd_doctor(args: argparse.Namespace) -> int:
         "python": sys.version.split()[0],
         "platform": platform.platform(),
         "tools": sorted(tool_registry.names()),
+        # A tool with no declared schema is unchecked, not broken -- but
+        # "nothing is validated" and "everything passed validation" look
+        # identical from outside, so the count is reported here.
+        "tool_schemas": tool_schema_coverage()["statement"],
         "agents": sorted(agent_registry.names()),
         "scorers": sorted(scorer_registry.names()),
         "sandboxes": sorted(sandbox_registry.names()),
@@ -701,6 +706,30 @@ def cmd_agents(args: argparse.Namespace) -> int:
         for n, a in sorted(agent_registry.items())
     ]
     _emit(rows if args.json else chr(10).join(r["name"] for r in rows), args.json)
+    return EXIT_OK
+
+
+def cmd_tools(args: argparse.Namespace) -> int:
+    """What a model is actually told about the tools it may call.
+
+    `agents` lists adapters; this lists the other side of the same
+    conversation. `--dialect` renders the catalogue as a provider would receive
+    it, which is the only way to check that a tool's schema survives the
+    translation -- Gemini rejects half the JSON Schema keywords the others
+    accept, and a request error is a poor way to find that out.
+    """
+    from tooltrace.agents.tool_schemas import coverage, present, render_prompt_block
+
+    if args.dialect and args.dialect != "prompt":
+        payload = present(None, args.dialect)
+        _emit(payload if args.json else json.dumps(payload, indent=2), args.json)
+        return EXIT_OK
+
+    report = coverage()
+    if args.json:
+        _emit({**report, "catalogue": render_prompt_block()}, True)
+    else:
+        _emit(render_prompt_block() + chr(10) * 2 + report["statement"], False)
     return EXIT_OK
 
 
@@ -1937,6 +1966,13 @@ def build_parser() -> argparse.ArgumentParser:
     )
 
     add("agents", cmd_agents, "list registered agent adapters")
+
+    tl = add("tools", cmd_tools, "what a model is told about the tools it may call")
+    tl.add_argument(
+        "--dialect",
+        choices=["openai", "anthropic", "mcp", "gemini", "prompt"],
+        help="render the catalogue as one provider receives it",
+    )
 
     t = add("tasks", cmd_tasks, "list available tasks")
     t.add_argument("--category")

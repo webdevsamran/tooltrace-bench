@@ -6,6 +6,45 @@ versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- **Every tool declares its arguments, and the executor grades them before the
+  call.** `Tool.validate_args` was an empty hook that no tool overrode, so a
+  tool's arguments were whatever it happened to read out of a dict. Each tool now
+  carries a JSON Schema in `parameters`, and a violation is recorded as an
+  *invalid call* rather than as a tool failure -- "the agent called `read_file`
+  with no path" and "`read_file` could not find the file" are different mistakes,
+  and only one of them is the agent's.
+
+  Undeclared arguments are the middle case, and they are reported rather than
+  rejected: a model passing an extra key is sloppy, not broken, and failing the
+  call would fail runs a real provider would accept. `unknown_parameters` counts
+  them, because an invented parameter is the same hallucination as an invented
+  tool, one level down.
+
+  A tool with no schema stays unchecked, so a plugin written before this field
+  behaves exactly as it did. `tooltrace tools` and `doctor` both report how many
+  registered tools declare one, because "nothing is validated" and "everything
+  passed validation" look identical from outside.
+
+- **`tooltrace tools` -- what a model is actually told about the tools it may
+  call.** `--dialect` renders the catalogue as OpenAI, Anthropic, MCP or Gemini
+  receives it. That is the only way to see a schema survive the translation:
+  Gemini rejects `oneOf` and half the other JSON Schema keywords, and rejects the
+  whole request rather than warning. A union narrowed for Gemini says so in the
+  property description, because a model reading only the schema would otherwise
+  be told something untrue about what it may send.
+
+### Fixed
+- **The OpenAI-compatible adapter was telling models tool *names* and nothing
+  else.** No descriptions, no argument schemas -- so a model had to invent the
+  arguments to `patch_file`, and the harness scored the invention as the agent's
+  error. Part of the number it reported was a measurement of its own prompt.
+
+- **...and it listed every registered tool rather than the ones the task
+  allows.** `allowed_tools` was on the context the whole time and the adapter
+  ignored it, so models were told about tools whose every call the executor
+  denies, and then charged for the denied calls.
+
 ### Fixed
 - **`tooltrace backends` shipped undocumented, and every check was green.** The
   documentation edit that was meant to add it anchored on a line that was not in

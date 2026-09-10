@@ -35,7 +35,8 @@ from tooltrace.core.models import (
 
 SYSTEM_PROMPT = """You are an autonomous coding agent operating inside a sandboxed workspace.
 
-Available tools: {tools}
+Available tools (argument names, `?` marks optional):
+{tools}
 
 Respond with EXACTLY one JSON object and nothing else:
 {{"action": "tool", "tool": "<tool name>", "args": {{...}}}}
@@ -134,12 +135,21 @@ class OpenAICompatAgent(AgentAdapter):
         return parsed
 
     def _system_prompt(self) -> str:
-        from tooltrace.core.registry import tool_registry
+        """The tool catalogue the model is given, and the two bugs it had.
 
-        names = ", ".join(tool_registry.names())
+        It listed tool *names* and nothing else, so a model had to invent the
+        arguments to `patch_file` -- and the harness then recorded the
+        invention as the agent's error, which made part of the score a
+        measurement of this prompt. It also listed every *registered* tool
+        rather than the ones the task allows, so a model was told about tools
+        whose every call the executor denies.
+        """
+        from tooltrace.agents.tool_schemas import render_prompt_block
+
+        catalogue = render_prompt_block(self._ctx.allowed_tools or None)
         files = ", ".join(self._ctx.workspace_files) or "(empty)"
         return SYSTEM_PROMPT.format(
-            tools=names,
+            tools=catalogue,
             objective=self._ctx.objective,
             description=self._ctx.description or "(none)",
             files=files,
