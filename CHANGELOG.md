@@ -6,6 +6,32 @@ versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- **`tooltrace shadow`: did the candidate make the same decisions?** Shadow mode
+  usually means running a candidate against live traffic and comparing outcomes.
+  **That is not possible here**, and the difference is the design: a production
+  trace happened against real systems holding real state, and re-running a
+  candidate in a temp workspace is a different task that happens to share an
+  objective. Any outcome it produces is an outcome in a sandbox.
+
+  So it compares decisions -- same tools, same resources, same order, and where
+  the candidate first stops agreeing. Two caveats travel with every report,
+  because either alone would be read as a stronger claim: outcomes are not
+  compared, and a divergence is a place to look rather than a fault. The
+  candidate may be doing something better, and a production log is not an oracle
+  -- production is where the mistakes happened in the first place.
+
+  Without `--candidate` it runs the candidate itself. Asking the caller to
+  produce a second trace by hand is the step at which most people stop.
+
+- **A cross-language alignment contract.** The same longest-common-subsequence
+  diff now runs in Python and in TypeScript, and they cannot be one
+  implementation: the dashboard aligns two runs a user picked, in the browser,
+  with no server. `tests/fixtures/trace_alignment.json` holds the cases **both**
+  suites read, so the two cannot drift into different definitions of "the same
+  decision" -- which would give a reader two different answers about where the
+  same pair of runs diverged, depending on where they looked.
+
 ### Fixed
 - **The leaderboard could not tell Qwen from Llama.** It grouped runs by adapter
   name, which is fine while every agent is a different adapter and wrong the

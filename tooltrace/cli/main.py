@@ -644,6 +644,64 @@ def cmd_drift(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def cmd_shadow(args: argparse.Namespace) -> int:
+    """Would the candidate have made the same decisions on this production trace?
+
+    Shadow mode usually means running a candidate against live traffic and
+    comparing outcomes. That is not possible here, and the difference matters: a
+    production trace happened against real systems holding real state, and
+    re-running a candidate in a temp workspace is a different task that happens
+    to share an objective. So this compares **decisions**, which is what a
+    replayed trace can actually support.
+    """
+    from tooltrace.analysis.shadow import render_markdown, shadow_report
+    from tooltrace.core.models import TraceEvent
+
+    def load(path_str: str) -> list[TraceEvent]:
+        path = Path(path_str)
+        if not path.is_file():
+            print(f"not a file: {path}", file=sys.stderr)
+            raise SystemExit(EXIT_USAGE)
+        return [
+            TraceEvent.model_validate(json.loads(line))
+            for line in path.read_text(encoding="utf-8").splitlines()
+            if line.strip()
+        ]
+
+    recorded = load(args.recorded)
+    if not recorded:
+        print("the recorded trace is empty", file=sys.stderr)
+        return EXIT_USAGE
+
+    if args.candidate:
+        candidate = load(args.candidate)
+    else:
+        # Run the candidate here rather than asking for a second trace file.
+        # Making the caller produce one by hand is the step at which most
+        # people stop, and the objective is already in the recorded trace's
+        # promoted form.
+        from tooltrace.runners.runner import TaskRunner
+        from tooltrace.tasks import load_all_tasks
+
+        task = next((t for t in load_all_tasks() if t.id == args.task), None)
+        if task is None:
+            print(f"error: no such task: {args.task}", file=sys.stderr)
+            return EXIT_TASK
+        config = json.loads(args.agent_config) if args.agent_config else None
+        if config is None and args.agent == "scripted":
+            script = task.metadata.get("scripted_script")
+            if isinstance(script, list):
+                config = {"script": script}
+        _result, candidate, _diff = TaskRunner().run(task, args.agent, config)
+
+    report = shadow_report(recorded, candidate)
+    if args.json:
+        _emit(report, True)
+    else:
+        print(render_markdown(report), end="")
+    return EXIT_OK
+
+
 def cmd_promote_trace(args: argparse.Namespace) -> int:
     """Turn a production trace into a draft regression task."""
     import yaml
@@ -2561,6 +2619,16 @@ def build_parser() -> argparse.ArgumentParser:
         type=float,
         help="reliability SLO (0..1); reports the error budget left in --current",
     )
+
+    sh = add("shadow", cmd_shadow, "did a candidate make the same decisions as a recorded run")
+    sh.add_argument("--recorded", required=True, help="the production trace, as JSONL events")
+    sh.add_argument(
+        "--candidate",
+        help="a second trace to compare. Without it, the candidate is run here",
+    )
+    sh.add_argument("--task", help="task to run the candidate on when --candidate is absent")
+    sh.add_argument("--agent", default="scripted", help="candidate agent")
+    sh.add_argument("--agent-config", help="JSON config for the candidate")
 
     pt = add("promote-trace", cmd_promote_trace, "turn a production trace into a draft task")
     pt.add_argument("trace", help="a JSONL trace, e.g. from `tooltrace ingest --out`")
