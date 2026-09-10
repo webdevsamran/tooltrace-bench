@@ -1984,6 +1984,122 @@ def _expand_bundles(patterns: list[str]) -> list[Path]:
     return bundles
 
 
+def cmd_hardware(args: argparse.Namespace) -> int:
+    """The machine, the latency split, and the four efficiency questions.
+
+    `latency_split`, `aggregate_latency` and `comparability` all shipped with no
+    caller outside their own tests, so the questions they answer -- was the agent
+    slow at thinking or slow at doing, and are these two runs even comparable --
+    could be computed and were never asked. This is the asking.
+    """
+    from tooltrace.artifacts.bundles import load_bundle_result, read_manifest
+    from tooltrace.telemetry.efficiency import report as efficiency_report
+    from tooltrace.telemetry.hardware import (
+        aggregate_latency,
+        comparability,
+        hardware_metadata,
+        hardware_profile,
+    )
+
+    here = hardware_metadata(None)
+    if not args.bundles:
+        payload: dict[str, Any] = {
+            "this_machine": here,
+            "efficiency": efficiency_report([]),
+        }
+        if args.json:
+            _emit(payload, True)
+        else:
+            _print_hardware(payload)
+        return EXIT_OK
+
+    bundles = _expand_bundles(args.bundles)
+    if not bundles:
+        print("error: no .tooltrace bundles found", file=sys.stderr)
+        return EXIT_USAGE
+
+    results = [load_bundle_result(b).model_dump(mode="json") for b in bundles]
+    # Whether the recorded runs came off machines that can be compared at all.
+    # Reported as a caveat rather than a refusal: silently declining to compare
+    # two runs from different laptops would make the tool useless for the case
+    # it is most used for.
+    profiles = []
+    for bundle in bundles:
+        environment = read_manifest(bundle).get("environment") or {}
+        if isinstance(environment, dict) and environment:
+            profiles.append(hardware_profile(environment))
+    verdicts = [
+        {"a": 0, "b": index, **comparability(profiles[0], other)}
+        for index, other in enumerate(profiles[1:], start=1)
+    ]
+    differing = [v for v in verdicts if v.get("verdict") != "comparable"]
+
+    payload = {
+        "this_machine": here,
+        "bundles": len(bundles),
+        "latency": aggregate_latency(results),
+        "comparability": {
+            "profiles_recorded": len(profiles),
+            "not_comparable": len(differing),
+            "detail": differing[:5],
+            "statement": (
+                f"{len(profiles)} run(s) recorded a hardware profile; "
+                + (
+                    f"{len(differing)} differ from the first in a way that affects latency"
+                    if differing
+                    else "none differ in a way that affects latency"
+                )
+                + "."
+            ),
+        },
+        "efficiency": efficiency_report(results),
+    }
+
+    if args.json:
+        _emit(payload, True)
+    else:
+        _print_hardware(payload)
+    return EXIT_OK
+
+
+def _print_hardware(payload: dict[str, Any]) -> None:
+    machine = payload["this_machine"]
+    print(f"this machine: {machine.get('cpu') or 'unknown cpu'} ({machine.get('cpu_count')} cpus)")
+    memory = machine.get("memory_gb")
+    print(f"  memory: {memory} GiB" if memory else "  memory: not readable on this platform")
+    gpus = [str(g.get("name")) for g in (machine.get("gpus") or []) if isinstance(g, dict)]
+    if gpus:
+        print(f"  gpu: {', '.join(gpus)}")
+    else:
+        # "probed and found none" and "never probed" are different, and the
+        # field exists to keep them apart.
+        print(f"  gpu: none found (detection: {machine.get('gpu_detection', 'unknown')})")
+
+    latency = payload.get("latency")
+    if latency and latency.get("runs"):
+        print()
+        print(f"latency over {latency['runs']} run(s):")
+        print(f"  wall {latency['wall_ms_mean']} ms")
+        if latency["runs_reporting_model_time"]:
+            print(f"  model {latency['model_ms_mean']} ms · tool {latency['tool_ms_mean']} ms")
+        else:
+            print("  model time: not reported by any run, so no split is available")
+
+    if payload.get("comparability"):
+        print()
+        print(payload["comparability"]["statement"])
+
+    efficiency = payload["efficiency"]
+    print()
+    print(efficiency["prefill"]["statement"])
+    cache = efficiency["cache"]
+    print(cache["statement"] if cache["measurable"] else f"cache: {cache['reason']}")
+    print(f"ttft: {efficiency['ttft']['reason']}")
+    print(f"energy: {efficiency['energy']['statement']}")
+    print()
+    print(efficiency["handlers"]["statement"])
+
+
 def cmd_redaction(args: argparse.Namespace) -> int:
     """What a bundle had removed, what shapes remain, and what nobody can certify.
 
@@ -2542,6 +2658,13 @@ def build_parser() -> argparse.ArgumentParser:
         "command",
         nargs="*",
         help="command that starts the MCP server over stdio; put `--` first if it takes flags, e.g. `mcp-conformance -- python -m my_server` (default: the bundled deterministic fixture)",
+    )
+
+    hw = add("hardware", cmd_hardware, "the machine, the latency split, and prefill/cache/energy")
+    hw.add_argument(
+        "--bundles",
+        nargs="*",
+        help="bundle dirs or a directory of them. Without them, only this machine is reported",
     )
 
     rd = add("redaction", cmd_redaction, "what a bundle had removed, and what shapes remain")

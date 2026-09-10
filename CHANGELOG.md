@@ -7,6 +7,48 @@ versioning follows [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- **`tooltrace hardware`: where the time and the tokens went, and four questions
+  a team asks once it is paying for the GPU itself.** Every answer is measured
+  from something the platform or the provider actually reported, or absent. There
+  is no estimate anywhere in the module, deliberately: a plausible-looking energy
+  or TTFT figure would be indistinguishable from a measured one three functions
+  later, and the value of this project is that its numbers can be traced to where
+  they came from.
+
+  **Prefill overhead** is exact and almost nobody measures it. The system prompt
+  and tool catalogue are sent before the task begins, on every turn of every run
+  -- a catalogue that grew by 400 tokens costs that on each of ten steps across
+  each of a hundred runs, and no other metric here would move.
+
+  **Cache hit rate** comes from `cached_prompt_tokens`, which providers report
+  and nothing here read until recently. A run whose provider said nothing is
+  excluded rather than counted as a miss: "we do not know" and "nothing was
+  cached" bill identically and mean entirely different things.
+
+  **TTFT is unmeasured, with the reason.** It needs a streaming response and no
+  adapter here streams. Dividing total latency by anything would produce a number
+  that moves with the length of the reply, so a fast model writing a long answer
+  would read as slow to start.
+
+  **Energy** is read from Linux RAPL counters or `nvidia-smi` where they exist,
+  as a difference across a window rather than an absolute reading -- RAPL is
+  cumulative, so an absolute value records how long the machine has been on. On a
+  machine with neither it is unmeasured; multiplying a datasheet TDP by a duration
+  would be arithmetic about a datasheet. Carbon is not computed at all: grid
+  intensity varies by hour and by contract, and one constant would turn a measured
+  energy figure into an invented carbon one.
+
+  **The handler matrix** is built from recorded runs and never from a list of what
+  is supported. A hardcoded matrix records what somebody believed when they typed
+  it; this one is usually mostly empty, and it should be.
+
+### Fixed
+- **`latency_split`, `aggregate_latency` and `comparability` had no caller.** All
+  three shipped earlier in this cycle, so the questions they answer -- was the
+  agent slow at thinking or slow at doing, and are these two runs even comparable
+  -- could be computed and were never asked. `tooltrace hardware` asks them.
+
+### Added
 - **NIST AI RMF and ISO/IEC 42001 mappings, and they are mostly refusals.**
   `evidence --framework` re-files the same bundle facts in another vocabulary --
   nothing is re-derived, because two mappings of one run set that could disagree
