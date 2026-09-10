@@ -178,6 +178,9 @@ and a row claiming a task pack has to have that pack on disk.
 | 75be | Insecure tool execution: untrusted values and untrusted code (AAI05) | I | `tooltrace/tasks/packs/security/untrusted-path-traversal.yaml`, `tooltrace/tasks/packs/security/untrusted-code-execution.yaml` |
 | 75bf | Memory poisoning through persistent state (AAI06) | I | `tooltrace/tasks/packs/security/memory-poisoning.yaml` |
 | 75bg | Cost-accuracy Pareto explorer, with unpriced agents excluded rather than plotted at zero | I | `web/src/charts.tsx` (`ParetoChart`), `web/src/pages/operations.tsx` (`ParetoExplorerPage`), `scripts/generate_web_data.py` |
+| 75bh | Token-efficiency regression gate, with `not_measured` kept apart from `inconclusive` | I | `tooltrace/analysis/pr_report.py` (`NOT_MEASURED`, `_total_tokens`) |
+| 75bi | GitLab / Jenkins / CircleCI pipeline templates | I | `tooltrace/cli/init.py` (`ci_config`, `CI_PATHS`) |
+| 75bj | Pre-commit notice when a change alters what an agent is shown | I | `scripts/prompt_change_notice.py`, `.pre-commit-config.yaml` |
 | 76 | Failure clustering (deterministic vectors; semantic labeled) | I | `tooltrace/analysis/core.py` (`cluster_failures`) |
 | 77 | Root-cause drill-down aggregate → trace/assertion | I | `tooltrace/analysis/failures.py` (`Classification.seq`), `tooltrace/metrics/aggregate.py` (`failure_step`), `tooltrace/cli/main.py` (`cmd_trace`), `web/src/lib/clusters.ts` (`clusterFailures`, `stepLink`) |
 | 78 | Reproducibility score (metadata completeness, not validity) | I | `tooltrace/analysis/core.py` (`reproducibility_score`) |

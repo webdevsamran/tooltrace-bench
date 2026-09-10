@@ -52,12 +52,33 @@ METRICS: dict[str, dict[str, Any]] = {
         "min_effect_pct": 0.20,
         "kind": "mean",
     },
+    # Tokens, for the same reason as latency and with the same shape of
+    # threshold. A prompt change that leaves every score identical and doubles
+    # the token count is a regression -- it costs money on every future run --
+    # and no other metric here would notice it. 15% of the baseline, because
+    # token counts are less noisy than wall time: nothing else is competing for
+    # the provider's tokeniser.
+    #
+    # A run that reports no usage contributes no value rather than a zero. A
+    # provider that says nothing about tokens must not read as one that used
+    # none, which would turn "we stopped measuring" into a large improvement.
+    "tokens_per_run": {
+        "direction": "lower_is_better",
+        "min_effect_pct": 0.15,
+        "kind": "mean",
+    },
 }
 
 REGRESSED = "regressed"
 IMPROVED = "improved"
 NO_CHANGE = "no_change_detected"
 INCONCLUSIVE = "inconclusive"
+#: Nobody reported this metric on either side. Distinct from `inconclusive`,
+#: and the distinction changes what a reader should do: an inconclusive row
+#: asks for more runs, a not-measured row asks for an adapter that reports the
+#: number at all. Collapsing them would make a gate on token usage read as
+#: permanently uncertain against every agent that never emits usage.
+NOT_MEASURED = "not_measured"
 
 
 @dataclass
@@ -241,7 +262,13 @@ def compare_samples(
             min_effect = abs(base_mean) * float(spec["min_effect_pct"]) if base_mean else 0.0
         else:
             min_effect = float(spec["min_effect"])
-        verdict, note = _verdict_for(interval, str(spec["direction"]), min_effect)
+        if not baseline and not current:
+            verdict, note = (
+                NOT_MEASURED,
+                "no run on either side reported this; it is unmeasured rather than uncertain",
+            )
+        else:
+            verdict, note = _verdict_for(interval, str(spec["direction"]), min_effect)
         report.verdicts.append(
             MetricVerdict(
                 metric=metric,
@@ -284,6 +311,7 @@ _SYMBOLS = {
     IMPROVED: "improved",
     NO_CHANGE: "no change detected",
     INCONCLUSIVE: "inconclusive",
+    NOT_MEASURED: "not measured",
 }
 
 
@@ -309,6 +337,18 @@ def render_markdown(report: PRReport, *, title: str = "Agent reliability") -> st
         )
     else:
         lines.append("**No regression, and the sample was large enough to say so.**")
+
+    unmeasured = [v.metric for v in report.verdicts if v.verdict == NOT_MEASURED]
+    if unmeasured:
+        # Said out loud rather than left as a row nobody reads. A metric no
+        # adapter reports is a gap in the instrumentation, and more runs will
+        # not close it.
+        lines.append(
+            f"No run reported {', '.join(f'`{m}`' for m in unmeasured)}, so "
+            + ("that metric was" if len(unmeasured) == 1 else "those metrics were")
+            + " not checked at all. More runs will not change that; an adapter that "
+            "reports the number will."
+        )
 
     lines += [
         "",
@@ -346,6 +386,28 @@ def render_markdown(report: PRReport, *, title: str = "Agent reliability") -> st
     return "\n".join(lines) + "\n"
 
 
+def _total_tokens(result: Any) -> float | None:
+    """Total tokens for one run, or None when the adapter reported none.
+
+    None rather than 0, and the difference is the whole point: a provider that
+    says nothing about tokens is not one that used none. Coercing it would make
+    "we stopped measuring" look like the largest efficiency win in the history
+    of the project.
+    """
+    usage = getattr(result, "usage", None)
+    tokens = getattr(usage, "tokens", None) if usage is not None else None
+    if tokens is None:
+        return None
+    total = getattr(tokens, "total_tokens", None)
+    if isinstance(total, int | float):
+        return float(total)
+    prompt = getattr(tokens, "prompt_tokens", None)
+    completion = getattr(tokens, "completion_tokens", None)
+    if isinstance(prompt, int | float) or isinstance(completion, int | float):
+        return float((prompt or 0) + (completion or 0))
+    return None
+
+
 def rows_from_bundles(bundle_dirs: list[Any]) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     """Result rows and cohort metadata from a directory of bundles."""
     from tooltrace.artifacts.bundles import load_bundle_result, read_manifest
@@ -362,6 +424,7 @@ def rows_from_bundles(bundle_dirs: list[Any]) -> tuple[list[dict[str, Any]], dic
                 "steps": result.steps,
                 "failed_tool_calls": result.failed_tool_calls,
                 "wall_ms": result.wall_ms,
+                "tokens_per_run": _total_tokens(result),
                 "task_id": result.task_id,
             }
         )

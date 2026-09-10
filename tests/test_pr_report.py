@@ -25,6 +25,7 @@ from tooltrace.analysis.pr_report import (
     IMPROVED,
     INCONCLUSIVE,
     NO_CHANGE,
+    NOT_MEASURED,
     REGRESSED,
     cohort_problems,
     compare_samples,
@@ -277,7 +278,11 @@ def _bundles(tmp_path: Path, name: str, runs_count: int) -> Path:
 #: Everything except wall-clock. See the test below for why this is not
 #: cheating: the two arms here run the same agent on the same task, so any
 #: latency difference between them is a fact about the machine.
-BEHAVIOURAL = "success_rate,score,steps,failed_tool_calls"
+#:
+#: `tokens_per_run` stays in: token count is a property of the agent and its
+#: prompt, not of the runner, and the scripted agent reports none -- which the
+#: report calls `not_measured` rather than uncertain.
+BEHAVIOURAL = "success_rate,score,steps,failed_tool_calls,tokens_per_run"
 
 
 def test_the_cli_reports_and_exits_zero_without_an_established_regression(
@@ -351,3 +356,71 @@ def test_the_cli_needs_bundles_on_both_sides(tmp_path: Path, capsys) -> None:
     capsys.readouterr()
     assert main(["pr-report", "--baseline", str(baseline), "--current", str(empty)]) != 0
     assert "needs bundles on both sides" in capsys.readouterr().err
+
+
+# --- tokens: the metric no other row would notice ----------------------------
+
+
+def runs_with_tokens(n: int, tokens: float) -> list[dict]:
+    rows = runs(n)
+    for row in rows:
+        row["tokens_per_run"] = tokens
+    return rows
+
+
+def test_doubling_the_token_count_is_a_regression_nothing_else_catches() -> None:
+    """A prompt change that leaves every score identical and doubles the tokens.
+
+    Success rate, score, steps and failed calls are all unchanged here, by
+    construction. Without this metric the report would be entirely green while
+    every future run cost twice as much.
+    """
+    report = compare_samples(runs_with_tokens(200, 1000), runs_with_tokens(200, 2000))
+    assert verdict_for(report, "tokens_per_run") == REGRESSED
+    assert verdict_for(report, "success_rate") != REGRESSED
+    assert report.regressed is True
+
+
+def test_fewer_tokens_for_the_same_result_is_an_improvement() -> None:
+    report = compare_samples(runs_with_tokens(200, 2000), runs_with_tokens(200, 1000))
+    assert verdict_for(report, "tokens_per_run") == IMPROVED
+    assert report.regressed is False
+
+
+def test_a_one_percent_token_move_is_not_worth_blocking_on() -> None:
+    report = compare_samples(runs_with_tokens(200, 1000), runs_with_tokens(200, 1010))
+    assert verdict_for(report, "tokens_per_run") == NO_CHANGE
+
+
+def test_an_unreported_metric_is_not_measured_rather_than_inconclusive() -> None:
+    """The distinction changes what a reader should do about it.
+
+    An inconclusive row asks for more runs. A not-measured row asks for an
+    adapter that reports the number at all, and no number of runs will produce
+    one. Collapsing them would make a token gate read as permanently uncertain
+    against every agent that never emits usage — which is most of them.
+    """
+    report = compare_samples(runs(400), runs(400))
+    assert verdict_for(report, "tokens_per_run") == NOT_MEASURED
+    assert report.regressed is False
+
+
+def test_a_not_measured_metric_does_not_make_the_comment_say_it_could_not_check() -> None:
+    rendered = render_markdown(compare_samples(runs(400), runs(400)))
+    assert "large enough to say so" in rendered
+    assert "More runs will not change that" in rendered
+
+
+def test_reporting_tokens_on_one_side_only_is_uncertain_not_unmeasured() -> None:
+    """Half a measurement is a measurement that could not be compared."""
+    report = compare_samples(runs(200), runs_with_tokens(200, 1000))
+    assert verdict_for(report, "tokens_per_run") != NOT_MEASURED
+
+
+def test_a_run_reporting_no_usage_contributes_nothing_rather_than_zero() -> None:
+    """Coercing None to 0 would make "we stopped measuring" the biggest win ever."""
+    mixed = runs_with_tokens(2, 1000) + runs(2)
+    report = compare_samples(mixed, mixed)
+    row = next(v for v in report.verdicts if v.metric == "tokens_per_run")
+    assert row.baseline == 1000, "the unreported runs must not drag the mean toward zero"
+    assert row.baseline_n == 2
