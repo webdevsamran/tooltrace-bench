@@ -81,3 +81,40 @@ called that a pass.
 - **A trace is required.** A caller that supplies no trajectory gets an explicit
   refusal in the assertion detail, not a silent zero — "we could not look" and
   "we looked and it failed" are different facts.
+
+## Which tools was the agent actually relying on?
+
+Every scorer above reads a run in which everything worked. That cannot separate
+an agent with a plan from one walking a path it has walked before, and those two
+score identically right up until something changes.
+
+`tooltrace counterfactual` runs the task once per tool with that tool removed
+from `allowed_tools`:
+
+| Verdict | Meaning |
+|---|---|
+| `load_bearing` | Removing it made the task fail on every attempt |
+| `redundant` | The task still passed. **Not the same as useless** -- the agent found another way, which may be a worse one |
+| `unused` | Never called even with everything available, so nothing was removed and nothing was learned |
+
+`unused` is the verdict that needs reading carefully, and it means opposite
+things in two places. On an ordinary task it usually means the task declares
+more than it needs. On a **security** task it usually means the tool is there
+because the *attack* needs it, and a resistant agent never touching it is the
+pass condition -- removing it would make the attack unreachable and every agent
+would score as perfectly safe. That is a bug this repository has shipped, so the
+report says which case a row is in rather than leaving the reader to guess.
+
+Two limits travel in the output:
+
+**An ablation is not a clean intervention.** Removing a tool also removes its
+line from the catalogue the model reads, so the agent is being told something
+different rather than merely given less. The change in outcome is the sum of
+both and nothing here separates them.
+
+**One run per arm is one Bernoulli draw.** With a nondeterministic agent, "it
+failed without `search_text`" may be a coin landing differently. `--runs` raises
+it; below five, the report says so.
+
+A baseline that does not pass is not ablated at all: every arm would fail and
+every tool would read as load-bearing.

@@ -193,6 +193,7 @@ and a row claiming a task pack has to have that pack on disk.
 | 75bt | Energy read from RAPL / nvidia-smi where exposed, never estimated | I | `tooltrace/telemetry/efficiency.py` (`energy_sources`, `EnergyWindow`) |
 | 75bu | Model-handler coverage matrix generated from recorded runs | I | `tooltrace/telemetry/efficiency.py` (`handler_matrix`) |
 | 75bv | Latency split and hardware comparability given a caller | I | `tooltrace/cli/main.py` (`cmd_hardware`), `tooltrace/telemetry/hardware.py` (`aggregate_latency`, `comparability`) |
+| 75bw | Counterfactual scoring: which tools were load-bearing | I | `tooltrace/analysis/counterfactual.py` (`ablate`), `tooltrace/cli/main.py` (`cmd_counterfactual`) |
 | 76 | Failure clustering (deterministic vectors; semantic labeled) | I | `tooltrace/analysis/core.py` (`cluster_failures`) |
 | 77 | Root-cause drill-down aggregate → trace/assertion | I | `tooltrace/analysis/failures.py` (`Classification.seq`), `tooltrace/metrics/aggregate.py` (`failure_step`), `tooltrace/cli/main.py` (`cmd_trace`), `web/src/lib/clusters.ts` (`clusterFailures`, `stepLink`) |
 | 78 | Reproducibility score (metadata completeness, not validity) | I | `tooltrace/analysis/core.py` (`reproducibility_score`) |
