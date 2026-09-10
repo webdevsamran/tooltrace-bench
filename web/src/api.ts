@@ -65,7 +65,17 @@ export interface ResultRow {
 }
 
 export interface AgentRow {
+  /**
+   * Adapter and model together, because the adapter alone is not a competitor.
+   * `openai_compat` drives Ollama, llama.cpp, LM Studio, vLLM and SGLang, so
+   * grouping by it collapsed every local model in a sweep onto one row named
+   * after the adapter -- a leaderboard that cannot tell Qwen from Llama.
+   */
   name: string
+  /** The parts, so a view can group by either without re-parsing `name`. */
+  adapter: string
+  /** Null when the run declared no model, rather than an invented placeholder. */
+  model: string | null
   runs: number
   success_rate: number
   mean_score: number

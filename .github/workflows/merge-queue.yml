@@ -1,0 +1,100 @@
+# Reliability gate for the merge queue.
+#
+# `pr-reliability.yml` compares a pull request against its own merge base, which
+# is the right question for review. It is the wrong question at merge time: a
+# queue batches several approved PRs and merges the *combination*, and two
+# changes that are each harmless can be a regression together. Nothing checks
+# that combination until it is on the default branch.
+#
+# So this runs on `merge_group`, against the batch as GitHub assembled it.
+#
+# ## What it deliberately does not do
+#
+# **It does not compare against a stored baseline.** A baseline recorded on
+# another runner, on another day, carries that machine's latency, and a queue
+# gate that blocks on a difference in hardware would block at random. This
+# sweeps the batch and the default branch in the same job on the same runner,
+# for the same reason `pr-reliability.yml` does.
+#
+# **It fails only on an *established* regression** -- large enough to matter and
+# beyond what the samples support. An inconclusive result does not block. A
+# merge queue that stalls on absent evidence is a queue somebody turns off, and
+# then nothing is gated at all.
+#
+# **It gates on behaviour, not wall-clock.** `--metrics` excludes `wall_ms`
+# because a shared runner's latency is a fact about the runner. Blocking a merge
+# on a noisy neighbour is exactly how this gate gets removed.
+#
+# No third-party actions. A workflow that pulls one in inherits its supply chain
+# on behalf of everyone who copies this file.
+name: Merge queue reliability
+
+on:
+  merge_group:
+
+permissions:
+  contents: read
+
+concurrency:
+  # Per batch, not per branch: two batches are two different combinations and
+  # cancelling one because another arrived would leave it ungated.
+  group: merge-queue-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      # actions/checkout@v7 -- full history so the default branch is reachable.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+
+      # actions/setup-python@v5
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: "3.12"
+
+      - name: Sweep the queued batch
+        run: |
+          pip install --disable-pip-version-check -e .
+          tooltrace benchmark --agent scripted --runs 10 --out batch-runs --json > /dev/null
+
+      - name: Sweep the default branch
+        run: |
+          # A worktree rather than a checkout: the batch's runs are already on
+          # disk and must survive.
+          git worktree add ../base "origin/${{ github.event.repository.default_branch }}"
+          cd ../base
+          pip install --disable-pip-version-check -e .
+          tooltrace benchmark --agent scripted --runs 10 --out "$GITHUB_WORKSPACE/base-runs" --json > /dev/null
+
+      - name: Compare the batch against the default branch
+        id: compare
+        run: |
+          set +e
+          # The installed package is the base checkout's after the step above.
+          # Reinstall the batch so the comparison is performed by the code being
+          # merged.
+          pip install --disable-pip-version-check -e .
+          tooltrace pr-report --baseline base-runs --current batch-runs \
+            --metrics success_rate,score,steps,failed_tool_calls,tokens_per_run \
+            --out comment.md --json > report.json
+          echo "exit-code=$?" >> "$GITHUB_OUTPUT"
+          cat comment.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Fail on an established regression
+        run: |
+          # Exit 8 is `pr-report`'s established-regression code. Anything else
+          # non-zero is a broken run, which must also stop the merge: a gate
+          # that cannot tell "the code got worse" from "the gate crashed" would
+          # let the second one through.
+          code="${{ steps.compare.outputs.exit-code }}"
+          if [ "$code" = "8" ]; then
+            echo "::error::An established reliability regression in this batch. See the summary."
+            exit 1
+          fi
+          if [ "$code" != "0" ]; then
+            echo "::error::The reliability gate did not complete (exit $code)."
+            exit 1
+          fi
