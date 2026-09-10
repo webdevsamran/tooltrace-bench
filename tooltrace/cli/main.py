@@ -228,6 +228,40 @@ def cmd_pr_report(args: argparse.Namespace) -> int:
     return EXIT_REGRESSION if report.regressed else EXIT_OK
 
 
+def cmd_power(args: argparse.Namespace) -> int:
+    """What a planned sweep can detect, before spending anything on it."""
+    from tooltrace.analysis.power import power_report, runs_for_effect
+
+    if args.detect is not None:
+        needed = runs_for_effect(args.detect, baseline_rate=args.baseline_rate)
+        if needed is None:
+            print("--detect needs a positive difference", file=sys.stderr)
+            return EXIT_USAGE
+        payload: dict[str, object] = {
+            "detect": args.detect,
+            "baseline_rate": args.baseline_rate,
+            "runs_per_arm": needed,
+            "statement": (
+                f"Detecting a {args.detect * 100:.1f} point difference at a "
+                f"{args.baseline_rate:.2f} baseline needs about {needed} runs per arm."
+            ),
+        }
+        _emit(payload if args.json else payload["statement"], args.json)
+        return EXIT_OK
+
+    report = power_report(args.runs, baseline_rate=args.baseline_rate)
+    if args.json:
+        _emit(report, True)
+    else:
+        print(report["statement"])
+        print()
+        for effect, needed in report["runs_needed_for"].items():
+            print(f"  to detect {float(effect) * 100:>4.0f} points: {needed} runs per arm")
+        print()
+        print(report["assumption"])
+    return EXIT_OK
+
+
 def cmd_agents(args: argparse.Namespace) -> int:
     from tooltrace.agents import AgentAdapter  # noqa: F401
     from tooltrace.core.registry import agent_registry
@@ -501,6 +535,8 @@ def cmd_showdown(args: argparse.Namespace) -> int:
     # Every agent runs the identical task list in the same order, so these
     # vectors are genuinely paired and paired_delta is legitimate.
     outcomes: dict[str, list[bool]] = {}
+    # One row per run, keyed by (agent, task), for the variance split.
+    variance_rows: list[dict[str, object]] = []
     for index, agent in enumerate(agents):
         config = _agent_config(args.agent_config)
         bench = run_benchmark(
@@ -511,6 +547,10 @@ def cmd_showdown(args: argparse.Namespace) -> int:
         # outcome vectors by position rather than by name.
         key = f"{index}:{agent}"
         outcomes[key] = [bool(r.success) for r in bench.results]
+        variance_rows.extend(
+            {"agent": agent, "task_id": r.task_id, "success": bool(r.success)}
+            for r in bench.results
+        )
         standings.append(
             {
                 "agent": agent,
@@ -545,6 +585,41 @@ def cmd_showdown(args: argparse.Namespace) -> int:
         if not (enough and separated):
             verdict = "not distinguishable at this sample size"
 
+    # Two additions that answer questions the frequentist verdict cannot.
+    #
+    # `power` says what this sweep was capable of detecting, which is what makes
+    # "not distinguishable" readable: without it, that verdict is indistinguish-
+    # able from "these agents are the same", and they are opposite claims.
+    #
+    # `bayesian` reports P(leader is better) directly. People read a confidence
+    # interval as though it said that anyway; saying it outright is more honest
+    # than letting the misreading do the work.
+    from tooltrace.analysis.power import bayesian_comparison, power_report, variance_decomposition
+
+    smallest_arm = min((len(v) for v in outcomes.values()), default=0)
+    payload_extras: dict[str, object] = {
+        "power": power_report(
+            smallest_arm,
+            baseline_rate=_as_rate(standings[0].get("success_rate")) if standings else 0.5,
+        ),
+    }
+    if len(standings) >= 2:
+        leader_vec = outcomes[str(standings[0]["key"])]
+        runner_vec = outcomes[str(standings[1]["key"])]
+        payload_extras["bayesian"] = bayesian_comparison(
+            sum(leader_vec),
+            len(leader_vec),
+            sum(runner_vec),
+            len(runner_vec),
+            label_a=str(standings[0]["agent"]),
+            label_b=str(standings[1]["agent"]),
+        )
+    # Split the wobble: repeating one agent on one task and getting different
+    # answers is nondeterminism; differing across tasks is the benchmark working.
+    # A single standard deviation conflates them, which is how a stable agent on
+    # a diverse task set gets described as flaky.
+    payload_extras["variance"] = variance_decomposition(variance_rows)
+
     for row in standings:
         row.pop("key", None)
     payload = {
@@ -553,6 +628,7 @@ def cmd_showdown(args: argparse.Namespace) -> int:
         "note": note,
         "ranking_is_provisional": verdict != "ranked",
         "selection": selection,
+        **payload_extras,
     }
     _emit(payload, args.json)
     return EXIT_OK
@@ -1336,6 +1412,20 @@ def build_parser() -> argparse.ArgumentParser:
     pr.add_argument("--baseline", required=True, help="directory of baseline bundles")
     pr.add_argument("--current", required=True, help="directory of this branch's bundles")
     pr.add_argument("--out", help="write the markdown comment here")
+
+    pw = add("power", cmd_power, "what a planned sweep can detect, before you run it")
+    pw.add_argument("--runs", type=int, default=30, help="runs per arm you intend to do")
+    pw.add_argument(
+        "--detect",
+        type=float,
+        help="instead, ask how many runs a difference this large needs (e.g. 0.10)",
+    )
+    pw.add_argument(
+        "--baseline-rate",
+        type=float,
+        default=0.5,
+        help="expected success rate; 0.5 is the worst case and the default",
+    )
 
     add("agents", cmd_agents, "list registered agent adapters")
 

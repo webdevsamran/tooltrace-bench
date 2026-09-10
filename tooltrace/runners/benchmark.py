@@ -132,6 +132,14 @@ def run_benchmark(
     )
     overall["trajectory"] = aggregate_trajectory(all_trajectories)
     overall["failure_taxonomy"] = failure_taxonomy(all_results)
+    # "This agent is flaky" and "this benchmark covers diverse tasks" produce the
+    # same standard deviation and mean opposite things. Splitting the variance is
+    # the only way to tell them apart, and the two have different fixes.
+    from tooltrace.analysis.power import variance_decomposition
+
+    overall["variance"] = variance_decomposition(
+        [{"agent": agent_name, "task_id": r.task_id, "success": r.success} for r in all_results]
+    )
     # "Which model resolves the most tasks per dollar" is the question teams
     # actually decide on, and evaluations rarely answer it.
     overall["cost"] = cost_summary([r.model_dump(mode="json") for r in all_results])

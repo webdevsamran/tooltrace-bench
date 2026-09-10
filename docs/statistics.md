@@ -219,3 +219,66 @@ bootstrap to a zero-width interval, and "the rate is exactly 1.0 with no
 uncertainty" is the most misleading thing this could report. Latency's minimum
 effect is a share of the baseline rather than an absolute figure, because 5 ms is
 nothing on a four-second task and everything on a six-millisecond one.
+
+## Deciding how many runs to do, before you do them
+
+Every interval in this project is computed *after* the runs. That leaves the most
+consequential decision unsupported: how many runs. People pick 3, or 10, because
+they are round numbers, and then read a difference the sample cannot support.
+
+`tooltrace power` answers it beforehand. Two figures are worth stating outright,
+because a planner nobody believes is a planner nobody uses:
+
+| Difference to detect | Runs per arm (50% baseline) |
+|---|---|
+| 20 points | ~99 |
+| 10 points | ~393 |
+| 5 points | ~1570 |
+
+Two-sided, alpha 0.05, power 0.80, normal approximation to the binomial. A 3-run
+sweep does not compare agents; it demonstrates that something runs.
+
+The default baseline rate is **0.5**, deliberately. Variance in a proportion
+peaks there, so 0.5 gives the largest -- most conservative -- sample requirement.
+Assuming a 0.95 baseline would promise more sensitivity than a sweep delivers,
+which is the direction a planner must never err in. And a baseline of exactly 0
+or 1 gets no answer at all rather than an infinitely sensitive one: the
+approximation does not apply there.
+
+`showdown` now carries this, which is what makes its "not distinguishable at this
+sample size" verdict readable. Without a stated minimum detectable effect, that
+verdict is indistinguishable from "these agents are the same" -- and they are
+opposite claims.
+
+## Is the agent noisy, or is the benchmark broad?
+
+Those two produce the same standard deviation and mean opposite things, and they
+have different fixes. `variance_decomposition` splits observed variance in two:
+
+- **Within-configuration** -- the same agent, on the same task, answering
+  differently. Nondeterminism.
+- **Between-task** -- different tasks producing different rates. The benchmark
+  working, not instability.
+
+An agent that is perfect on one task and hopeless on another, entirely
+repeatably, has *zero* within-configuration variance. A single standard deviation
+calls that flaky. It is not.
+
+The stated limit travels in the output: this **cannot separate the model's
+nondeterminism from the harness's**. Both sit inside the within-configuration
+term, and separating them needs a fixed-seed control arm that no adapter
+currently guarantees. And when there is no variance at all, the share is `null`
+rather than `0` -- "none of the variance is noise" and "there was no variance"
+are different statements.
+
+## P(A is better than B)
+
+`showdown` also reports a Beta-Binomial posterior. This answers the question
+people read a confidence interval as answering anyway; saying it outright is more
+honest than letting the misreading do the work.
+
+The prior is uniform Beta(1,1), stated in the output, and is an explicit argument
+-- a prior chosen after seeing the data is how a Bayesian analysis becomes a way
+to get the answer you wanted. A posterior near 0.5 is reported as *an absence of
+evidence in either direction*, never as evidence the two are equal, and below ten
+runs per arm the reading says plainly that the prior is doing the work.
