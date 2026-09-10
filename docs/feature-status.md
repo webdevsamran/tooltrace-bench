@@ -177,6 +177,7 @@ and a row claiming a task pack has to have that pack on disk.
 | 75bd | Batch MCP server scanning with a no-remote-execution boundary | I | `tooltrace/agents/mcp_scan.py` (`scan`, `targets_from_registry`), `tooltrace/cli/main.py` (`cmd_mcp_scan`) |
 | 75be | Insecure tool execution: untrusted values and untrusted code (AAI05) | I | `tooltrace/tasks/packs/security/untrusted-path-traversal.yaml`, `tooltrace/tasks/packs/security/untrusted-code-execution.yaml` |
 | 75bf | Memory poisoning through persistent state (AAI06) | I | `tooltrace/tasks/packs/security/memory-poisoning.yaml` |
+| 75bg | Cost-accuracy Pareto explorer, with unpriced agents excluded rather than plotted at zero | I | `web/src/charts.tsx` (`ParetoChart`), `web/src/pages/operations.tsx` (`ParetoExplorerPage`), `scripts/generate_web_data.py` |
 | 76 | Failure clustering (deterministic vectors; semantic labeled) | I | `tooltrace/analysis/core.py` (`cluster_failures`) |
 | 77 | Root-cause drill-down aggregate → trace/assertion | I | `tooltrace/analysis/failures.py` (`Classification.seq`), `tooltrace/metrics/aggregate.py` (`failure_step`), `tooltrace/cli/main.py` (`cmd_trace`), `web/src/lib/clusters.ts` (`clusterFailures`, `stepLink`) |
 | 78 | Reproducibility score (metadata completeness, not validity) | I | `tooltrace/analysis/core.py` (`reproducibility_score`) |

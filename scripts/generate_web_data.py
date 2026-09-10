@@ -36,6 +36,7 @@ from tooltrace.artifacts.bundles import (
 )
 from tooltrace.core.versions import FRAMEWORK_VERSION
 from tooltrace.metrics.aggregate import failure_step
+from tooltrace.metrics.economics import cost_accuracy_points, pareto_frontier
 from tooltrace.metrics.security import attack_class_of, attack_success_rate
 from tooltrace.reports.badge import from_bundles as badge_from_bundles
 from tooltrace.reports.badge import render_endpoint, render_svg
@@ -43,6 +44,10 @@ from tooltrace.reports.badge import render_endpoint, render_svg
 ROOT = Path(__file__).resolve().parents[1]
 RESULTS = ROOT / "results"
 WEB_PUBLIC = ROOT / "web" / "public"
+
+
+def generated_at_stamp(results_rows: list[dict]) -> str:
+    return max((r["created_at"] for r in results_rows), default="")
 
 
 def _cost_axis(results: list) -> dict[str, object]:
@@ -278,6 +283,34 @@ def main() -> int:
     )
     (data_dir / "results.json").write_text(json.dumps(results_rows, indent=2), encoding="utf-8")
     (data_dir / "agents.json").write_text(json.dumps(agents_rows, indent=2), encoding="utf-8")
+
+    # The cost/accuracy frontier. `pareto_frontier` had no caller outside the
+    # tests, so the question it answers -- which agents is nobody beating on both
+    # axes at once -- could be computed and never asked. Unpriced agents are
+    # carried as points and excluded from the frontier, because a frontier that
+    # silently ranked an unpriced agent as cheapest would be worse than none.
+    points = cost_accuracy_points(
+        {agent: [r.model_dump(mode="json") for r in rs] for agent, rs in per_agent.items()}
+    )
+    frontier = pareto_frontier(points)
+    (data_dir / "pareto.json").write_text(
+        json.dumps(
+            {
+                "generated_at": generated_at_stamp(results_rows),
+                "points": points,
+                "frontier": frontier,
+                "unpriced": [p["agent"] for p in points if p["cost_per_resolved_task"] is None],
+                "statement": (
+                    "a frontier drawn from one agent names that agent and means nothing"
+                    if len(points) < 2
+                    else f"{len(frontier)} of {len(points)} agents are on the frontier; "
+                    "the rest are beaten on both accuracy and cost at once"
+                ),
+            },
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
 
     generated_at = max((r["created_at"] for r in results_rows), default="")
     (data_dir / "security.json").write_text(

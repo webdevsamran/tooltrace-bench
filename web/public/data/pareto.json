@@ -1,0 +1,18 @@
+{
+  "generated_at": "2026-09-10T04:42:17.155586+00:00",
+  "points": [
+    {
+      "agent": "scripted",
+      "success_rate": 1.0,
+      "cost_per_resolved_task": null,
+      "total_cost": null,
+      "priced_runs": 0,
+      "runs": 14
+    }
+  ],
+  "frontier": [],
+  "unpriced": [
+    "scripted"
+  ],
+  "statement": "a frontier drawn from one agent names that agent and means nothing"
+}

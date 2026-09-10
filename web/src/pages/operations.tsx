@@ -1,8 +1,26 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { assetUrl, getIndex, getResults, useAsync, type IndexData, type ResultRow } from '../api'
-import { DataTable, DiffViewer, ErrorState, Loading, VirtualList, type Column } from '../components'
-import { Histogram, Scatter } from '../charts'
+import {
+  assetUrl,
+  getIndex,
+  getPareto,
+  getResults,
+  useAsync,
+  type IndexData,
+  type ParetoPoint,
+  type ResultRow,
+} from '../api'
+import {
+  DataTable,
+  DiffViewer,
+  EmptyState,
+  ErrorState,
+  Loading,
+  VirtualList,
+  type Column,
+} from '../components'
+import { Histogram, ParetoChart, Scatter } from '../charts'
+import { useUrlState } from '../lib/useUrlState'
 
 /** Bucket wall times into 5 roughly-even bins for the latency histogram. */
 function latencyBins(values: number[]): { bins: number[]; labels: string[] } {
@@ -468,6 +486,130 @@ export function PluginCatalogPage() {
         See <Link to="/docs">Docs</Link> and <code>CONTRIBUTING.md</code>. Scaffold a pack:{' '}
         <code>tooltrace task scaffold --pack-dir my-pack --task-id my-task</code>.
       </p>
+    </section>
+  )
+}
+/**
+ * The cost/accuracy frontier: which agents nobody beats on both axes at once.
+ *
+ * `pareto_frontier` shipped in `tooltrace/metrics/economics.py` with no caller
+ * outside its own tests, so the question it answers could be computed and was
+ * never asked. This is the asking.
+ *
+ * The page is deliberately loud about what it cannot draw. An agent whose runs
+ * reported no spend has an unmeasured axis, not a cost of zero -- treating it as
+ * free would put it on the frontier by default and make the chart actively
+ * misleading. Those agents are listed by name instead, above the chart, so a
+ * reader sees the gap rather than a plot that looks complete.
+ */
+export function ParetoExplorerPage() {
+  const pareto = useAsync(getPareto)
+  const [selected, setSelected] = useUrlState('agent')
+
+  if (pareto.loading) return <Loading />
+  if (pareto.error) return <ErrorState message={pareto.error} />
+  const data = pareto.data
+  if (!data) return <ErrorState message="no frontier data" />
+
+  const priced = data.points.filter((p) => p.cost_per_resolved_task !== null)
+  const focus = data.points.find((p) => p.agent === selected) ?? null
+
+  return (
+    <section>
+      <h1>Cost–accuracy frontier</h1>
+      <p className="muted">
+        An agent is <strong>dominated</strong> when another is at least as accurate and at least as
+        cheap, and strictly better on one of them. What is left is the frontier: the set where
+        buying more accuracy costs more money, and no choice is simply worse than another.
+      </p>
+
+      {data.unpriced.length > 0 && (
+        <div className="notice" role="note">
+          <strong>{data.unpriced.length} agent(s) have no measured cost</strong> and are not on the
+          chart: {data.unpriced.join(', ')}. An unpriced run has an unmeasured axis, not a cost of
+          zero. Treating it as free would place it on the frontier by default.
+        </div>
+      )}
+
+      {priced.length === 0 ? (
+        <EmptyState hint="No run in this dataset reported spend, so there is no frontier to draw. Cost is recorded only when an adapter reports token usage and a dated price table covers the model." />
+      ) : priced.length === 1 ? (
+        <EmptyState hint={`Only ${priced[0].agent} has a measured cost. A frontier drawn from one agent names that agent and means nothing.`} />
+      ) : (
+        <>
+          <ParetoChart
+            points={data.points}
+            frontier={data.frontier}
+            selected={selected || null}
+            onSelect={(agent) => setSelected(agent ?? '')}
+          />
+          <p className="muted">{data.statement}</p>
+        </>
+      )}
+
+      {focus && (
+        <div className="panel" aria-live="polite">
+          <h2>{focus.agent}</h2>
+          <p>
+            {data.frontier.includes(focus.agent)
+              ? 'On the frontier: no other agent here is both at least as accurate and at least as cheap.'
+              : 'Dominated: another agent here is at least as accurate and at least as cheap.'}
+          </p>
+          <div className="stats">
+            <Stat label="Success rate" value={`${(focus.success_rate * 100).toFixed(1)}%`} />
+            <Stat
+              label="Cost per resolved task"
+              value={focus.cost_per_resolved_task === null ? 'unmeasured' : String(focus.cost_per_resolved_task)}
+            />
+            <Stat label="Runs" value={String(focus.runs)} />
+            <Stat label="Priced runs" value={`${focus.priced_runs} of ${focus.runs}`} />
+          </div>
+        </div>
+      )}
+
+      <h2>Every agent</h2>
+      <DataTable<ParetoPoint>
+        rows={data.points}
+        emptyHint="No agent has been measured yet."
+        columns={[
+          { key: 'agent', header: 'Agent', value: (p) => p.agent },
+          {
+            key: 'position',
+            header: 'Position',
+            value: (p) =>
+              p.cost_per_resolved_task === null
+                ? 'unpriced'
+                : data.frontier.includes(p.agent)
+                  ? 'frontier'
+                  : 'dominated',
+          },
+          {
+            key: 'success_rate',
+            header: 'Success rate',
+            value: (p) => p.success_rate,
+            render: (p) => `${(p.success_rate * 100).toFixed(1)}%`,
+            numeric: true,
+          },
+          {
+            key: 'cost',
+            header: 'Cost / resolved task',
+            // Sorted on a number, rendered as an em dash when unmeasured. An
+            // unpriced agent sorting as 0 would sit at the cheap end of the
+            // table, which is the same lie the chart refuses to tell.
+            value: (p) => (p.cost_per_resolved_task === null ? Infinity : p.cost_per_resolved_task),
+            render: (p) =>
+              p.cost_per_resolved_task === null ? '—' : String(p.cost_per_resolved_task),
+            numeric: true,
+          },
+          {
+            key: 'priced_runs',
+            header: 'Priced runs',
+            value: (p) => p.priced_runs,
+            render: (p) => `${p.priced_runs} / ${p.runs}`,
+            numeric: true,
+          },
+        ]}
+      />
     </section>
   )
 }
