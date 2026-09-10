@@ -57,10 +57,20 @@ def _text_of(result: dict[str, Any]) -> str:
     return ""
 
 
-def run_checks(command: list[str], *, timeout_note: str = "") -> list[CheckResult]:
-    """Exercise a server over stdio and return one result per check."""
+def run_checks(
+    command: list[str] | None = None,
+    *,
+    timeout_note: str = "",
+    url: str | None = None,
+) -> list[CheckResult]:
+    """Exercise a server over stdio or HTTP and return one result per check.
+
+    The checks do not vary by transport, and that is the point of running them
+    over each: the protocol is the same, so a difference in results is a
+    difference in the server rather than in the question.
+    """
     results: list[CheckResult] = []
-    client = MCPClient(command)
+    client = MCPClient(command, url=url)
 
     try:
         info = client.start()
@@ -213,9 +223,9 @@ def run_checks(command: list[str], *, timeout_note: str = "") -> list[CheckResul
     return results
 
 
-def report(command: list[str]) -> dict[str, Any]:
+def report(command: list[str] | None = None, *, url: str | None = None) -> dict[str, Any]:
     """Full conformance report, with required and recommended kept apart."""
-    results = run_checks(command)
+    results = run_checks(command, url=url)
     required = [r for r in results if r.severity == REQUIRED]
     recommended = [r for r in results if r.severity == RECOMMENDED]
     required_failures = [r for r in required if not r.passed]
@@ -230,6 +240,7 @@ def report(command: list[str]) -> dict[str, Any]:
         "checks": [r.to_dict() for r in results],
         "required_failures": [r.name for r in required_failures],
         "recommended_failures": [r.name for r in recommended_failures],
+        "transport": "http" if url else "stdio",
         "counts": {
             "required": len(required),
             "recommended": len(recommended),
