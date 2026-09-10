@@ -205,6 +205,7 @@ and a row claiming a task pack has to have that pack on disk.
 | 75cf | Cross-language alignment contract shared by the Python and TypeScript diffs | I | `tests/fixtures/trace_alignment.json`, `web/src/__tests__/alignment-contract.test.tsx` |
 | 75cg | Incremental online evaluation with a policy-aware cursor | I | `tooltrace/ingest/online.py` (`pass_over`, `policy_fingerprint`), `tooltrace/cli/main.py` (`cmd_online`) |
 | 75ch | `--json` output is machine-readable on every command that offers it | I | `tests/test_json_output_is_json.py`, `tooltrace/cli/main.py` |
+| 75ci | Multi-turn state drift: a later write that dropped earlier content | I | `tooltrace/scoring/trace_scorers.py` (`state_drift`), `tooltrace/tasks/packs/long-horizon/resume-from-session-state.yaml` |
 | 76 | Failure clustering (deterministic vectors; semantic labeled) | I | `tooltrace/analysis/core.py` (`cluster_failures`) |
 | 77 | Root-cause drill-down aggregate → trace/assertion | I | `tooltrace/analysis/failures.py` (`Classification.seq`), `tooltrace/metrics/aggregate.py` (`failure_step`), `tooltrace/cli/main.py` (`cmd_trace`), `web/src/lib/clusters.ts` (`clusterFailures`, `stepLink`) |
 | 78 | Reproducibility score (metadata completeness, not validity) | I | `tooltrace/analysis/core.py` (`reproducibility_score`) |

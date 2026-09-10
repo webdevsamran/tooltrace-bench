@@ -7,6 +7,29 @@ versioning follows [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- **`state_drift`: did the agent undo its own work?** Every workspace scorer sees
+  the final state, which cannot distinguish an agent that went straight to the
+  answer from one that wrote it, overwrote it with something else, and wrote it
+  back. Identical end state, very different agents -- and on a long-horizon task
+  the second is a session that will not survive one more turn.
+
+  It reads the trace: for each resource, the sequence of writes, and whether a
+  later one dropped content an earlier one added.
+  `long-horizon/resume-from-session-state` carries it, and an agent that thrashes
+  and recovers now fails a task every other assertion passes.
+
+  The first write to a file is never drift -- it replaced content the *task*
+  provided, and flagging it would fail every task whose answer is an edit.
+  Whitespace changes and reordering are not drift either: nothing was lost, and a
+  line-order check would be a style opinion. `markers` narrows the check to
+  content a task actually declares, because without them rewriting boilerplate
+  reads as drift on a task that never asked for the boilerplate.
+
+  It is explicitly the trace-visible half. It cannot see a change made by
+  something other than a tool call, and it cannot see whether what survived is
+  *correct* -- that is what the workspace assertions are for.
+
+### Added
 - **`tooltrace online`: incremental evaluation of production traffic.** One
   pass, run on a schedule, processing what is new since the last one. Nothing
   holds a connection open -- a benchmark that runs a daemon is a benchmark

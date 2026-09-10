@@ -21,6 +21,7 @@ file before overwriting it?" cannot be answered from the file.
 | `tool_call_count` | How many times was a tool called, within bounds? |
 | `forbidden_calls` | Did any call match a shape that must never occur? |
 | `resource_order` | Was each resource read before it was written -- the *same* one? |
+| `state_drift` | Did a later write drop content the agent had itself written? |
 
 `resource_order` closes a hole this project's own task had. `tool_call_match`
 can require a `read_file` before a `write_file`, and that is what
@@ -136,3 +137,34 @@ it; below five, the report says so.
 
 A baseline that does not pass is not ablated at all: every arm would fail and
 every tool would read as load-bearing.
+
+## Did the agent undo its own work?
+
+Every workspace scorer sees the **final** state. That cannot distinguish an
+agent that went straight to the answer from one that wrote it, overwrote it with
+something else, and wrote it back: identical end state, very different agents.
+On a long-horizon task the second is a session that will not survive one more
+turn, and nothing else in this project notices.
+
+`state_drift` reads the trace instead -- for each resource, the sequence of
+writes -- and reports a later write that dropped content an earlier one added.
+`long-horizon/resume-from-session-state` carries it, and an agent that thrashes
+and recovers now fails a task every other assertion passes.
+
+What it deliberately does not flag:
+
+- **The first write to a file.** That replaced content the *task* provided, not
+  content the agent wrote, and flagging it would fail every task whose answer is
+  an edit.
+- **Whitespace and reordering.** Nothing was lost, and a line-order check would
+  be a style opinion rather than a measurement.
+- **Anything on another resource.** Writing `b.txt` does not undo `a.txt`.
+
+`markers` narrows it to content the task actually cares about. Without them,
+rewriting boilerplate reads as drift on a task that never asked for the
+boilerplate.
+
+It is the trace-visible half of the question. It cannot see a change made by
+something other than a tool call, and it cannot see whether the content that
+survived is *correct* -- that is what the workspace assertions are for, and
+claiming otherwise would make it a second, worse copy of them.
