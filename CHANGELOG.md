@@ -7,6 +7,39 @@ versioning follows [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- **`tooltrace online`: incremental evaluation of production traffic.** One
+  pass, run on a schedule, processing what is new since the last one. Nothing
+  holds a connection open -- a benchmark that runs a daemon is a benchmark
+  somebody has to operate.
+
+  The load-bearing decision is what the cursor records. Position alone is not
+  enough: **a window whose sampling policy changed midway is not comparable to
+  itself.** Switch from uniform-at-1% to stratified and the observed failure rate
+  jumps because the sample changed, not because production did -- and a drift
+  report over that window would name a date, describe a convincing shift, and be
+  entirely an artifact of the pipeline. So the cursor fingerprints the policy and
+  a change starts a **new window**, which is inconvenient exactly once and beats a
+  trend line that lies quietly forever. A harness-version change does the same:
+  two halves of a window graded by different code are one problem wearing two hats.
+
+  The cursor stores ids rather than a high-water mark, because traces do not
+  arrive in order and a mark would silently skip anything that landed late. A
+  corrupt cursor starts a new window instead of crashing or re-scoring
+  everything: losing continuity is recoverable, splicing an unknown history into
+  a trend line is not.
+
+### Fixed
+- **`--json` did not always emit JSON.** `docs/cli-reference.md` opens with "All
+  commands accept `--json` for structured output", and several printed a
+  human-readable line first -- "wrote 3 draft task(s) to drafts/" -- so
+  `tooltrace import --json | jq` failed on exactly the commands most likely to be
+  scripted: the ones that write files. Fixed in `import`, `sample`, `online` and
+  `redaction`, and now gated: every command that takes `--json` and can be run
+  without arguments has its output parsed, whatever its exit code. A non-zero
+  exit is often correct -- `lint` exits 3 when it finds something -- and the
+  caller who piped the output still has to be able to read the findings.
+
+### Added
 - **`tooltrace shadow`: did the candidate make the same decisions?** Shadow mode
   usually means running a candidate against live traffic and comparing outcomes.
   **That is not possible here**, and the difference is the design: a production

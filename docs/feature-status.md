@@ -203,6 +203,8 @@ and a row claiming a task pack has to have that pack on disk.
 | 75cd | Leaderboard identity is adapter + model, so local models do not collapse into one row | I | `scripts/generate_web_data.py` (`_identity`), `tests/test_leaderboard_identity.py` |
 | 75ce | Shadow mode: decision-level comparison against a recorded production run | I | `tooltrace/analysis/shadow.py` (`shadow_report`, `align`), `tooltrace/cli/main.py` (`cmd_shadow`) |
 | 75cf | Cross-language alignment contract shared by the Python and TypeScript diffs | I | `tests/fixtures/trace_alignment.json`, `web/src/__tests__/alignment-contract.test.tsx` |
+| 75cg | Incremental online evaluation with a policy-aware cursor | I | `tooltrace/ingest/online.py` (`pass_over`, `policy_fingerprint`), `tooltrace/cli/main.py` (`cmd_online`) |
+| 75ch | `--json` output is machine-readable on every command that offers it | I | `tests/test_json_output_is_json.py`, `tooltrace/cli/main.py` |
 | 76 | Failure clustering (deterministic vectors; semantic labeled) | I | `tooltrace/analysis/core.py` (`cluster_failures`) |
 | 77 | Root-cause drill-down aggregate → trace/assertion | I | `tooltrace/analysis/failures.py` (`Classification.seq`), `tooltrace/metrics/aggregate.py` (`failure_step`), `tooltrace/cli/main.py` (`cmd_trace`), `web/src/lib/clusters.ts` (`clusterFailures`, `stepLink`) |
 | 78 | Reproducibility score (metadata completeness, not validity) | I | `tooltrace/analysis/core.py` (`reproducibility_score`) |

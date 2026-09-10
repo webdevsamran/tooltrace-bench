@@ -2078,7 +2078,8 @@ def cmd_import(args: argparse.Namespace) -> int:
         for task in report["tasks"]:
             path = out / f"{task['id'].split('/')[-1]}.yaml"
             path.write_text(yaml.safe_dump(task, sort_keys=False), encoding="utf-8")
-        print(f"wrote {len(report['tasks'])} draft task(s) to {out}")
+        if not args.json:
+            print(f"wrote {len(report['tasks'])} draft task(s) to {out}")
 
     if args.json:
         _emit(report, True)
@@ -2086,6 +2087,60 @@ def cmd_import(args: argparse.Namespace) -> int:
         print(report["statement"])
         for refusal in report["refused"]:
             print(f"  refused ({refusal['environment']}): {refusal['reason']}")
+    return EXIT_OK
+
+
+def cmd_online(args: argparse.Namespace) -> int:
+    """One incremental pass over production traffic.
+
+    Nothing here holds a connection open: a benchmark that runs a daemon is a
+    benchmark somebody has to operate. Run it on a schedule; it processes what
+    is new since the last pass and leaves a cursor behind.
+
+    The cursor records the sampling *policy*, not just the position. A window
+    sampled two ways is not comparable to itself -- the observed rate moves
+    because the sample moved rather than because production did -- so a policy
+    change starts a new window instead of silently continuing the old one.
+    """
+    from tooltrace.ingest.online import pass_over, save_cursor
+    from tooltrace.runners.runner import _now_iso
+
+    source = Path(args.source)
+    if not source.is_file():
+        print(f"error: no such file: {source}", file=sys.stderr)
+        return EXIT_USAGE
+    traces = [
+        json.loads(line) for line in source.read_text(encoding="utf-8").splitlines() if line.strip()
+    ]
+
+    state_dir = Path(args.state)
+    result = pass_over(
+        traces,
+        directory=state_dir,
+        policy=args.policy,
+        rate=args.rate,
+        seed=args.seed,
+        now=_now_iso(),
+    )
+    save_cursor(state_dir, result["cursor"])
+
+    if args.out and result["to_score"]:
+        out = Path(args.out)
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(
+            chr(10).join(json.dumps(t, sort_keys=True) for t in result["to_score"]) + chr(10),
+            encoding="utf-8",
+        )
+        if not args.json:
+            print(f"wrote {result['selected']} trace(s) to {out}")
+
+    payload = {k: v for k, v in result.items() if k not in {"to_score", "cursor"}}
+    if args.json:
+        _emit(payload, True)
+    else:
+        print(result["statement"])
+        if result["state"] != "continued":
+            print(f"  {result['reason']}")
     return EXIT_OK
 
 
@@ -2127,7 +2182,8 @@ def cmd_sample(args: argparse.Namespace) -> int:
             json.dumps({k: v for k, v in chosen.items() if k != "traces"}, indent=2),
             encoding="utf-8",
         )
-        print(f"wrote {out} and {policy_path}")
+        if not args.json:
+            print(f"wrote {out} and {policy_path}")
 
     _emit(
         {k: v for k, v in chosen.items() if k != "traces"} if args.json else chosen["statement"],
@@ -2306,8 +2362,10 @@ def cmd_redaction(args: argparse.Namespace) -> int:
 
     record = certificate(bundles, generated_at=_now_iso())
     if args.out:
-        for path in write_record(record, Path(args.out)):
-            print(f"wrote {path}")
+        written = write_record(record, Path(args.out))
+        if not args.json:
+            for path in written:
+                print(f"wrote {path}")
 
     if args.json:
         _emit(record, True)
@@ -2866,6 +2924,19 @@ def build_parser() -> argparse.ArgumentParser:
     )
     im.add_argument("--source", required=True, help="a .json or .jsonl file of records")
     im.add_argument("--out", help="directory to write the draft tasks into")
+
+    on = add("online", cmd_online, "one incremental pass over production traffic")
+    on.add_argument("--source", required=True, help="JSONL of trace summaries as they arrive")
+    on.add_argument("--state", required=True, help="directory holding the cursor between passes")
+    on.add_argument("--out", help="write the selected traces here for scoring")
+    on.add_argument(
+        "--policy",
+        default="stratified",
+        choices=["stratified", "uniform", "all"],
+        help="changing this starts a new window rather than continuing the old one",
+    )
+    on.add_argument("--rate", type=float, default=0.01)
+    on.add_argument("--seed", type=int, default=0)
 
     sm = add("sample", cmd_sample, "choose which production traces to score")
     sm.add_argument("--source", required=True, help="JSONL file, one trace summary per line")
