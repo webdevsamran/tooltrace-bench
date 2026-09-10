@@ -207,3 +207,39 @@ So `tests/fixtures/trace_alignment.json` holds the cases **both** test suites
 read. A reader comparing the same two runs in the CLI and in the dashboard has
 to get the same answer about where they diverged, and a shared fixture is what
 stops the two drifting into different definitions of "the same decision".
+
+## Online evaluation: incremental, not live
+
+`tooltrace online` is one pass. Run it on a schedule; it processes what is new
+since the last pass and leaves a cursor. Nothing holds a connection open or
+watches a socket, because a benchmark that runs a daemon is a benchmark somebody
+has to operate.
+
+The pieces already existed -- `ingest` reads a trace, `sample` decides which to
+keep, the trace scorers grade one, `drift` compares two windows. What was
+missing is the thing that ties them together and, more importantly, the thing
+that stops the result being nonsense over time.
+
+### The cursor records the policy, not just the position
+
+**A window whose sampling policy changed midway is not comparable to itself.**
+Switch from uniform-at-1% to stratified and the observed failure rate jumps
+because the sample changed, not because anything in production did. A drift
+report over that window would name a date, describe a convincing shift, and be
+entirely an artifact of the pipeline.
+
+So the cursor carries a fingerprint of the policy -- name, rate and seed -- and a
+change **starts a new window**. The old window stays readable; the two are
+simply not spliced into one series. That is inconvenient exactly once, which
+beats a trend line that lies quietly forever. A harness-version change does the
+same thing, for the same reason: two halves of a window graded by different code
+are one problem wearing two hats.
+
+The cursor stores **ids**, not a high-water mark. Traces do not arrive in order,
+and a mark would silently skip anything that landed after the pass that moved
+past its position. A trace with no id is skipped and counted rather than
+processed, because without one it would be re-scored on every run forever.
+
+A corrupt cursor starts a new window instead of crashing the pass or re-scoring
+everything: losing continuity is recoverable, and splicing an unknown history
+into a trend line is not.
