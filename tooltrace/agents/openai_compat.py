@@ -24,6 +24,7 @@ import time
 import httpx
 
 from tooltrace.agents.base import AgentAdapter
+from tooltrace.agents.local_backends import extract_usage
 from tooltrace.core.models import (
     AgentAction,
     AgentContext,
@@ -45,6 +46,18 @@ Objective: {objective}
 Task description: {description}
 Workspace files: {files}
 """
+
+
+def _add(previous: int | None, reported: int | None) -> int | None:
+    """Accumulate across turns, keeping "never reported" distinct from zero.
+
+    The old accumulator coerced `None` to 0, so a provider that says nothing
+    about cached tokens was indistinguishable from one reporting none -- and
+    those are billed identically while meaning different things.
+    """
+    if previous is None and reported is None:
+        return None
+    return (previous or 0) + (reported or 0)
 
 
 class OpenAICompatAgent(AgentAdapter):
@@ -88,16 +101,21 @@ class OpenAICompatAgent(AgentAdapter):
         data: dict[str, object] = resp.json()
         usage = data.get("usage")
         if isinstance(usage, dict):
-            tokens = TokenUsage(
-                prompt_tokens=usage.get("prompt_tokens"),
-                completion_tokens=usage.get("completion_tokens"),
-                total_tokens=usage.get("total_tokens"),
-            )
+            # Every dimension the provider reports, across the shapes they use.
+            # `TokenUsage` grew cached / cache-write / reasoning fields and
+            # `PriceTable` learned to bill them, and nothing populated them --
+            # so a cache-heavy run was still costed at the full input rate.
+            reported = extract_usage(usage)
             prev = self._usage.tokens or TokenUsage()
             self._usage.tokens = TokenUsage(
-                prompt_tokens=(prev.prompt_tokens or 0) + (tokens.prompt_tokens or 0),
-                completion_tokens=(prev.completion_tokens or 0) + (tokens.completion_tokens or 0),
-                total_tokens=(prev.total_tokens or 0) + (tokens.total_tokens or 0),
+                prompt_tokens=_add(prev.prompt_tokens, reported["prompt_tokens"]),
+                completion_tokens=_add(prev.completion_tokens, reported["completion_tokens"]),
+                total_tokens=_add(prev.total_tokens, reported["total_tokens"]),
+                cached_prompt_tokens=_add(
+                    prev.cached_prompt_tokens, reported["cached_prompt_tokens"]
+                ),
+                cache_write_tokens=_add(prev.cache_write_tokens, reported["cache_write_tokens"]),
+                reasoning_tokens=_add(prev.reasoning_tokens, reported["reasoning_tokens"]),
             )
         raw_choices = data.get("choices")
         choices = raw_choices if isinstance(raw_choices, list) else []

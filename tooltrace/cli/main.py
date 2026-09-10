@@ -642,6 +642,30 @@ def cmd_promote_trace(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def cmd_backends(args: argparse.Namespace) -> int:
+    """Local model servers this project knows, and which are listening."""
+    from tooltrace.agents.local_backends import describe
+
+    report = describe()
+    if args.json:
+        _emit(report, True)
+        return EXIT_OK
+
+    for row in report["backends"]:
+        mark = "up  " if row["listening"] else "    "
+        print(f"{mark}{row['backend']:<11} {row['base_url']:<32} {row['model_hint']}")
+        print(f"      {row['note']}")
+    print()
+    if report["listening"]:
+        print(f"listening on this machine: {', '.join(report['listening'])}")
+        print("An open port is not a positive identification of the server.")
+    else:
+        print("nothing is listening on any known local port")
+    print()
+    print(report["statement"])
+    return EXIT_OK
+
+
 def cmd_agents(args: argparse.Namespace) -> int:
     from tooltrace.agents import AgentAdapter  # noqa: F401
     from tooltrace.core.registry import agent_registry
@@ -1761,7 +1785,7 @@ def cmd_task_group(args: argparse.Namespace) -> int:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    from tooltrace.cli.init import ADAPTERS as ADAPTERS_FOR_INIT
+    from tooltrace.cli.init import CHOICES as ADAPTERS_FOR_INIT
 
     p = argparse.ArgumentParser(prog="tooltrace", description=__doc__)
     p.add_argument("--version", action="store_true")
@@ -1875,6 +1899,8 @@ def build_parser() -> argparse.ArgumentParser:
     pt.add_argument("--objective", help="what the agent should have done")
     pt.add_argument("--incident", help="an incident reference to record in the task")
     pt.add_argument("--out", help="write the draft task YAML here")
+
+    add("backends", cmd_backends, "local model servers, and which are listening")
 
     add("agents", cmd_agents, "list registered agent adapters")
 
