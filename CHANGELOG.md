@@ -7,6 +7,45 @@ versioning follows [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- **`tooltrace drift`: the failure a success-rate monitor cannot see.** Half of
+  enterprises have shipped an agent that passed internal evaluation and still
+  caused a customer-facing failure, and that gap is usually a slide rather than a
+  break. Drift is watched across five metrics, not one, because **an agent whose
+  success rate is unchanged while its step count doubled has changed** -- and a
+  rate-only monitor is structurally unable to report it. That case sets
+  `silent_decay` and says outright that an accuracy-only monitor would have
+  reported nothing.
+
+  Two things must hold before drift is claimed: the intervals must not overlap
+  *and* the move must exceed a stated threshold. A monitor that fires on noise
+  gets muted, and a muted monitor is worse than none because it is believed to be
+  watching. Proportions use Wilson rather than a bootstrap, since a window of
+  all-successes bootstraps to a zero-width interval and would make every
+  subsequent window look like drift.
+
+- **Error budgets.** "99% reliability" is unactionable; "four failures of budget
+  left" is a decision. The remaining budget goes **negative** rather than clamping
+  at zero, because "at the limit" and "eleven over" call for different responses,
+  and `objective_is_within_interval` says when a window cannot settle the question
+  at all -- ten clean runs do not establish a 99% objective.
+
+- **`tooltrace promote-trace`: an incident becomes a draft regression task.**
+  Generates the trajectory assertions from what the agent actually called, using
+  argument *shapes* rather than values, because pinning one incident's paths
+  produces an assertion that only ever matches that incident.
+
+  It refuses to invent a workspace or a correctness assertion. A production trace
+  does not contain the filesystem it ran against, so those ship empty with a
+  `TODO` each, and `readiness()` reports the draft as unfinished -- including the
+  warning that a trajectory-only task passes for an agent that made every right
+  call and produced the wrong result. A generated task that *looked* finished
+  would run, pass, and test nothing.
+
+  And it never claims to reproduce the incident: it encodes the trajectory the
+  incident had, and whether that is *why* it failed is a judgement for whoever
+  saw it.
+
+### Added
 - **`tooltrace attest`: the trust ladder can now be climbed.** `TrustState`
   declares four levels and promises they are "never implied without evidence".
   Every bundle this project has written was `LOCAL`, and `promote_trust` had no

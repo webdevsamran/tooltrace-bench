@@ -27,6 +27,8 @@ Exit codes: `0` ok · `2` usage · `3` task/validation · `4` agent · `5` run f
 | `card [--bundles DIR] [--agent A] [--out F]` | A system card generated from recorded runs. A task with fewer than 10 runs is reported as insufficiently measured rather than as a capability or a limitation, and the *not measured* section is generated too |
 | `self-audit [--bundles DIR]` | Would the evidence you hold demonstrate anything? A checklist with named gaps, deliberately not a percentage. Exits 0 even with gaps: a gap is a finding, not a build failure |
 | `perturb --task ID [--perturbation kind:tool] [--runs N] [--min-recovery-rate R]` | Inject safe faults and measure recovery rate; `--out` writes bundles |
+| `drift --current DIR [--baseline DIR] [--objective R]` | Has behaviour moved between two windows of runs? Watches five metrics, not just accuracy -- an agent whose success rate held while its step count doubled has changed, and `silent_decay` names that case. `--objective` turns an SLO into an error budget: how many failures are left |
+| `promote-trace TRACE --task-id ID [--out F]` | Turn a production trace into a **draft** regression task. Generates the trajectory assertions and refuses to invent a workspace or a correctness assertion, leaving a `TODO` for each -- a generated task that looked finished would run, pass, and test nothing |
 | `trace BUNDLE [--filter SUBSTR] [--assertions] [--limit N]` | Inspect a bundle trace in the terminal (checksum-verified) |
 
 ## Reporting / export

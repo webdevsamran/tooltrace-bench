@@ -534,6 +534,114 @@ def cmd_self_audit(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def _rows_from(directory: str) -> list[dict[str, object]]:
+    from tooltrace.artifacts.bundles import load_bundle_result
+
+    rows: list[dict[str, object]] = []
+    for bundle in sorted(Path(directory).glob("*.tooltrace")):
+        result = load_bundle_result(bundle)
+        rows.append(
+            {
+                "success": result.success,
+                "steps": result.steps,
+                "wall_ms": result.wall_ms,
+                "failed_tool_calls": result.failed_tool_calls,
+                "tool_calls": result.tool_calls,
+                "task_id": result.task_id,
+            }
+        )
+    return rows
+
+
+def cmd_drift(args: argparse.Namespace) -> int:
+    """Has behaviour moved between two windows of runs?"""
+    from tooltrace.analysis.drift import compare_windows, error_budget
+
+    current = _rows_from(args.current)
+    if not current:
+        print(f"no bundles under {args.current}", file=sys.stderr)
+        return EXIT_USAGE
+
+    payload: dict[str, object] = {}
+    if args.baseline:
+        baseline = _rows_from(args.baseline)
+        if not baseline:
+            print(f"no bundles under {args.baseline}", file=sys.stderr)
+            return EXIT_USAGE
+        payload["drift"] = compare_windows(baseline, current)
+    if args.objective is not None:
+        payload["error_budget"] = error_budget(current, objective=args.objective)
+    if not payload:
+        print("drift needs --baseline, --objective, or both", file=sys.stderr)
+        return EXIT_USAGE
+
+    if args.json:
+        _emit(payload, True)
+        return EXIT_OK
+
+    drift = payload.get("drift")
+    if isinstance(drift, dict):
+        if not drift.get("measurable"):
+            print(drift["reason"])
+        else:
+            for finding in drift["findings"]:
+                print(
+                    f"{finding['verdict']:<13} {finding['metric']:<20} "
+                    f"{finding['baseline']:>10.4f} -> {finding['current']:<10.4f} "
+                    f"{finding['note']}"
+                )
+            print()
+            print(drift["statement"])
+    budget = payload.get("error_budget")
+    if isinstance(budget, dict):
+        print()
+        print(budget.get("statement") or budget.get("reason"))
+    return EXIT_OK
+
+
+def cmd_promote_trace(args: argparse.Namespace) -> int:
+    """Turn a production trace into a draft regression task."""
+    import yaml
+    from tooltrace.core.models import TraceEvent
+    from tooltrace.ingest.promote import promote_trace, readiness
+
+    source = Path(args.trace)
+    if not source.is_file():
+        print(f"not a file: {source}", file=sys.stderr)
+        return EXIT_USAGE
+
+    events = [
+        TraceEvent.model_validate(json.loads(line))
+        for line in source.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    if not events:
+        print("the trace is empty", file=sys.stderr)
+        return EXIT_USAGE
+
+    task = promote_trace(
+        events, task_id=args.task_id, objective=args.objective or "", incident=args.incident or ""
+    )
+    report = readiness(task)
+
+    if args.out:
+        out = Path(args.out)
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(yaml.safe_dump(task, sort_keys=False), encoding="utf-8")
+
+    payload = {"task": task, "readiness": report, "written": str(args.out or "")}
+    if args.json:
+        _emit(payload, True)
+    else:
+        print(yaml.safe_dump(task, sort_keys=False), end="")
+        print()
+        for problem in report["problems"]:
+            print(f"TODO: {problem}", file=sys.stderr)
+        print(report["statement"], file=sys.stderr)
+    # A draft is the expected output, so an unfinished one is not an error.
+    return EXIT_OK
+
+
 def cmd_agents(args: argparse.Namespace) -> int:
     from tooltrace.agents import AgentAdapter  # noqa: F401
     from tooltrace.core.registry import agent_registry
@@ -1751,6 +1859,22 @@ def build_parser() -> argparse.ArgumentParser:
 
     sa = add("self-audit", cmd_self_audit, "would the evidence you hold demonstrate anything?")
     sa.add_argument("--bundles", default="results")
+
+    dr = add("drift", cmd_drift, "has behaviour moved between two windows of runs?")
+    dr.add_argument("--current", default="results", help="the recent window")
+    dr.add_argument("--baseline", help="the window to compare against")
+    dr.add_argument(
+        "--objective",
+        type=float,
+        help="reliability SLO (0..1); reports the error budget left in --current",
+    )
+
+    pt = add("promote-trace", cmd_promote_trace, "turn a production trace into a draft task")
+    pt.add_argument("trace", help="a JSONL trace, e.g. from `tooltrace ingest --out`")
+    pt.add_argument("--task-id", required=True)
+    pt.add_argument("--objective", help="what the agent should have done")
+    pt.add_argument("--incident", help="an incident reference to record in the task")
+    pt.add_argument("--out", help="write the draft task YAML here")
 
     add("agents", cmd_agents, "list registered agent adapters")
 
