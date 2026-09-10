@@ -7,6 +7,53 @@ versioning follows [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- **Compare two runs side by side, aligned on what they actually did.** The
+  existing Compare page compares *agents* in aggregate, which answers a different
+  question. `/compare/runs` answers "these two runs of the same task went
+  differently -- where?"
+
+  The whole difficulty is register. Two runs of one task rarely have the same
+  number of steps, and a side-by-side that puts row 1 next to row 1 goes out of
+  alignment at the first extra call -- after which every row compares unrelated
+  steps while looking like a comparison, which produces confident wrong readings
+  and is worse than showing nothing. So the rows come from a longest-common-
+  subsequence diff over a per-step signature, and the view leads with the step
+  where the runs first diverged: everything before it is common ground.
+
+  The signature is the tool plus its primary argument, deliberately **not** the
+  whole argument set. Two writes to the same path with different content are the
+  same decision taken differently, and that is exactly the row a reader wants
+  aligned so the difference shows; including the content would push them into two
+  unrelated rows and hide it.
+
+  A row present on only one side says so rather than showing an empty cell -- an
+  empty cell reads as "nothing happened" when it means "this step is not in this
+  run". Comparing runs of different tasks is allowed and flagged: someone may
+  genuinely want to look, but any difference is a difference in the task as much
+  as in the agent.
+
+### Added
+- **`resource_order`: was each resource read before it was written -- the *same*
+  one?** `tool_call_match` can require a `read_file` before a `write_file`, and
+  that is what `tool-call-structure/read-before-write` asserted. It compares the
+  argument's **type**, not its value, so an agent that reads `notes.txt` and then
+  overwrites `status.txt` satisfied that task completely while doing the exact
+  thing it exists to catch.
+
+  A blind write is a correctness signal rather than a style preference: an agent
+  that overwrites a file it never opened has destroyed whatever was in it and
+  cannot know whether it needed to. Creating a file is not a blind write, so a
+  task declares which resources existed at the start; without that list the
+  stricter reading is taken, because there is then no way to tell a creation from
+  an overwrite. A trace with no write at all scores zero rather than full marks --
+  an agent that did nothing would otherwise satisfy the assertion perfectly.
+
+### Fixed
+- **`tool-call-structure/read-before-write` did not check what its name says.**
+  It now carries the resource-level assertion at double weight, and a scripted
+  agent that overwrites the file without reading it fails, which it did not before.
+
+### Added
 - **`tooltrace counterfactual`: would it still pass with one tool taken away?**
   Two agents can score identically and be doing entirely different things -- one
   has a plan and adapts when a tool is missing, the other is walking a path it has
