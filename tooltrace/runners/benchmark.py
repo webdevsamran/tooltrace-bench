@@ -11,6 +11,7 @@ import uuid
 from datetime import UTC, datetime
 from pathlib import Path
 
+from tooltrace.analysis.behaviour import aggregate_behaviour, behaviour_report
 from tooltrace.analysis.stats import summarize_reliability
 from tooltrace.artifacts.bundles import write_bundle
 from tooltrace.core.models import BenchmarkRun, EvalResult, TaskDefinition
@@ -51,6 +52,7 @@ def run_benchmark(
     # had no caller outside the tests, so `benchmark` reported success rates and
     # latency and nothing about *how* the agent got there.
     all_trajectories: list[dict[str, object]] = []
+    behaviour_reports: list[dict[str, object]] = []
 
     for task in tasks:
         task_rows: list[dict[str, object]] = []
@@ -106,6 +108,14 @@ def run_benchmark(
             report = trajectory_report(result, events, task)
             task_trajectories.append(report)
             all_trajectories.append(report)
+            # Behaviour a pass/fail score cannot see: whether a recovery was
+            # immediate or floundering, whether one error caused the next three,
+            # and whether a passing run looks like it did the work.
+            behaviour_reports.append(
+                behaviour_report(
+                    events, succeeded=bool(result.success), task=task.model_dump(mode="json")
+                )
+            )
 
         summary = summarize_reliability(task_rows)
         summary["trajectory"] = aggregate_trajectory(task_trajectories)
@@ -137,6 +147,7 @@ def run_benchmark(
     # the only way to tell them apart, and the two have different fixes.
     from tooltrace.analysis.power import variance_decomposition
 
+    overall["behaviour"] = aggregate_behaviour(behaviour_reports)
     overall["variance"] = variance_decomposition(
         [{"agent": agent_name, "task_id": r.task_id, "success": r.success} for r in all_results]
     )

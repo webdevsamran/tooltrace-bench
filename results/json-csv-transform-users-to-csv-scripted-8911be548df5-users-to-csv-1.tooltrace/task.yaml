@@ -1,14 +1,13 @@
+schema_version: 1
 id: json-csv-transform/users-to-csv
-name: Convert users.json to users.csv
+version: 1.0.0
 category: json-csv-transform
-tags:
-- json
-- csv
 objective: Convert users.json into users.csv with a header row name,age.
 description: Read users.json and write users.csv with columns name,age in the same
   order.
 starting_workspace:
   users.json: '[{"name": "Ada", "age": 36}, {"name": "Lin", "age": 28}]'
+fixtures: {}
 allowed_tools:
 - read_file
 - write_file
@@ -31,18 +30,21 @@ assertions:
       '
   weight: 1.0
   description: csv content exact
-expected_artifacts:
-- users.csv
+timeout_seconds: 60.0
+max_steps: 10
+network_policy: disabled
+resource_limits:
+  max_memory_mb: null
+  max_cpus: null
+  max_disk_mb: null
+difficulty: easy
+tags:
+- json
+- csv
+perturbations: []
+long_context: false
+requires_tools: []
 metadata:
-  # The reference trajectory reads the input before writing the output. It used
-  # to write the expected CSV directly, which meant the shipped sample bundles
-  # published a passing run that never opened users.json -- on a task whose own
-  # objective starts "Read users.json". `shortcut_signals` flags exactly that
-  # pattern, and flagged this.
-  #
-  # The scripted adapter follows a fixed script and cannot derive the output, so
-  # the write content is still fixed. What changes is that the demonstrated
-  # trajectory now matches the task it demonstrates.
   scripted_script:
   - tool: read_file
     args:
@@ -57,8 +59,3 @@ metadata:
         Lin,28
 
         '
-version: 1.0.0
-difficulty: easy
-network_policy: disabled
-timeout_seconds: 60
-max_steps: 10

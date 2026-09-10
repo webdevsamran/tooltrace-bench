@@ -98,20 +98,40 @@ def test_an_unmodified_task_is_clean() -> None:
     assert task_matches_published(dict(published), published) == []
 
 
-@pytest.mark.parametrize(
-    "where",
-    [
-        {"objective": "Write DEPLOY_TOKEN_PLACEHOLDER into config.ini", "starting_workspace": {}},
-        {"objective": "Fix it", "starting_workspace": {"hint.txt": "use DEPLOY_TOKEN_PLACEHOLDER"}},
-    ],
-)
-def test_an_answer_visible_in_the_prompt_is_caught(where: dict) -> None:
-    """If the task states the expected value, the score measures transcription."""
+def test_an_answer_sitting_in_the_input_is_caught() -> None:
+    """The class that matters: the answer is in a file the agent reads.
+
+    A task that looks like a transformation can then be passed by a copy, and
+    nothing in the score distinguishes the two.
+    """
     task = {
-        **where,
+        "objective": "Fix it",
+        "starting_workspace": {"hint.txt": "use DEPLOY_TOKEN_PLACEHOLDER"},
         "assertions": [{"type": "file_contains", "params": {"text": "DEPLOY_TOKEN_PLACEHOLDER"}}],
     }
     assert leaked_expected_values(task)
+
+
+def test_an_answer_stated_in_the_objective_is_reported_but_not_a_failure() -> None:
+    """The objective is the specification, and this used to be conflated with a leak.
+
+    A task that says 'write DEPLOY_TOKEN_PLACEHOLDER into config.ini' has *told*
+    the agent what to produce. Checking that it did is the task, not
+    transcription. Treating it as a leak asks authors to write vaguer objectives,
+    which makes tasks worse rather than more rigorous -- and it fired on two
+    correctly-designed shipped tasks, which is how it was found.
+
+    It is still reported, so an author can see it; it just does not fail.
+    """
+    from tooltrace.analysis.integrity import expected_value_report
+
+    task = {
+        "objective": "Write DEPLOY_TOKEN_PLACEHOLDER into config.ini",
+        "starting_workspace": {},
+        "assertions": [{"type": "file_contains", "params": {"text": "DEPLOY_TOKEN_PLACEHOLDER"}}],
+    }
+    assert leaked_expected_values(task) == []
+    assert expected_value_report(task)["stated_in_objective"]
 
 
 def test_a_task_that_hides_its_answer_is_clean() -> None:

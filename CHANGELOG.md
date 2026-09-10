@@ -7,6 +7,60 @@ versioning follows [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- **Behaviour analysis: recovery quality, error propagation and shortcut signals.**
+  `recovered: true` covered three materially different outcomes -- fixed it on the
+  next call, floundered for five, or got the tool working and still produced the
+  wrong answer. The third is the worst of the three and a success rate cannot see
+  it, so it is now its own grade (`silently_wrong`). The worst grade is reported
+  per run rather than the average: an agent that recovered from three faults and
+  abandoned a fourth has a problem a mean would bury.
+
+  `error_propagation` groups consecutive failures into chains, because six failed
+  calls could be six problems or one problem hit six times, and those need
+  different responses.
+
+  Shortcut signals answer the research gap "no way to distinguish genuine
+  capability from benchmark gaming" -- which is a request for evidence, not an
+  accusation. Every signal names what was observed and what a human would have to
+  check, the output states that these are observations about a trace rather than
+  findings about an agent, and nothing in it uses the word "cheating".
+
+- **Autonomy reports `measurable: false`,** deliberately. `UserAction` and
+  `CheckpointStage` exist in the task model, no shipping task declares one and no
+  executor performs one, so every run is trivially autonomous and a score of 1.0
+  would be a perfect mark on an axis nobody measured. The measurement is written
+  so it becomes real the moment a task declares an intervention.
+
+### Fixed
+- **Two reference trajectories skipped their own input.** The shortcut detector
+  was pointed at this repository's own committed bundles and flagged
+  `json-csv-transform/users-to-csv`: a task whose objective begins "Read
+  users.json" whose reference script never opened it -- it wrote the expected CSV,
+  transcribed from the assertion. `refactoring/rename-function` had the same shape,
+  writing a whole file to "keep behavior identical" without reading the original.
+  Both now read first, so the published sample dataset no longer demonstrates a
+  passing run that never touched its input.
+
+- **`csv_equals` expectations escaped the anti-gaming check entirely.**
+  `expected_csv` was missing from the keys `leaked_expected_values` reads, so a
+  whole scorer's worth of expected values could sit in a prompt with nothing
+  noticing.
+
+- **The leak check fired on two correctly designed tasks.** It searched the
+  objective and the starting workspace together. The objective is the
+  *specification* -- a task that says 'correct the line so it reads "status:
+  ready"' has told the agent what to produce, and flagging that asks authors to
+  write vaguer objectives. And a *preservation* assertion ("implementation
+  untouched") requires its value to be present; flagging it would push an author
+  to delete the assertion that stops an agent from "fixing" a failing test by
+  rewriting the code beneath it. Both are now distinguished from the case that
+  actually matters: an answer sitting in a file the agent reads.
+
+- **The leak check had only ever run on five of twenty-two shipped tasks.** Its
+  sole caller takes a bundle, and only five tasks have committed bundles. A test
+  now runs it across every task in every pack.
+
+### Added
 - **`tooltrace power` -- decide how many runs to do, before doing them.** Every
   interval this project reports is computed after the runs, which leaves the most
   consequential decision unsupported. People pick 3, or 10, because they are round

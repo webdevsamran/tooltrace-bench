@@ -32,7 +32,12 @@ assertions:
   weight: 1.0
   description: call site updated
 metadata:
+  # "keeping behavior identical" cannot be demonstrated by a trajectory that
+  # never read the original. Same correction as json-csv-transform/users-to-csv.
   scripted_script:
+  - tool: read_file
+    args:
+      path: utils.py
   - tool: write_file
     args:
       path: utils.py
