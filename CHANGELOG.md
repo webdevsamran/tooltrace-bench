@@ -7,6 +7,96 @@ versioning follows [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- **The dashboard works offline, and says how old what you are reading is.** It
+  was already static-first -- it reads pre-generated JSON, so there is nothing to
+  talk to in the common case -- but a reviewer on a plane still got a blank page
+  because the browser could not fetch the app shell.
+
+  The hazard is not the caching. It is that **a cached reliability figure looks
+  exactly the same as a fresh one**, and a reader has no way to tell. So the shell
+  is cache-first (it changes only on deploy, and a stale shell is harmless) while
+  the **data is network-first**: online you get today's numbers, offline you get
+  the cached ones, and the banner names the date they were generated rather than
+  saying only "you are offline" and leaving the reader to assume they are current.
+
+  A dataset that is not cached returns a 504 rather than an empty payload -- an
+  empty dataset renders as "no runs", which is a claim about the data rather than
+  about the network. The shell is precached entry by entry rather than with
+  `addAll`, which rejects the whole install if one request fails and would leave
+  a user with no offline support because of a missing icon.
+
+  The banner looks up the date itself, only while offline. Reading it in the app
+  shell would couple every page to that fetch and run it on every visit to pay
+  for a banner most people never see.
+
+### Fixed
+- **`app.test.tsx` failed all eight of its cases when run on its own**, and
+  passed inside the full suite because other files had already warmed Vite's
+  module graph. Every route here is lazily imported, so a `findBy*` has to cover
+  a dynamic import *and* a first-time transform -- which on a busy machine takes
+  longer than Testing Library's one-second default. A suite whose result depends
+  on what else ran is not a suite anybody can act on; the async timeout is now
+  ten seconds, and nothing waits it out when it passes.
+
+- **Service workers are blocked in the e2e suite by default**, and that is a
+  statement about the app rather than a test convenience. A worker answers
+  `fetch` before the page's network layer, so a request it serves is invisible to
+  `page.route` -- every spec that injects a dataset would silently have been
+  testing the real one. The worker is exercised deliberately in its own spec with
+  `serviceWorkers: 'allow'`, because blocking it everywhere would leave the
+  feature untested, which is the failure this repository keeps finding in itself.
+
+### Added
+- **`tooltrace import`: bring a task in from SWE-bench, BFCL, tau-bench or
+  AgentBench.** Every one of those measures something real and none of them
+  measures what this project measures, so a converted task is **not** the
+  original task. The loss report is more of the point than the conversion: a
+  silently converted SWE-bench instance that scores 0.4 here tells a reader
+  nothing unless they know which half of the original grading survived.
+
+  SWE-bench's oracle translates -- hidden tests passing is the same shape as
+  `tests_pass` -- and its repository does not, because this sandbox is a temp
+  workspace with declared files rather than a checkout at a SHA. BFCL is nearly
+  lossless and stays trajectory-only, since it executes nothing and there is no
+  end state to assert on. tau-bench loses its simulated user, which is an LLM
+  this project does not run, making the converted task strictly easier than the
+  original. AgentBench converts only its OS and DB environments; the rest grade
+  with a model judge and are **refused rather than approximated**, because an
+  approximated oracle is a task that scores something nobody chose.
+
+  Every output is a draft with TODOs, and what it lost lives in its own metadata
+  rather than in a message printed once -- a reader who finds the file six months
+  later still learns what it is not. Refusals are reported alongside the drafts,
+  because a record that vanished would look like one that was never there.
+
+### Added
+- **`tooltrace sample`: which production traces to score, and undoing the bias
+  you chose.** At production volume something has to choose, and that choice is
+  where most of the damage in an evaluation pipeline gets done.
+
+  Uniform random sampling is the usual default and the wrong one. The thing worth
+  finding is failure, failure is rare, and 1% of traffic yields 1% of the
+  failures -- a class that happens twice a week becomes one you see about once a
+  year, and every review looks at a sample in which everything worked.
+
+  The default is stratified: every errored trace, a quarter of the long ones, one
+  percent of the clean. That makes the sample **biased on purpose**, so the policy
+  is written beside the traces and `estimate_rate` inverts the weights to recover
+  the population figure. On a population with a 2% failure rate the raw sample
+  reads around 70%; the corrected estimate lands on 2%.
+
+  The correction uses the *realised* rate per stratum, not the requested one --
+  with a small population they differ, and projecting from a rate that was never
+  taken is arithmetic about an intention. A stratum resting on fewer than ten
+  scored traces is flagged rather than averaged in silently.
+
+  Selection is a hash of the trace id and the seed rather than a draw from a
+  generator: a sequence-dependent draw would make the sample depend on the order
+  traces arrived in, and a re-run that processed them differently would keep a
+  different set. A trace with no id is kept rather than dropped, because losing
+  one for a missing field biases the sample in a direction nobody chose.
+
+### Added
 - **Compare two runs side by side, aligned on what they actually did.** The
   existing Compare page compares *agents* in aggregate, which answers a different
   question. `/compare/runs` answers "these two runs of the same task went

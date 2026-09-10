@@ -1984,6 +1984,100 @@ def _expand_bundles(patterns: list[str]) -> list[Path]:
     return bundles
 
 
+def cmd_import(args: argparse.Namespace) -> int:
+    """Convert tasks from another benchmark into drafts.
+
+    Every output is a draft, and the loss report is the point. A converted
+    SWE-bench instance that scores 0.4 here tells a reader nothing unless they
+    know which half of the original grading survived -- so what each conversion
+    drops travels in the task's own metadata rather than being printed once.
+    """
+    import yaml
+    from tooltrace.tasks.importers import convert
+
+    source = Path(args.source)
+    if not source.is_file():
+        print(f"error: no such file: {source}", file=sys.stderr)
+        return EXIT_USAGE
+    text = source.read_text(encoding="utf-8")
+    try:
+        records = (
+            [json.loads(line) for line in text.splitlines() if line.strip()]
+            if source.suffix == ".jsonl"
+            else json.loads(text)
+        )
+    except ValueError as exc:
+        print(f"error: {source} is not JSON: {exc}", file=sys.stderr)
+        return EXIT_TASK
+    if isinstance(records, dict):
+        records = [records]
+
+    report = convert(args.format, records)
+
+    if args.out:
+        out = Path(args.out)
+        out.mkdir(parents=True, exist_ok=True)
+        for task in report["tasks"]:
+            path = out / f"{task['id'].split('/')[-1]}.yaml"
+            path.write_text(yaml.safe_dump(task, sort_keys=False), encoding="utf-8")
+        print(f"wrote {len(report['tasks'])} draft task(s) to {out}")
+
+    if args.json:
+        _emit(report, True)
+    else:
+        print(report["statement"])
+        for refusal in report["refused"]:
+            print(f"  refused ({refusal['environment']}): {refusal['reason']}")
+    return EXIT_OK
+
+
+def cmd_sample(args: argparse.Namespace) -> int:
+    """Choose which production traces to score, and record the bias you chose.
+
+    Uniform sampling is the usual default and the wrong one: the thing worth
+    finding is failure, failure is rare, and 1% of traffic yields 1% of the
+    failures. Stratified sampling keeps everything that already looks wrong --
+    and produces a sample that is biased on purpose, so the policy is written
+    beside the traces rather than left for whoever reads the numbers to infer.
+    """
+    from tooltrace.ingest.sampling import sample as choose
+
+    source = Path(args.source)
+    if not source.is_file():
+        print(f"error: no such file: {source}", file=sys.stderr)
+        return EXIT_USAGE
+    traces = [
+        json.loads(line) for line in source.read_text(encoding="utf-8").splitlines() if line.strip()
+    ]
+    if not traces:
+        print(f"error: {source} contains no traces", file=sys.stderr)
+        return EXIT_USAGE
+
+    chosen = choose(traces, policy=args.policy, rate=args.rate, seed=args.seed)
+
+    if args.out:
+        out = Path(args.out)
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(
+            chr(10).join(json.dumps(t, sort_keys=True) for t in chosen["traces"]) + chr(10),
+            encoding="utf-8",
+        )
+        # The policy travels with the sample. A kept subset on its own is a file
+        # nobody can correct for later.
+        policy_path = out.with_suffix(out.suffix + ".policy.json")
+        policy_path.write_text(
+            json.dumps({k: v for k, v in chosen.items() if k != "traces"}, indent=2),
+            encoding="utf-8",
+        )
+        print(f"wrote {out} and {policy_path}")
+
+    _emit(
+        {k: v for k, v in chosen.items() if k != "traces"} if args.json else chosen["statement"],
+        args.json,
+    )
+    return EXIT_OK
+
+
 def cmd_counterfactual(args: argparse.Namespace) -> int:
     """Would the task still pass with one tool taken away?
 
@@ -2694,6 +2788,28 @@ def build_parser() -> argparse.ArgumentParser:
         nargs="*",
         help="command that starts the MCP server over stdio; put `--` first if it takes flags, e.g. `mcp-conformance -- python -m my_server` (default: the bundled deterministic fixture)",
     )
+
+    im = add("import", cmd_import, "convert tasks from another benchmark into drafts")
+    im.add_argument(
+        "--format",
+        required=True,
+        choices=["swe-bench", "bfcl", "tau-bench", "agentbench"],
+        help="the benchmark these records come from",
+    )
+    im.add_argument("--source", required=True, help="a .json or .jsonl file of records")
+    im.add_argument("--out", help="directory to write the draft tasks into")
+
+    sm = add("sample", cmd_sample, "choose which production traces to score")
+    sm.add_argument("--source", required=True, help="JSONL file, one trace summary per line")
+    sm.add_argument("--out", help="write the kept traces here, with the policy beside them")
+    sm.add_argument(
+        "--policy",
+        default="stratified",
+        choices=["stratified", "uniform", "all"],
+        help="stratified keeps everything that already looks wrong (default)",
+    )
+    sm.add_argument("--rate", type=float, default=0.01, help="rate for the uniform policy")
+    sm.add_argument("--seed", type=int, default=0, help="selection is deterministic given this")
 
     cf = add("counterfactual", cmd_counterfactual, "which tools was the agent actually relying on")
     cf.add_argument("--task", required=True, help="task id to ablate")

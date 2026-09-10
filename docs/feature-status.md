@@ -196,6 +196,9 @@ and a row claiming a task pack has to have that pack on disk.
 | 75bw | Counterfactual scoring: which tools were load-bearing | I | `tooltrace/analysis/counterfactual.py` (`ablate`), `tooltrace/cli/main.py` (`cmd_counterfactual`) |
 | 75bx | Resource-level ordering: was *this* file read before it was written | I | `tooltrace/scoring/trace_scorers.py` (`resource_order`), `tooltrace/tasks/packs/tool-call-structure/read-before-write.yaml` |
 | 75by | Run-vs-run comparison aligned by a diff over decisions, not row by row | I | `web/src/lib/alignTraces.ts` (`alignTraces`, `summarise`), `web/src/pages/results.tsx` (`RunComparePage`) |
+| 75bz | Stratified trace sampling with a weight correction back to the population | I | `tooltrace/ingest/sampling.py` (`sample`, `estimate_rate`), `tooltrace/cli/main.py` (`cmd_sample`) |
+| 75ca | Migration importers for SWE-bench / BFCL / tau-bench / AgentBench, with per-format loss reports | I | `tooltrace/tasks/importers.py` (`convert`, `from_swe_bench`, `from_bfcl`), `tooltrace/cli/main.py` (`cmd_import`) |
+| 75cb | Offline dashboard: network-first data, cache-first shell, and a banner that dates the data | I | `web/public/sw.js`, `web/public/manifest.webmanifest`, `web/src/components.tsx` (`OfflineBanner`) |
 | 76 | Failure clustering (deterministic vectors; semantic labeled) | I | `tooltrace/analysis/core.py` (`cluster_failures`) |
 | 77 | Root-cause drill-down aggregate → trace/assertion | I | `tooltrace/analysis/failures.py` (`Classification.seq`), `tooltrace/metrics/aggregate.py` (`failure_step`), `tooltrace/cli/main.py` (`cmd_trace`), `web/src/lib/clusters.ts` (`clusterFailures`, `stepLink`) |
 | 78 | Reproducibility score (metadata completeness, not validity) | I | `tooltrace/analysis/core.py` (`reproducibility_score`) |

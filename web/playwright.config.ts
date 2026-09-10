@@ -12,6 +12,13 @@ export default defineConfig({
   reporter: process.env.CI ? 'line' : 'list',
   use: {
     baseURL: 'http://localhost:4173',
+    // Blocked by default, and this is a statement about the app rather than a
+    // test convenience. A service worker answers `fetch` before the page's
+    // network layer does, so a request it serves is invisible to `page.route`
+    // -- every test here that injects a dataset would silently be testing the
+    // real one instead. The worker is exercised deliberately in
+    // `service-worker.spec.ts`, with `serviceWorkers: 'allow'`.
+    serviceWorkers: 'block',
     channel: (process.env.TTB_BROWSER as 'chrome' | 'msedge' | undefined) ?? 'chrome',
     headless: true,
     viewport: { width: 1280, height: 800 },
