@@ -7,6 +7,29 @@ versioning follows [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- **The cost-accuracy frontier is now something you can look at.**
+  `pareto_frontier` shipped in `metrics/economics.py` with no caller outside its
+  own tests, along with `cost_accuracy_points` -- so the question they answer,
+  which agents is nobody beating on both axes at once, could be computed and was
+  never asked. It is now in `tooltrace cost`, in the generated `pareto.json`, and
+  on a `/frontier` page in the dashboard.
+
+  The dangerous case shaped the whole design. An agent whose runs reported no
+  spend has an *unmeasured axis*, not a cost of zero: plotted at zero it would sit
+  at the cheap end of the chart and land on the frontier by default, and the chart
+  would be recommending the one agent nobody has priced. So unpriced agents are
+  named in prose above the chart, left off the plot, and sorted to the far end of
+  the table rather than the near one.
+
+  The chart distinguishes frontier from dominated by **shape** as well as colour,
+  keeps the accuracy axis at 0-100% rather than auto-scaling a small spread into a
+  dramatic one, and refuses to render at all when nothing is priced -- an empty
+  pair of axes says "nothing here" when the truth is "nobody priced this run".
+
+  On this repository's own published data the page says exactly that: one agent,
+  no measured cost, no frontier to draw.
+
+### Added
 - **Three security tasks that are not text an agent can argue with**, closing
   OWASP **AAI05** (insecure tool execution) and **AAI06** (memory and context
   poisoning). Seven of ten categories are now exercised by something that runs.

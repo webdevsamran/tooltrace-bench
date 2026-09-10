@@ -30,6 +30,7 @@ const SecurityPosturePage = page(() => import('./pages/assurance'), (m) => m.Sec
 const EvidencePage = page(() => import('./pages/assurance'), (m) => m.EvidencePage)
 const RecoveryAnalysisPage = page(() => import('./pages/operations'), (m) => m.RecoveryAnalysisPage)
 const CostEfficiencyPage = page(() => import('./pages/operations'), (m) => m.CostEfficiencyPage)
+const ParetoExplorerPage = page(() => import('./pages/operations'), (m) => m.ParetoExplorerPage)
 const DatasetBrowserPage = page(() => import('./pages/operations'), (m) => m.DatasetBrowserPage)
 const PluginCatalogPage = page(() => import('./pages/operations'), (m) => m.PluginCatalogPage)
 const WorkspaceDashboardPage = page(() => import('./pages/workspace/dashboard'), (m) => m.WorkspaceDashboardPage)
@@ -89,6 +90,7 @@ export const NAV_SECTIONS: readonly NavSection[] = [
       ['/failures', 'Failures'],
       ['/recovery', 'Recovery'],
       ['/efficiency', 'Efficiency'],
+      ['/frontier', 'Frontier'],
       ['/traces', 'Traces'],
       ['/security', 'Security'],
       ['/evidence', 'Evidence'],
@@ -297,6 +299,7 @@ export default function App() {
                 <Route path="/evidence" element={<EvidencePage />} />
                 <Route path="/recovery" element={<RecoveryAnalysisPage />} />
                 <Route path="/efficiency" element={<CostEfficiencyPage />} />
+                <Route path="/frontier" element={<ParetoExplorerPage />} />
                 <Route path="/dataset" element={<DatasetBrowserPage />} />
                 <Route path="/plugins" element={<PluginCatalogPage />} />
                 {/* Self-hosted team / operations console */}

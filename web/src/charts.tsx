@@ -244,3 +244,143 @@ export function Ring({ value, label }: { value: number; label: string }) {
   )
 }
 
+
+/**
+ * Cost against accuracy, with the frontier drawn through the points nobody beats.
+ *
+ * Two things this does that `Scatter` does not, and both matter more than the
+ * drawing. It renders the *dominated* points differently rather than as
+ * anonymous dots -- the whole question is which agents are beaten on both axes
+ * at once, and a chart where every dot looks the same makes the reader
+ * recompute that by eye. And it never returns `null` for an empty input: an
+ * agent with no measured cost cannot be on a frontier, and a blank rectangle
+ * says "nothing here" when the truth is "nobody priced this run".
+ */
+export function ParetoChart({
+  points,
+  frontier,
+  height = 300,
+  selected,
+  onSelect,
+}: {
+  points: { agent: string; success_rate: number; cost_per_resolved_task: number | null }[]
+  frontier: string[]
+  height?: number
+  selected?: string | null
+  onSelect?: (agent: string | null) => void
+}) {
+  const priced = points.filter((p) => p.cost_per_resolved_task !== null)
+  if (priced.length === 0) return null
+
+  const W = 640
+  const H = height
+  const padL = 62
+  const padB = 38
+  const padT = 14
+  const padR = 18
+  const costs = priced.map((p) => p.cost_per_resolved_task as number)
+  const xmax = Math.max(...costs) * 1.15 || 1
+  const plotW = W - padL - padR
+  const plotH = H - padB - padT
+  // Accuracy is a proportion, so the y axis is 0..1 always. Auto-scaling it
+  // would make a 2-point spread look like the whole range.
+  const at = (p: { success_rate: number; cost_per_resolved_task: number | null }) => ({
+    x: padL + ((p.cost_per_resolved_task as number) / xmax) * plotW,
+    y: padT + (1 - p.success_rate) * plotH,
+  })
+
+  const onFrontier = priced
+    .filter((p) => frontier.includes(p.agent))
+    .sort((a, b) => (a.cost_per_resolved_task as number) - (b.cost_per_resolved_task as number))
+  const path = onFrontier.map(at).map((c, i) => `${i === 0 ? 'M' : 'L'}${c.x},${c.y}`).join(' ')
+
+  return (
+    <svg
+      viewBox={`0 0 ${W} ${H}`}
+      role="img"
+      aria-label={`Cost against accuracy for ${priced.length} agents; ${frontier.length} on the frontier`}
+      style={{ width: '100%', maxWidth: 760 }}
+    >
+      {[0, 0.25, 0.5, 0.75, 1].map((tick) => (
+        <g key={tick}>
+          <line
+            x1={padL}
+            x2={W - padR}
+            y1={padT + (1 - tick) * plotH}
+            y2={padT + (1 - tick) * plotH}
+            stroke="var(--border)"
+            strokeDasharray="2 4"
+          />
+          <text x={padL - 8} y={padT + (1 - tick) * plotH + 4} textAnchor="end" fontSize="10" fill="var(--muted)">
+            {Math.round(tick * 100)}%
+          </text>
+        </g>
+      ))}
+      {onFrontier.length > 1 && (
+        <path d={path} fill="none" stroke="var(--accent)" strokeWidth="1.5" strokeDasharray="5 3" />
+      )}
+      {priced.map((p) => {
+        const c = at(p)
+        const isFrontier = frontier.includes(p.agent)
+        const isSelected = selected === p.agent
+        return (
+          <g
+            key={p.agent}
+            tabIndex={0}
+            role="button"
+            aria-label={`${p.agent}: ${(p.success_rate * 100).toFixed(1)}% at ${p.cost_per_resolved_task} per resolved task, ${isFrontier ? 'on the frontier' : 'dominated'}`}
+            aria-pressed={isSelected}
+            onClick={() => onSelect?.(isSelected ? null : p.agent)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault()
+                onSelect?.(isSelected ? null : p.agent)
+              }
+            }}
+            style={{ cursor: onSelect ? 'pointer' : 'default' }}
+          >
+            {/* Shape carries the meaning as well as colour: a frontier point is
+                a filled diamond, a dominated one a hollow circle. Colour alone
+                fails for a reader who cannot distinguish these two hues. */}
+            {isFrontier ? (
+              <rect
+                x={c.x - 5}
+                y={c.y - 5}
+                width="10"
+                height="10"
+                transform={`rotate(45 ${c.x} ${c.y})`}
+                fill="var(--accent)"
+                stroke={isSelected ? 'var(--fg)' : 'none'}
+                strokeWidth="1.5"
+              />
+            ) : (
+              <circle
+                cx={c.x}
+                cy={c.y}
+                r="4.5"
+                fill="none"
+                stroke={isSelected ? 'var(--fg)' : 'var(--muted)'}
+                strokeWidth="1.5"
+              />
+            )}
+            <text x={c.x + 9} y={c.y + 4} fontSize="10" fill="var(--muted)">
+              {p.agent}
+            </text>
+            <title>
+              {p.agent}: {(p.success_rate * 100).toFixed(1)}% at {p.cost_per_resolved_task} per
+              resolved task — {isFrontier ? 'on the frontier' : 'beaten on both axes'}
+            </title>
+          </g>
+        )
+      })}
+      <line x1={padL} x2={W - padR} y1={padT + plotH} y2={padT + plotH} stroke="var(--border)" />
+      <line x1={padL} x2={padL} y1={padT} y2={padT + plotH} stroke="var(--border)" />
+      <text x={padL + plotW / 2} y={H - 6} textAnchor="middle" fontSize="11" fill="var(--muted)">
+        cost per resolved task (lower is better)
+      </text>
+      <text x={10} y={12} fontSize="11" fill="var(--muted)">
+        success rate
+      </text>
+    </svg>
+  )
+}

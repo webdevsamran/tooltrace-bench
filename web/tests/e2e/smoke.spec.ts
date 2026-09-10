@@ -17,6 +17,7 @@ const ROUTES: [string, RegExp][] = [
   ['/evidence', /evidence/i],
   ['/recovery', /recovery/i],
   ['/efficiency', /cost|efficiency|latency/i],
+  ['/frontier', /frontier/i],
   ['/dataset', /dataset/i],
   ['/plugins', /plugin/i],
   ['/methodology', /methodology/i],
@@ -41,7 +42,7 @@ test.describe('route smoke', () => {
 })
 
 test.describe('accessibility (axe)', () => {
-  for (const route of ['/', '/leaderboard', '/tasks', '/traces', '/failures', '/security', '/evidence', '/workspace']) {
+  for (const route of ['/', '/leaderboard', '/tasks', '/traces', '/failures', '/security', '/evidence', '/frontier', '/workspace']) {
     test(`no critical accessibility violations on ${route}`, async ({ page }) => {
       await page.goto(route)
       const results = await new AxeBuilder({ page })

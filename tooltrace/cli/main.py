@@ -278,7 +278,7 @@ def cmd_cost(args: argparse.Namespace) -> int:
 
     from tooltrace.artifacts.bundles import load_bundle_result
     from tooltrace.metrics.budget import cost_attribution, forecast_spend, viability_verdict
-    from tooltrace.metrics.economics import cost_summary
+    from tooltrace.metrics.economics import cost_accuracy_points, cost_summary, pareto_frontier
 
     bundles = sorted(Path(args.bundles).glob("*.tooltrace"))
     if not bundles:
@@ -302,11 +302,32 @@ def cmd_cost(args: argparse.Namespace) -> int:
         currency=str(summary.get("currency") or "USD"),
     )
 
+    # The frontier had no caller outside the tests, so the question it answers --
+    # "which agents is nobody beating on both axes at once" -- could be computed
+    # and never asked. A single-agent run has a frontier of one, which is true
+    # and useless, so the payload says how many arms it was drawn from.
+    per_agent: dict[str, list[dict[str, Any]]] = {}
+    for result in results:
+        per_agent.setdefault(str(result.get("agent") or "unknown"), []).append(result)
+    points = cost_accuracy_points(per_agent)
+    frontier = pareto_frontier(points)
+
     payload: dict[str, Any] = {
         "runs": len(results),
         "summary": summary,
         "attribution": attribution,
         "viability": viability,
+        "cost_accuracy": {
+            "points": points,
+            "frontier": frontier,
+            "agents": len(points),
+            "statement": (
+                "a frontier drawn from one agent names that agent and means nothing"
+                if len(points) < 2
+                else f"{len(frontier)} of {len(points)} agents are on the frontier; "
+                "the rest are beaten on both accuracy and cost at once"
+            ),
+        },
     }
     if forecast is not None:
         payload["forecast"] = forecast
@@ -325,6 +346,15 @@ def cmd_cost(args: argparse.Namespace) -> int:
         )
         if not attribution.get("covers_all_runs"):
             print(f"  note: {attribution['unpriced_runs']} run(s) reported no cost")
+
+    if len(points) >= 2:
+        print()
+        print("cost vs accuracy:")
+        for point in sorted(points, key=lambda p: -p["success_rate"]):
+            mark = "frontier" if point["agent"] in frontier else "dominated"
+            cost = point["cost_per_resolved_task"]
+            cost_text = f"{cost}" if cost is not None else "unpriced"
+            print(f"  {mark:<10} {point['agent']:<24} {point['success_rate']:.1%} @ {cost_text}")
 
     if forecast is not None:
         print()

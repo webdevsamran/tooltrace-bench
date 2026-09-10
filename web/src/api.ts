@@ -159,6 +159,26 @@ export interface EvidenceDossier {
   chain_head: string
 }
 
+/** Cost against accuracy per agent, and which of them nobody beats on both. */
+export interface ParetoPoint {
+  agent: string
+  success_rate: number
+  /** Null when no adapter reported spend. Such an agent is not on the frontier
+   *  and is not treated as free: it is a point with an unmeasured axis. */
+  cost_per_resolved_task: number | null
+  total_cost: number | null
+  priced_runs: number
+  runs: number
+}
+
+export interface ParetoData {
+  generated_at: string
+  points: ParetoPoint[]
+  frontier: string[]
+  unpriced: string[]
+  statement: string
+}
+
 export interface IndexData {
   generated_at: string
   framework_version: string
@@ -269,6 +289,7 @@ export const getTasks = () => apiGet<TaskSummary[]>('data/tasks.json')
 export const getResults = () => apiGet<ResultRow[]>('data/results.json')
 export const getAgents = () => apiGet<AgentRow[]>('data/agents.json')
 export const getSecurity = () => apiGet<SecurityPosture>('data/security.json')
+export const getPareto = () => apiGet<ParetoData>('data/pareto.json')
 export const getEvidence = () => apiGet<EvidenceDossier>('data/evidence.json')
 
 // ---------- team-server resource types (server mode) ----------
