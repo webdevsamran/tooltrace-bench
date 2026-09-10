@@ -7,6 +7,61 @@ versioning follows [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- **NIST AI RMF and ISO/IEC 42001 mappings, and they are mostly refusals.**
+  `evidence --framework` re-files the same bundle facts in another vocabulary --
+  nothing is re-derived, because two mappings of one run set that could disagree
+  would be the failure a mapping exists to prevent.
+
+  Every mapping reports a third state alongside `evidenced` and `not_run`:
+  **`out_of_scope`**, meaning no benchmark can evidence that control, ever. A
+  mapping that listed only the reachable controls would read, to a reviewer
+  skimming a table, as a project that covers NIST AI RMF. GOVERN is
+  organisational in its entirety; MAP is about your deployment context; ISO 42001
+  certifies a *management system* whose clauses 4-10 no evaluation output touches.
+
+- **`evidence --history`: when each obligation became evidenceable.** A narrower
+  question than the changelog, and the one a reviewer holding a dossier actually
+  has -- a dossier produced before a capability shipped is silent on an obligation
+  for a reason unrelated to the agent. Releases that added nothing are listed too,
+  because omitting them would make the record read as steady regulatory progress.
+  Checked against `CHANGELOG.md` in both directions: a regulatory document that
+  has drifted from the release history is worse than none.
+
+- **`tooltrace redaction`: what a bundle had removed, and what nobody can
+  certify.** Exit 9 only when a *secret* still matches after sanitisation, which
+  is a defect in the sanitiser. Personal-data shapes are reported and never fatal:
+  whether an email address matters depends on whose it is and where the bundle is
+  going.
+
+  Two refusals are the feature. **A clean scan is not proof of absence** -- every
+  detector matches a shape, and a person's name has none; `safe_to_publish` is
+  `null` and the undetectable categories are named in every output. **It is not
+  differential privacy** -- DP means calibrated noise, and a bundle exists to be
+  reproduced byte for byte, so the two properties are in direct conflict.
+
+- **Auditor mode: read-only, time-boxed, watermarked.** A separate `auditor`
+  role holding no permission that writes, an absolute expiry, and a watermark
+  carried on the token so every response served under it can include it -- a
+  watermark applied at render time is one somebody can render without. It
+  survives rotation, which is the one operation an auditor can perform on their
+  own token.
+
+### Fixed
+- **Token expiry was never enforced.** The store recorded `expires_hint_days` and
+  `verify` returned the record whatever its age, so every token this server ever
+  issued was permanent. A grant "for the duration of the audit" that outlives the
+  audit is how a temporary reviewer becomes a permanent one, and the field name
+  made it look deliberate. Expiry is now an absolute instant the store enforces,
+  with an injectable clock so it is tested rather than waited for. A record
+  predating enforcement is treated as live: silently revoking every existing
+  token would be a worse failure than the one being fixed.
+
+- **`evidence --bundles one.tooltrace` reported "no bundles found"** for a bundle
+  sitting right there. A `.tooltrace` bundle *is* a directory, so "is it a
+  directory" cannot tell a bundle from a folder of bundles -- and that was the
+  test, so naming a single bundle globbed inside it and found nothing.
+
+### Added
 - **A seed now reaches the model, which is the control arm
   `variance_decomposition` said did not exist.** `--seed` had only ever shuffled
   the task subset, so within-configuration variance covered the model's
