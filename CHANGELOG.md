@@ -7,6 +7,34 @@ versioning follows [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- **`tooltrace platforms`: getting a run set into Langfuse, Phoenix, Datadog, W&B
+  or MLflow** -- and being honest about how little that takes.
+
+  Most of them already speak OTLP, and `exporters/otel.py` already writes GenAI
+  spans. Five exporter classes posting the same bytes to five paths would be five
+  names in a listing with no new capability behind any of them, which is the same
+  argument that kept five local model servers on one adapter. What ships instead
+  is a targets table: the endpoint, the auth header, and the environment variable
+  each platform reads its credential from. That is the part a user otherwise
+  learns by reading five sets of docs.
+
+  Two of them are genuinely different and get real converters. Weights & Biases
+  and MLflow are run-based rather than span-based, so a span stream is not a shape
+  either accepts. Both split what was held fixed from what was measured -- a task
+  id in metrics or a step count in parameters makes both views useless, and
+  neither platform can tell which is which on its own.
+
+  And one wants something OTLP cannot carry. Langfuse models an evaluation score
+  as an object attached to a trace, not as a span attribute, so a run pushed as
+  spans alone arrives complete and **unscored** -- which looks like a working
+  integration and is not. Success is a separate score from the total, because a
+  partial success and a failure can share a total and collapsing them hides the
+  distinction the failure taxonomy exists for.
+
+  Nothing is transmitted, and no credential is read: a tool that loads a key in
+  order to print a command has held a key it did not need.
+
+### Added
 - **`pr-report` gates on token count.** A prompt change that leaves every score
   identical and doubles the tokens is a regression -- it costs money on every
   future run -- and no other metric in the report would notice it. Threshold is
