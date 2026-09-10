@@ -6,6 +6,19 @@ versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+- **`tooltrace backends` shipped undocumented, and every check was green.** The
+  documentation edit that was meant to add it anchored on a line that was not in
+  `docs/cli-reference.md`, so it matched nothing and wrote nothing. Nothing
+  noticed, because the CLI reference was the one document in this repository
+  that nothing verified -- 36 hand-maintained rows describing 39 registered
+  commands.
+
+  `tests/test_cli_reference_is_complete.py` now checks both directions. An
+  undocumented command is invisible; a documented command that does not exist is
+  worse, because the reader who types it gets an argparse error and has to decide
+  which of the two sources is lying. `agents` was missing too.
+
 ### Added
 - **`tooltrace mcp-fuzz`: malformed JSON-RPC, and what the server did with it.**
   `mcp-conformance` asks a server to do things correctly. This asks it to do
