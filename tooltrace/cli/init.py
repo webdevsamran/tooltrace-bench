@@ -48,6 +48,21 @@ ADAPTERS: dict[str, str] = {
     "scripted": "a fixed script of tool calls - the deterministic demo, no model",
 }
 
+#: Local servers, offered by name because knowing that Ollama is on 11434 and
+#: LM Studio on 1234 is exactly the friction this command exists to remove. Each
+#: resolves to `openai_compat` with the right base URL: they all speak the same
+#: API, and five adapters would be five names with no new capability behind them.
+LOCAL_BACKENDS: dict[str, str] = {
+    "ollama": "Ollama on its default port",
+    "llama_cpp": "llama.cpp's llama-server",
+    "lm_studio": "LM Studio's local server",
+    "vllm": "vLLM's OpenAI-compatible server",
+    "sglang": "SGLang's OpenAI-compatible server",
+}
+
+#: Everything `--agent` accepts.
+CHOICES: dict[str, str] = {**ADAPTERS, **LOCAL_BACKENDS}
+
 DEFAULT_COMMAND = "my-agent --task {objective}"
 
 
@@ -110,6 +125,17 @@ def build_config(
     adapter: str, *, command: str, base_url: str, model: str, api_key_env: str
 ) -> dict[str, Any]:
     """The `--agent-config` payload for the chosen adapter."""
+    if adapter in LOCAL_BACKENDS:
+        # A preset, resolved to an `openai_compat` config. They all speak the
+        # same API, so five adapters would be five names with no new capability.
+        from tooltrace.agents.local_backends import config_for
+
+        config = config_for(adapter, model=model, api_key_env=api_key_env)
+        if base_url:
+            # An explicit URL wins: a server moved off its default port is the
+            # normal reason someone passes one.
+            config["base_url"] = base_url
+        return config
     if adapter == "subprocess":
         return {
             "command": command or DEFAULT_COMMAND,
@@ -138,14 +164,18 @@ def plan(
     write_workflow: bool = True,
 ) -> InitPlan:
     """Decide everything before touching the filesystem."""
-    if adapter not in ADAPTERS:
-        raise ValueError(f"unknown adapter {adapter!r}; choose one of {sorted(ADAPTERS)}")
+    if adapter not in CHOICES:
+        raise ValueError(f"unknown adapter {adapter!r}; choose one of {sorted(CHOICES)}")
 
     tasks = available_tasks()
     chosen = task or _starter_task(tasks)
+    # A local backend is a preset, and the adapter that runs it is
+    # `openai_compat`. The plan records the resolved adapter so the printed
+    # command is one that works.
+    resolved = "openai_compat" if adapter in LOCAL_BACKENDS else adapter
     result = InitPlan(
         directory=directory,
-        adapter=adapter,
+        adapter=resolved,
         agent_config=build_config(
             adapter, command=command, base_url=base_url, model=model, api_key_env=api_key_env
         ),
@@ -173,7 +203,22 @@ def plan(
         probe = probe_command(command)
         if not probe.get("found"):
             result.notes.append(f"the command will not start: {probe.get('reason')}")
-    if adapter == "openai_compat":
+    if adapter in LOCAL_BACKENDS:
+        from tooltrace.agents.local_backends import BACKENDS, detect_running
+
+        spec = BACKENDS[adapter]
+        listening = {row["backend"] for row in detect_running()}
+        result.notes.append(f"{adapter}: {spec.note}")
+        if adapter not in listening:
+            # Checked before the run, for the same reason `probe_command` is:
+            # "the server is not running" and "the agent failed the task" both
+            # score zero and mean entirely different things.
+            result.notes.append(
+                f"nothing is listening on localhost:{spec.port}. Start {adapter} "
+                "before running, or the first run measures the connection rather "
+                "than the agent"
+            )
+    elif adapter == "openai_compat" and result.agent_config.get("api_key_env"):
         result.notes.append(
             f"set {result.agent_config['api_key_env']} in your environment; "
             "the key is never written to the config"

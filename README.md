@@ -278,6 +278,26 @@ unregistered, so every injection failed as "unknown tool" and every agent looked
 perfectly resistant, and once with a pack allowing a `delete_file` tool that has never
 existed here.
 
+## Local models
+
+```bash
+tooltrace backends                 # what this machine is running
+tooltrace init --agent ollama      # writes a config pointed at localhost:11434
+```
+
+Ollama, llama.cpp's `llama-server`, LM Studio, vLLM and SGLang all speak the
+OpenAI chat API, so they run through the one `openai_compat` adapter rather than
+five adapters that would send the same request to the same path. What the presets
+carry is the part you would otherwise look up: the port, the model-name
+convention, and each server's particular footgun -- Ollama resolving an untagged
+name to `:latest` and quietly making the run unreproducible, `llama-server`
+ignoring the `model` field entirely so the recorded name comes from your config
+rather than the server.
+
+Detection probes **localhost only**. An open port is evidence something is
+listening there, not a positive identification of the server, and the output says
+so.
+
 ## Adapter model
 
 Agents implement a small, stable interface: `initialize`, `run`, an **event stream**, **usage metadata**, and **artifacts/final output**. Discovery is plugin-based via the `tooltrace.agents` entry-point group.

@@ -7,6 +7,44 @@ versioning follows [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- **Local model server presets and `tooltrace backends`.** Ollama, llama.cpp, LM
+  Studio, vLLM and SGLang all expose an OpenAI-compatible `/chat/completions`,
+  which `openai_compat` already drives. Five adapter classes posting the same body
+  to the same path would have been five names in `tooltrace agents` with no new
+  capability behind any of them -- coverage in the listing and none in the code.
+
+  What was actually missing is what a user otherwise learns the hard way: the
+  port, the model-name convention, and each server's footgun. Ollama resolves an
+  untagged name to `:latest`, which silently makes a run unreproducible;
+  `llama-server` ignores the `model` field entirely, so the recorded model name
+  comes from your config rather than from the server. Each preset says so.
+
+  `tooltrace init --agent ollama` now works, and warns when nothing is listening
+  on that port -- for the same reason it probes a subprocess command first: "the
+  server is down" and "the agent failed the task" both score zero and mean
+  entirely different things.
+
+  Detection probes **localhost only**, and reports that an open port is evidence
+  something is listening rather than a positive identification of the server.
+
+### Fixed
+- **The new token dimensions were never populated.** `TokenUsage` grew
+  `cached_prompt_tokens`, `cache_write_tokens` and `reasoning_tokens` and
+  `PriceTable` learned to bill them -- and no adapter ever read them from a
+  response, so a cache-heavy run was still costed at the full input rate. Adding
+  a field and leaving it unreachable is this repository's recurring defect, and
+  this time it arrived in the same change that added the fields.
+
+  `extract_usage` reads all three across the shapes providers actually use:
+  OpenAI nests them under `prompt_tokens_details` / `completion_tokens_details`,
+  Anthropic puts them at the top level as `cache_read_input_tokens` /
+  `cache_creation_input_tokens`, and most local servers report none of it.
+
+- **The usage accumulator coerced `None` to `0`.** A provider that says nothing
+  about caching became indistinguishable from one reporting none cached -- two
+  states that bill identically and mean different things.
+
+### Added
 - **Mid-run interventions, and the metric they unlock.** `UserAction` and
   `CheckpointStage` have been declarable since the task protocol was written and
   nothing had ever performed one -- which is precisely why autonomy reported
