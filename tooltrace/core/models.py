@@ -185,9 +185,34 @@ class TraceEvent(BaseModel):
 
 
 class TokenUsage(BaseModel):
+    """Token counts as the adapter reported them. Never inferred.
+
+    The three extra dimensions are additive and optional, and that is
+    deliberate: `EvalResult` is consumed by `analysis/`, `replay/` and the
+    frontend, so every field here defaults to `None` and every bundle written
+    before they existed still parses and still validates. Bumping
+    `RESULT_SCHEMA_VERSION` for an optional field would make every committed
+    bundle incomparable with every new one -- a far larger cost than the one it
+    would avoid.
+
+    They exist because prompt caching makes a bare `prompt_tokens` figure the
+    wrong basis for cost. A cached prompt token typically bills at a small
+    fraction of a fresh one, and a reasoning token bills as output while
+    appearing in neither count on some providers. Costing a cache-heavy run at
+    the full input rate overstates it, sometimes by an order of magnitude.
+    """
+
     prompt_tokens: int | None = None
     completion_tokens: int | None = None
     total_tokens: int | None = None
+    #: Prompt tokens served from a provider-side cache, billed at a reduced
+    #: rate. A subset of `prompt_tokens`, not an addition to it.
+    cached_prompt_tokens: int | None = None
+    #: Tokens written *into* a cache, which several providers bill at a premium.
+    cache_write_tokens: int | None = None
+    #: Tokens spent on hidden reasoning. Billed as output, and on some providers
+    #: not included in `completion_tokens` at all.
+    reasoning_tokens: int | None = None
 
 
 class UsageMetadata(BaseModel):

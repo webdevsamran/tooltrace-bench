@@ -7,6 +7,50 @@ versioning follows [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- **`tooltrace cost` and `benchmark --budget`: what a sweep costs, before it runs.**
+  `cost_summary` reported what a sweep did cost, which is the wrong end of the
+  decision people face. The Holistic Agent Leaderboard sweep ran to roughly
+  $40,000, and nobody should learn a number like that afterwards.
+
+  A forecast below three priced runs reports `measurable: false` rather than
+  multiplying an assumed token count -- a confident figure with no basis is
+  exactly what gets believed and budgeted against -- and what it returns is a
+  range, not a point.
+
+  `--budget` is a **hard** ceiling. A soft budget that logs and continues is a
+  budget that does not exist, and the case it guards against is precisely the one
+  where nobody reads the log. It warns at 80%, and a stopped sweep records what it
+  did not run and reports `is_partial`, for the same reason `--limit` announces
+  itself. One hole is stated rather than papered over: an unpriced run is not a
+  free run, so it is not counted at all, and the budget says outright that it is
+  therefore not bounding those runs.
+
+  Attribution splits spend by task and by how the run ended, because discovering
+  that most of a budget went on failures is the finding a total cannot show. The
+  viability verdict takes a human baseline with **no default** -- a verdict against
+  an invented baseline is an opinion wearing a measurement's clothes -- and names
+  the unresolved share, since an agent resolving 40% of tasks needs someone for
+  the other 60%.
+
+- **Cached, cache-write and reasoning token dimensions.** `prompt_tokens` alone
+  is the wrong basis for cost once prompt caching exists: a cached token bills at
+  a fraction of a fresh one, and a reasoning token bills as output while appearing
+  in neither count on some providers. Costing a cache-heavy run at the full input
+  rate overstates it by an order of magnitude.
+
+  Every field is optional and defaulted, because `EvalResult` is consumed by
+  `analysis/`, `replay/` and the frontend -- every bundle written before they
+  existed still parses and still validates. Bumping `RESULT_SCHEMA_VERSION` for an
+  optional field would make every committed bundle incomparable with every new
+  one, a far larger cost than the one it would avoid.
+
+  Two rules that are easy to get wrong are pinned by tests: cached tokens are a
+  **subset** of the prompt count rather than an addition (10,000 prompt tokens of
+  which 9,000 were cached costs 10,000 tokens, not 19,000), and an unstated cached
+  rate bills at the full input rate with `cached_rate_stated: false`, because
+  over-estimating is the only direction a cost figure may err in.
+
+### Added
 - **Behaviour analysis: recovery quality, error propagation and shortcut signals.**
   `recovered: true` covered three materially different outcomes -- fixed it on the
   next call, floundered for five, or got the tool working and still produced the

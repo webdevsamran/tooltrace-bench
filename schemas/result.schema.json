@@ -51,7 +51,10 @@
           "properties": {
             "prompt_tokens": { "type": ["integer", "null"] },
             "completion_tokens": { "type": ["integer", "null"] },
-            "total_tokens": { "type": ["integer", "null"] }
+            "total_tokens": { "type": ["integer", "null"] },
+            "cached_prompt_tokens": { "type": ["integer", "null"] },
+            "cache_write_tokens": { "type": ["integer", "null"] },
+            "reasoning_tokens": { "type": ["integer", "null"] }
           }
         },
         "model_time_ms": { "type": ["number", "null"] },

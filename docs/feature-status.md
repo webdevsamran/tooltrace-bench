@@ -133,6 +133,11 @@ and a row claiming a task pack has to have that pack on disk.
 | 75l | Error-propagation chains across dependent steps | I | `tooltrace/analysis/behaviour.py` (`error_propagation`) |
 | 75m | Shortcut / reward-hacking signals (never a verdict) | I | `tooltrace/analysis/behaviour.py` (`shortcut_signals`), `tests/test_behaviour_analysis.py` |
 | 75n | Autonomy score | D | `tooltrace/analysis/behaviour.py` (`autonomy`) reports `measurable: false`: `tooltrace/tasks/v2.py` declares `UserAction`/`CheckpointStage`, no shipping task uses one and no executor performs one |
+| 75o | Cached / cache-write / reasoning token dimensions | I | `tooltrace/core/models.py` (`TokenUsage`), `tooltrace/agents/interop.py` (`PriceEntry`, `compute_cost`), `schemas/result.schema.json` |
+| 75p | Hard budget ceiling with pre-spend alert and partial-run reporting | I | `tooltrace/metrics/budget.py` (`BudgetGuard`), `tooltrace/runners/benchmark.py`, `tooltrace/cli/main.py` (`benchmark --budget`) |
+| 75q | Spend forecast before a sweep | I | `tooltrace/metrics/budget.py` (`forecast_spend`), `tooltrace/cli/main.py` (`cmd_cost`) |
+| 75r | Cost attribution by task and failure class | I | `tooltrace/metrics/budget.py` (`cost_attribution`) |
+| 75s | Economic-viability verdict with stated assumptions | I | `tooltrace/metrics/budget.py` (`viability_verdict`) |
 | 76 | Failure clustering (deterministic vectors; semantic labeled) | I | `tooltrace/analysis/core.py` (`cluster_failures`) |
 | 77 | Root-cause drill-down aggregate → trace/assertion | I | `tooltrace/analysis/failures.py` (`Classification.seq`), `tooltrace/metrics/aggregate.py` (`failure_step`), `tooltrace/cli/main.py` (`cmd_trace`), `web/src/lib/clusters.ts` (`clusterFailures`, `stepLink`) |
 | 78 | Reproducibility score (metadata completeness, not validity) | I | `tooltrace/analysis/core.py` (`reproducibility_score`) |
