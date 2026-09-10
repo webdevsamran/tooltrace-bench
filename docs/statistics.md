@@ -282,3 +282,67 @@ The prior is uniform Beta(1,1), stated in the output, and is an explicit argumen
 to get the answer you wanted. A posterior near 0.5 is reported as *an absence of
 evidence in either direction*, never as evidence the two are equal, and below ten
 runs per arm the reading says plainly that the prior is doing the work.
+
+## Behaviour a pass/fail score cannot see
+
+The Holistic Agent Leaderboard paper observes that agents with identical accuracy
+scores behave very differently, and `recovered: true` is where that shows up
+worst -- one field covering three materially different outcomes.
+
+| Grade | What happened |
+|---|---|
+| `immediate` | Retried the failed tool on the very next call |
+| `delayed` | Recovered, after N intervening calls |
+| `abandoned` | Never got that tool to succeed again |
+| `silently_wrong` | The tool call recovered and the run still failed its assertions |
+
+The last one is the finding a success rate hides: `recovered` is true and the
+answer is wrong. The **worst** grade is reported per run rather than the average,
+because an agent that recovered from three faults and abandoned a fourth has a
+problem a mean would bury.
+
+`error_propagation` answers a related question a count cannot: six failed calls
+could be six problems or one problem hit six times. Consecutive failures are
+grouped into chains, and a chain of one tool is marked distinctly from a chain
+across several.
+
+## Shortcut signals are signals, not verdicts
+
+The research gap is stated as "no way to distinguish genuine capability from
+benchmark gaming". That is a request for **evidence**, not for an accusation, and
+the failure mode that matters here is not missing a cheat -- it is flagging an
+agent that did the work.
+
+So every signal carries what was observed and what a human would have to check,
+and the output states outright that these are observations about a trace rather
+than findings about an agent. Nothing in it uses the word "cheating".
+
+Three refinements the shipped task packs forced, each of which was a false
+positive before it was fixed:
+
+- **A task with an empty starting workspace has nothing to read.** "Create
+  src/main.py containing hello" is solved by writing, and flagging it would flag
+  it forever.
+- **A patch is not a blind write.** `patch_file` names the text it replaces and
+  fails when that text is absent, so a successful patch is itself evidence the
+  agent knew what was there.
+- **`search_text` is reading.** It observes file content, which is the whole
+  question being asked.
+
+## What counts as a leaked answer
+
+`leaked_expected_values` searched the objective and the starting workspace
+together. Those are different things, and conflating them fired on two correctly
+designed tasks.
+
+- The **objective is the specification**. A task that says 'correct the line so
+  it reads "status: ready"' has told the agent what to produce; checking that it
+  did is the task. Flagging that asks authors to write vaguer objectives, which
+  makes tasks worse rather than more rigorous. Reported, never a failure.
+- The **starting workspace is input data**. An expected value found there and not
+  stated in the objective means a task that looks like a transformation can be
+  passed by a copy. This is the only class that fails integrity.
+- A **preservation assertion** -- one whose value is already in the file it
+  targets, like "implementation untouched" -- is exempt entirely. Flagging it
+  would push an author to delete the assertion that stops an agent from "fixing"
+  a failing test by rewriting the code beneath it.

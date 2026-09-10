@@ -129,6 +129,10 @@ and a row claiming a task pack has to have that pack on disk.
 | 75h | Minimum detectable effect + power analysis before a sweep | I | `tooltrace/analysis/power.py` (`minimum_detectable_effect`, `runs_for_effect`, `power_report`), `tooltrace/cli/main.py` (`cmd_power`) |
 | 75i | Variance decomposition: nondeterminism vs task diversity | I | `tooltrace/analysis/power.py` (`variance_decomposition`), `tooltrace/runners/benchmark.py` |
 | 75j | Bayesian A/B comparison for agent ranking | I | `tooltrace/analysis/power.py` (`bayesian_comparison`), `tooltrace/cli/main.py` (`cmd_showdown`) |
+| 75k | Recovery-quality grading (immediate / delayed / abandoned / silently wrong) | I | `tooltrace/analysis/behaviour.py` (`recovery_quality`), `tooltrace/runners/benchmark.py` |
+| 75l | Error-propagation chains across dependent steps | I | `tooltrace/analysis/behaviour.py` (`error_propagation`) |
+| 75m | Shortcut / reward-hacking signals (never a verdict) | I | `tooltrace/analysis/behaviour.py` (`shortcut_signals`), `tests/test_behaviour_analysis.py` |
+| 75n | Autonomy score | D | `tooltrace/analysis/behaviour.py` (`autonomy`) reports `measurable: false`: `tooltrace/tasks/v2.py` declares `UserAction`/`CheckpointStage`, no shipping task uses one and no executor performs one |
 | 76 | Failure clustering (deterministic vectors; semantic labeled) | I | `tooltrace/analysis/core.py` (`cluster_failures`) |
 | 77 | Root-cause drill-down aggregate → trace/assertion | I | `tooltrace/analysis/failures.py` (`Classification.seq`), `tooltrace/metrics/aggregate.py` (`failure_step`), `tooltrace/cli/main.py` (`cmd_trace`), `web/src/lib/clusters.ts` (`clusterFailures`, `stepLink`) |
 | 78 | Reproducibility score (metadata completeness, not validity) | I | `tooltrace/analysis/core.py` (`reproducibility_score`) |

@@ -43,7 +43,20 @@ import yaml
 from tooltrace.tasks.governance import sha256_text
 
 #: Assertion params whose value is the thing the agent is supposed to produce.
-_EXPECTED_PARAM_KEYS = ("text", "expected", "contains", "value", "equals")
+#: `expected_csv` was missing, so every `csv_equals` assertion escaped the
+#: leak check entirely -- a whole scorer's worth of expected values could sit
+#: in a prompt unnoticed. Keys are the union of what the built-in scorers
+#: read, not a guess.
+_EXPECTED_PARAM_KEYS = (
+    "text",
+    "expected",
+    "expected_csv",
+    "contains",
+    "value",
+    "equals",
+    "reference",
+    "defines",
+)
 
 #: Below this length an "expected" value is too generic for its appearance in a
 #: prompt to mean anything — a task about writing "ok" into a file is not leaking.
@@ -90,30 +103,108 @@ def task_matches_published(task: dict[str, Any], installed: dict[str, Any] | Non
     return problems
 
 
-def leaked_expected_values(task: dict[str, Any]) -> list[str]:
-    """An expected value visible in the prompt makes the score transcription."""
-    haystack = " ".join(
-        [str(task.get("objective") or "")]
-        + [str(v) for v in (task.get("starting_workspace") or {}).values()]
-    ).lower()
-    if not haystack.strip():
-        return []
-    leaked = []
+def _expected_values(assertion: dict[str, Any]) -> list[str]:
+    """Literal values one assertion expects, long enough to be meaningful."""
+    params = assertion.get("params") or {}
+    values = []
+    for key in _EXPECTED_PARAM_KEYS:
+        value = params.get(key)
+        if isinstance(value, str) and len(value) >= _MIN_LEAK_LENGTH:
+            values.append(value)
+    any_of = params.get("any_of")
+    if isinstance(any_of, list):
+        values.extend(
+            str(v) for v in any_of if isinstance(v, str) and len(str(v)) >= _MIN_LEAK_LENGTH
+        )
+    return values
+
+
+def _is_preservation_assertion(assertion: dict[str, Any], workspace: dict[str, Any]) -> bool:
+    """Does this assertion require existing content to *stay* rather than appear?
+
+    `test-repair/fix-test-expectation` asserts that `calc.py` still contains
+    `return a + b` -- "implementation untouched". The value being present in the
+    starting workspace is the entire point of the assertion, exactly as it is for
+    `file_not_contains`, which was already exempt. Flagging it as a leak is
+    backwards: it would push an author to delete the assertion that stops an
+    agent from "fixing" a test by rewriting the code under it.
+
+    Provable from the task alone: the assertion targets a starting file, and the
+    value is already in *that* file.
+    """
+    path = (assertion.get("params") or {}).get("path")
+    if not isinstance(path, str) or path not in workspace:
+        return False
+    existing = str(workspace.get(path) or "").lower()
+    return any(value.lower() in existing for value in _expected_values(assertion))
+
+
+def expected_value_report(task: dict[str, Any]) -> dict[str, Any]:
+    """Where each expected value is visible, classified by what that means.
+
+    The original check searched the objective and the starting workspace
+    together, and those are not the same thing.
+
+    The **objective is the specification**. A task that says 'correct the line so
+    it reads "status: ready"' has *told* the agent what to produce; an assertion
+    checking that it did is not transcription, it is the task. Whatever the
+    objective says is by definition given, and flagging it asks authors to write
+    vaguer objectives, which makes tasks worse rather than more rigorous.
+
+    The **starting workspace is input data**. An expected value found there and
+    not stated in the objective is the dangerous case: the answer is sitting in a
+    file the agent reads, so a task that looks like a transformation can be
+    passed by a copy. That is what anti-gaming is about, and it is the only class
+    that fails integrity.
+    """
+    workspace = task.get("starting_workspace") or {}
+    objective = f"{task.get('objective') or ''} {task.get('description') or ''}".lower()
+    workspace_text = " ".join(str(v) for v in workspace.values()).lower()
+
+    in_workspace: list[str] = []
+    in_objective: list[str] = []
+    preserved: list[str] = []
+
     for assertion in task.get("assertions") or []:
-        params = assertion.get("params") or {}
-        for key in _EXPECTED_PARAM_KEYS:
-            value = params.get(key)
-            if not isinstance(value, str) or len(value) < _MIN_LEAK_LENGTH:
-                continue
-            # `file_not_contains` asserts something is *absent*; the value
-            # appearing in the starting workspace is the entire point of it.
-            if str(assertion.get("type", "")).endswith("not_contains"):
-                continue
-            if value.lower() in haystack:
-                leaked.append(
-                    f"{assertion.get('type')}: expected value {value!r} appears in the prompt"
+        kind = str(assertion.get("type", ""))
+        # `file_not_contains` asserts something is *absent*; its value appearing
+        # in the starting workspace is the entire point of it.
+        if kind.endswith("not_contains"):
+            continue
+        if _is_preservation_assertion(assertion, workspace):
+            preserved.extend(
+                f"{kind}: {v!r} must remain unchanged" for v in _expected_values(assertion)
+            )
+            continue
+        for value in _expected_values(assertion):
+            lowered = value.lower()
+            if lowered in workspace_text and lowered not in objective:
+                in_workspace.append(
+                    f"{kind}: expected value {value!r} is already in the starting workspace"
                 )
-    return leaked
+            elif lowered in objective:
+                in_objective.append(f"{kind}: expected value {value!r} is stated in the objective")
+
+    return {
+        # The only class that fails integrity.
+        "leaked_to_workspace": in_workspace,
+        # Reported so an author can see it, never a failure: the objective is the
+        # specification, and a task is entitled to state its target.
+        "stated_in_objective": in_objective,
+        "preservation_assertions": preserved,
+    }
+
+
+def leaked_expected_values(task: dict[str, Any]) -> list[str]:
+    """Expected values an agent could copy out of its own input.
+
+    Narrowed from "visible anywhere in the prompt" to "sitting in the starting
+    workspace and not stated in the objective" -- see `expected_value_report` for
+    why those are different questions. The wider version flagged two shipped
+    tasks that are correctly designed, and a check that fires on correct design
+    trains people to ignore it.
+    """
+    return list(expected_value_report(task)["leaked_to_workspace"])
 
 
 def check_bundle_integrity(
