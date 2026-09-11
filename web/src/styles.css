@@ -1031,3 +1031,62 @@ tbody tr:hover { background: var(--bg-sunken); }
   font: inherit;
   font-size: var(--fs-1);
 }
+
+/* --- live console -----------------------------------------------------------
+ *
+ * A feed you can leave open: paused to read, filtered, and silent to a screen
+ * reader unless the reader asks otherwise. A live region attached to a running
+ * sweep would read every frame aloud and interrupt itself.
+ */
+.console-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-3);
+  margin: var(--s-3) 0;
+}
+
+.console-announce {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  font-size: var(--fs-1);
+}
+
+.console-log {
+  list-style: none;
+  margin: var(--s-3) 0 0;
+  padding: 0;
+  max-height: 28rem;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--r-2);
+  background: var(--n-1);
+  font-variant-numeric: tabular-nums;
+}
+
+.console-row {
+  display: grid;
+  grid-template-columns: 5.5rem 10rem minmax(6rem, 14rem) 1fr;
+  gap: var(--s-3);
+  padding: var(--s-2) var(--s-3);
+  border-bottom: 1px solid var(--border);
+  font-size: var(--fs-0);
+  align-items: baseline;
+}
+.console-row:last-child { border-bottom: 0; }
+
+.console-at   { color: var(--faint); font-family: var(--mono); }
+.console-type { color: var(--accent); font-weight: 600; }
+.console-id   { color: var(--muted); font-family: var(--mono); overflow-wrap: anywhere; }
+.console-detail {
+  color: var(--muted);
+  font-family: var(--mono);
+  overflow-wrap: anywhere;
+}
+
+/* Below the container width the four columns stop being readable; stack them
+   rather than letting the payload squeeze the timestamp to nothing. */
+@container (max-width: 40rem) {
+  .console-row { grid-template-columns: 1fr; gap: var(--s-1); }
+}

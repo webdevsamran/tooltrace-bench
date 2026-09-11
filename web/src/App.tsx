@@ -36,6 +36,7 @@ const RunComparePage = page(() => import('./pages/results'), (m) => m.RunCompare
 const DatasetBrowserPage = page(() => import('./pages/operations'), (m) => m.DatasetBrowserPage)
 const PluginCatalogPage = page(() => import('./pages/operations'), (m) => m.PluginCatalogPage)
 const WorkspaceDashboardPage = page(() => import('./pages/workspace/dashboard'), (m) => m.WorkspaceDashboardPage)
+const LiveConsolePage = page(() => import('./pages/workspace/console'), (m) => m.LiveConsolePage)
 const ExperimentsPage = page(() => import('./pages/workspace/experiments'), (m) => m.ExperimentsPage)
 const ExperimentBuilderPage = page(() => import('./pages/workspace/experiments'), (m) => m.ExperimentBuilderPage)
 const WorkersPage = page(() => import('./pages/workspace/workers'), (m) => m.WorkersPage)
@@ -105,6 +106,7 @@ export const NAV_SECTIONS: readonly NavSection[] = [
     home: '/workspace',
     items: [
       ['/workspace', 'Dashboard'],
+      ['/workspace/console', 'Live console'],
       ['/workspace/experiments', 'Experiments'],
       ['/workspace/experiments/new', 'Builder'],
       ['/workspace/workers', 'Workers'],
@@ -312,6 +314,7 @@ export default function App() {
                 <Route path="/plugins" element={<PluginCatalogPage />} />
                 {/* Self-hosted team / operations console */}
                 <Route path="/workspace" element={<WorkspaceDashboardPage />} />
+                <Route path="/workspace/console" element={<LiveConsolePage />} />
                 <Route path="/workspace/experiments" element={<ExperimentsPage />} />
                 <Route path="/workspace/experiments/new" element={<ExperimentBuilderPage />} />
                 <Route path="/workspace/workers" element={<WorkersPage />} />

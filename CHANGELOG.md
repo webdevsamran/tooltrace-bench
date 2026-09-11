@@ -7,6 +7,26 @@ versioning follows [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- **A live run console at `/workspace/console`.** The SSE feed already existed
+  as a twenty-line card inside the Experiments page rendering `type:id` strings.
+  That is a progress indicator; the information architecture asks for a console,
+  which is somewhere you leave open on a second monitor, pause to read, filter,
+  and scroll back through.
+
+  Three of its decisions are the opposite of the obvious one. **Announcing is
+  off by default**: a live region attached to a running sweep reads every frame
+  aloud and interrupts itself, so it is `role="log"` with `aria-live="off"` and
+  a checkbox the reader turns on — an accessibility feature that makes the page
+  unusable is not an accessibility feature. **Pausing stops rendering, not
+  receiving**: a pause that closed the stream would miss what happened while it
+  was paused and then resume looking continuous, so events keep arriving and the
+  page says how many did. **The buffer is capped and says so**, because dropping
+  the oldest silently would leave a reader scrolling to the top believing they
+  had reached the beginning.
+
+  A malformed frame is skipped rather than thrown: a bad frame is a fact about
+  the server, and a console that died on one would stop working exactly when
+  somebody was most likely to be watching it.
 - **The four interaction primitives the design spec asks for**, each written
   around the way it degrades rather than the way it animates:
   `useViewTransition` cross-fades route changes and returns the new route

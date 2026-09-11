@@ -73,6 +73,51 @@ test.describe('accessibility (axe)', () => {
  * real component, real browser, real keyboard, synthetic input that is
  * obviously synthetic and never leaves this file.
  */
+/**
+ * The live console, reached the way a reader without a server reaches it.
+ *
+ * Every workspace page renders inside a `ServerGate`, so the route smoke above
+ * would only ever see the connect form -- which is why no gated page is in that
+ * list. Clicking through to the labelled DEMO preview exercises the real page
+ * instead, with no SSE attached, which is also the state most visitors will see
+ * it in.
+ */
+test.describe('live console', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/workspace/console')
+    await page.getByRole('button', { name: /preview with demo data/i }).click()
+  })
+
+  test('renders behind the gate, with its controls', async ({ page }) => {
+    await expect(page.getByRole('heading', { name: /live console/i })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Pause' })).toBeVisible()
+    await expect(page.getByLabel('Filter events')).toBeVisible()
+  })
+
+  test('does not announce every frame unless the reader asks', async ({ page }) => {
+    // A live region on a running sweep reads every event aloud and interrupts
+    // itself. Off by default is the accessible choice, not the lazy one.
+    const announce = page.getByRole('checkbox', { name: /announce new events/i })
+    await expect(announce).not.toBeChecked()
+  })
+
+  test('says what the buffer holds even when it holds nothing', async ({ page }) => {
+    await expect(page.getByRole('status', { name: 'Console buffer' })).toContainText(
+      '0 events shown.',
+    )
+  })
+
+  test('offers an empty state rather than a blank panel', async ({ page }) => {
+    await expect(page.getByText(/no events yet/i)).toBeVisible()
+  })
+
+  test('no critical accessibility violations', async ({ page }) => {
+    const results = await new AxeBuilder({ page }).analyze()
+    const serious = results.violations.filter((v) => ['critical', 'serious'].includes(v.impact ?? ''))
+    expect(serious.map((v) => `${v.id} on ${v.nodes.length} node(s)`)).toEqual([])
+  })
+})
+
 test.describe('chart brushing', () => {
   const FRONTIER = {
     points: [
