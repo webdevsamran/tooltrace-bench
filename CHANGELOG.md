@@ -7,6 +7,16 @@ versioning follows [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- **The quality bar is measured rather than asserted.** Every other end-to-end
+  case ran at 1280x800, which is the one width a layout is never broken at. The
+  suite now checks five routes at **360px** for sideways scroll, checks that
+  wide content scrolls inside its own container, and measures **cumulative
+  layout shift** against the 0.1 threshold. `scripts/lighthouse_check.py` runs
+  Lighthouse against the built site and gates accessibility, best-practices and
+  SEO at 95; performance is reported and **not** gated, because it is a timing
+  measurement that moves ten points with whatever else the machine is doing, and
+  a gate that fails randomly gets switched off.
+
 - **A live run console at `/workspace/console`.** The SSE feed already existed
   as a twenty-line card inside the Experiments page rendering `type:id` strings.
   That is a progress indicator; the information architecture asks for a console,
@@ -171,6 +181,32 @@ versioning follows [Semantic Versioning](https://semver.org/).
   self-contained ones are executed as well.
 
 ### Fixed
+- **The command-palette button had no accessible name on a phone.** Below 60rem
+  its label and shortcut are `display: none` and the glyph is `aria-hidden`, so
+  the accessible name was empty. The desktop axe run never saw it — the label is
+  visible at 1280px. Lighthouse audits at mobile width by default and found it,
+  which is the argument for having both.
+
+- **No `robots.txt`, so a crawler asking for one got `index.html`** from the
+  single-page app's 404 fallback and parsed HTML as a robots file. Every line a
+  syntax error; SEO 91.
+
+- **The narrow-width sidebar pushed the page 223px sideways.** It had
+  `overflow-x: auto` and no `min-width: 0`, and a flex item's automatic minimum
+  size is its content — so the strip grew to 734px inside a 360px viewport
+  instead of scrolling. One line, and the overflow rule above it finally means
+  something.
+
+- **A `<select>` sized itself to its widest option**, which on the trace
+  explorer is a bundle name, and moved the whole page at 360px.
+
+- **The end-to-end suite reused a long-lived preview server.** `vite preview`
+  builds its file map once at startup, so a server left running across a rebuild
+  serves the old one — and the symptom is not a clean failure: the suite took
+  7.4 minutes instead of 43 seconds, the service-worker specs timed out, and
+  `/manifest.webmanifest` came back as `index.html`. Every one of those looks
+  like an application bug. Playwright now always starts its own.
+
 - **A system-dark reader watched the page flash white on every load.**
   `useTheme` reads `prefers-color-scheme` and stamps `data-theme` correctly, and
   one turn too late: it runs in an effect, so the first paint happens with the

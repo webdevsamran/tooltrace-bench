@@ -243,10 +243,21 @@ export default function App() {
           ))}
         </nav>
         <div className="topbar-actions">
-          <button type="button" className="search" onClick={openPalette}>
+          {/* The name is on the button, not only in the span.
+              Below 60rem the label and the shortcut are `display: none`, which
+              left an accessible name of "" -- the glyph is `aria-hidden` -- so
+              on a phone this was an unnamed button. The desktop axe run never
+              saw it because the label is visible at 1280px; Lighthouse audits
+              at mobile width by default, and found it. */}
+          <button
+            type="button"
+            className="search"
+            onClick={openPalette}
+            aria-label="Search pages"
+          >
             <span aria-hidden="true">⌕</span>
-            <span className="search-text">Search pages…</span>
-            <kbd>⌘K</kbd>
+            <span className="search-text" aria-hidden="true">Search pages…</span>
+            <kbd aria-hidden="true">⌘K</kbd>
           </button>
           <button
             type="button"

@@ -82,6 +82,118 @@ test.describe('accessibility (axe)', () => {
  * instead, with no SSE attached, which is also the state most visitors will see
  * it in.
  */
+/**
+ * The quality bar the spec sets, at the sizes nobody develops at.
+ *
+ * Every other case in this file runs at 1280x800, which is the one width a
+ * layout is never broken at. The spec says "responsive from 360px to
+ * ultrawide" and "no layout shift", and both are measurable rather than
+ * matters of taste, so they are measured.
+ */
+test.describe('quality bar', () => {
+  // A 360px-wide viewport is a small phone -- the narrow end of the range the
+  // spec names, and the width where a fixed-width table or an un-wrapped
+  // toolbar pushes the whole page sideways.
+  const NARROW = { width: 360, height: 740 }
+
+  for (const route of ['/', '/leaderboard', '/traces', '/frontier', '/failures']) {
+    test(`${route} does not scroll sideways at 360px`, async ({ page }) => {
+      await page.setViewportSize(NARROW)
+      await page.goto(route)
+      await page.waitForLoadState('networkidle')
+      // `documentElement` rather than `body`: the body can be narrower than the
+      // content that overflows it, which is exactly how this goes unnoticed.
+      //
+      // The offenders come back with the number. A bare "overflows by 223px"
+      // sends the next person to write three throwaway diagnostics, which is
+      // what it cost the first time.
+      const { overflow, offenders } = await page.evaluate(() => {
+        const root = document.documentElement
+        const limit = root.clientWidth
+        const names: string[] = []
+        for (const node of Array.from(document.body.querySelectorAll('*'))) {
+          const rect = node.getBoundingClientRect()
+          if (rect.right <= limit + 1) continue
+          // An ancestor that scrolls is doing its job: the element is clipped
+          // and reachable, and only an unclipped one moves the page.
+          let clipped = false
+          for (let a: Element | null = node.parentElement; a; a = a.parentElement) {
+            const ox = getComputedStyle(a).overflowX
+            if (ox === 'auto' || ox === 'scroll' || ox === 'hidden') { clipped = true; break }
+          }
+          if (clipped) continue
+          const cls =
+            typeof node.className === 'string' && node.className
+              ? `.${node.className.trim().split(/\s+/).join('.')}`
+              : ''
+          names.push(`${node.tagName.toLowerCase()}${cls}`)
+        }
+        return { overflow: root.scrollWidth - limit, offenders: [...new Set(names)].slice(0, 8) }
+      })
+      // One pixel of slack for sub-pixel rounding at fractional device ratios.
+      expect(
+        overflow,
+        `${route} overflows by ${overflow}px at 360px; unclipped: ${offenders.join(', ') || '(none found)'}`,
+      ).toBeLessThanOrEqual(1)
+    })
+  }
+
+  test('wide content scrolls inside its own container, not the page', async ({ page }) => {
+    // The fix for an overflowing table is a scroll container around it, not a
+    // narrower table: the data has the width it has.
+    await page.setViewportSize(NARROW)
+    await page.goto('/leaderboard')
+    await page.waitForLoadState('networkidle')
+    const wide = await page.evaluate(() => {
+      const scrollable = (el: Element | null): boolean => {
+        // The container can be the element itself -- a `<pre>` with
+        // `overflow-x: auto` scrolls its own content, and an earlier version of
+        // this check only looked at the parent and reported it as an offender.
+        for (let node = el; node; node = node.parentElement) {
+          const overflow = getComputedStyle(node).overflowX
+          if (overflow === 'auto' || overflow === 'scroll') return true
+        }
+        return false
+      }
+      const offenders: string[] = []
+      for (const el of Array.from(document.querySelectorAll('table, pre, .console-log'))) {
+        const parent = el.parentElement
+        if (!parent) continue
+        if (el.scrollWidth > parent.clientWidth + 1 && !scrollable(el)) {
+          offenders.push(el.tagName.toLowerCase() + (el.className ? `.${el.className}` : ''))
+        }
+      }
+      return offenders
+    })
+    expect(wide).toEqual([])
+  })
+
+  for (const route of ['/', '/leaderboard', '/traces']) {
+    test(`${route} settles without shifting its layout`, async ({ page }) => {
+      // Cumulative Layout Shift, measured rather than asserted by eye. 0.1 is
+      // the "good" threshold every tool uses; anything above it is content
+      // moving under a reader's finger after they started reading.
+      await page.goto(route)
+      await page.evaluate(() => {
+        const w = window as Window & { __cls?: number }
+        w.__cls = 0
+        new PerformanceObserver((list) => {
+          for (const entry of list.getEntries()) {
+            const shift = entry as PerformanceEntry & { value: number; hadRecentInput: boolean }
+            // Shifts within 500ms of an interaction are expected and excluded
+            // by the metric's own definition.
+            if (!shift.hadRecentInput) w.__cls = (w.__cls ?? 0) + shift.value
+          }
+        }).observe({ type: 'layout-shift', buffered: true })
+      })
+      await page.waitForLoadState('networkidle')
+      await page.waitForTimeout(500)
+      const cls = await page.evaluate(() => (window as Window & { __cls?: number }).__cls ?? 0)
+      expect(cls, `${route} shifted by ${cls}`).toBeLessThan(0.1)
+    })
+  }
+})
+
 test.describe('live console', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/workspace/console')

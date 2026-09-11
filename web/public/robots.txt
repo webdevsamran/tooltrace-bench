@@ -1,0 +1,14 @@
+# This is a public dataset site: the leaderboard, the task packs and the
+# methodology are meant to be found.
+#
+# It exists as a real file because it has to. Without one, the single-page
+# app's 404 fallback answers /robots.txt with index.html, a crawler parses
+# HTML as a robots file, and every line is a syntax error -- which is what
+# Lighthouse reported before this shipped.
+User-agent: *
+Allow: /
+
+# Nothing here is generated per-visitor and nothing is behind a login, so
+# there is no crawl-delay and no disallowed path. The team console under
+# /workspace needs a server the crawler cannot reach, and renders a connect
+# form without one.
