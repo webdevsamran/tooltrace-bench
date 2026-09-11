@@ -134,6 +134,12 @@ jobs:
           python scripts/generate_web_data.py
       - name: E2E + accessibility smoke (installed Chrome)
         run: npm run test:e2e
+      # Gated on accessibility, best-practices and SEO; performance is
+      # reported and not gated, because it is a timing measurement on a
+      # shared runner and a gate that fails randomly gets switched off.
+      - name: Lighthouse (a11y / best-practices / SEO >= 95)
+        working-directory: .
+        run: python scripts/lighthouse_check.py
 
   python-matrix:
     name: Tests (${{ matrix.os }})

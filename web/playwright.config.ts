@@ -26,7 +26,13 @@ export default defineConfig({
   webServer: {
     command: 'npm run preview -- --port 4173 --strictPort',
     url: 'http://localhost:4173',
-    reuseExistingServer: !process.env.CI,
+    // Never reused, including locally. `vite preview` builds its file map once
+    // at startup, so a server left running across a rebuild serves the old one
+    // -- and the symptom is not a clean failure. The suite took 7.4 minutes
+    // instead of 43 seconds, the service-worker specs timed out, and
+    // `/manifest.webmanifest` came back as `index.html` from the SPA fallback.
+    // Every one of those looks like an application bug.
+    reuseExistingServer: false,
     timeout: 60_000,
   },
 })

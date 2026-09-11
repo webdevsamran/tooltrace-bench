@@ -492,6 +492,11 @@ input[type="text"], input[type="search"], input[type="number"], select, textarea
   border: 1px solid var(--border); border-radius: var(--r-2);
   background: var(--surface); color: var(--text);
   font: inherit; font-size: var(--step--1);
+  /* A `<select>` sizes itself to its widest option, and the trace explorer's
+     options are bundle names. On a 360px screen that pushed the whole page
+     223px sideways -- the select was the only thing on `/traces` that did.
+     `max-width` bounds it; the text ellipsises rather than the page moving. */
+  max-width: 100%;
   transition: border-color var(--t-micro) var(--ease), box-shadow var(--t-micro) var(--ease);
 }
 .field:focus, .filter:focus, input:focus, select:focus, textarea:focus {
@@ -887,8 +892,13 @@ tbody tr:hover { background: var(--bg-sunken); }
     position: static; width: 100%; height: auto;
     border-right: 0; border-bottom: 1px solid var(--border);
     display: flex; gap: var(--s-4); overflow-x: auto; padding: var(--s-3) var(--s-4);
+    /* `overflow-x: auto` alone does not make a flex item scroll: its automatic
+       minimum size is its content, so the strip grew to 734px inside a 360px
+       viewport and pushed the whole page sideways instead of scrolling. This is
+       the line that makes the overflow rule above take effect. */
+    min-width: 0;
   }
-  .sidebar-group { margin-bottom: 0; }
+  .sidebar-group { margin-bottom: 0; min-width: 0; }
   .sidebar-group ul { display: flex; gap: var(--s-1); }
   /* The strip scrolls horizontally, so a label must never wrap onto a
      second line and double the strip's height. */
