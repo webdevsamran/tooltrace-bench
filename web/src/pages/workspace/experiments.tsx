@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { apiPost, isServerMode, listExperiments, subscribeEvents, type ExperimentRow } from '../../api'
+import { useToast } from '../../motion'
 import { DataTable, ErrorState, Loading, type Column } from '../../components'
 import { DEMO_EXPERIMENTS } from '../demoData'
 import { ServerGate, ServerStatus } from './shared'
@@ -84,6 +85,7 @@ export function ExperimentBuilderPage() {
   const [seed, setSeed] = useState(42)
   const [result, setResult] = useState<string | null>(null)
   const [err, setErr] = useState<string | null>(null)
+  const { push } = useToast()
 
   const submit = async (): Promise<void> => {
     setResult(null)
@@ -96,8 +98,14 @@ export function ExperimentBuilderPage() {
         seed,
       })
       setResult(`Queued ${res.id} (${res.status})`)
+      // Inline *and* as a toast. The inline line carries the id, which is what
+      // you came for; the toast survives scrolling down the form, which is
+      // where the confirmation would otherwise be missed entirely.
+      push(`Queued experiment ${res.id}`, 'ok')
     } catch (e) {
-      setErr(e instanceof Error ? e.message : String(e))
+      const message = e instanceof Error ? e.message : String(e)
+      setErr(message)
+      push(`Could not queue the experiment: ${message}`, 'bad')
     }
   }
 

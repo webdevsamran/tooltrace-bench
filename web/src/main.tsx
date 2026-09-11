@@ -2,6 +2,7 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import App from './App'
+import { ToastProvider } from './motion'
 import './styles.css'
 
 /**
@@ -30,7 +31,12 @@ registerOfflineSupport()
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <BrowserRouter>
-      <App />
+      {/* Above the app so any page can confirm an action, and so the live
+          region exists before the first message rather than arriving with it --
+          a region added at the same time as its content is not announced. */}
+      <ToastProvider>
+        <App />
+      </ToastProvider>
     </BrowserRouter>
   </React.StrictMode>,
 )

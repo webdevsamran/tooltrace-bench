@@ -2,6 +2,8 @@
 // Every chart exposes role="img" + aria-label; axes are labeled and values
 // remain readable by assistive technology.
 
+import { BrushRect, useBrush, type BrushRange, type BrushScale } from './brush'
+
 interface Point {
   x: number
   y: number
@@ -256,21 +258,43 @@ export function Ring({ value, label }: { value: number; label: string }) {
  * agent with no measured cost cannot be on a frontier, and a blank rectangle
  * says "nothing here" when the truth is "nobody priced this run".
  */
-export function ParetoChart({
-  points,
-  frontier,
-  height = 300,
-  selected,
-  onSelect,
-}: {
+interface ParetoProps {
   points: { agent: string; success_rate: number; cost_per_resolved_task: number | null }[]
   frontier: string[]
   height?: number
   selected?: string | null
   onSelect?: (agent: string | null) => void
-}) {
-  const priced = points.filter((p) => p.cost_per_resolved_task !== null)
+  /** Data-space range to outline. The chart *shows* it; the caller decides
+      what a selection means, so nothing is silently filtered out of view. */
+  brush?: BrushRange | null
+  onBrush?: (brush: BrushRange | null) => void
+}
+
+/**
+ * The guard, which holds no hooks.
+ *
+ * `ParetoPlot` calls `useBrush`, so it cannot sit behind an early return: the
+ * hook count would change the first time a dataset arrived with no priced agent
+ * in it. Splitting here is the fix, and it also keeps `Math.max` off an empty
+ * array -- spreading nothing into it yields `-Infinity`, which `|| 1` does not
+ * catch because `-Infinity` is truthy.
+ */
+export function ParetoChart(props: ParetoProps) {
+  const priced = props.points.filter((p) => p.cost_per_resolved_task !== null)
   if (priced.length === 0) return null
+  return <ParetoPlot {...props} />
+}
+
+function ParetoPlot({
+  points,
+  frontier,
+  height = 300,
+  selected,
+  onSelect,
+  brush,
+  onBrush,
+}: ParetoProps) {
+  const priced = points.filter((p) => p.cost_per_resolved_task !== null)
 
   const W = 640
   const H = height
@@ -289,17 +313,44 @@ export function ParetoChart({
     y: padT + (1 - p.success_rate) * plotH,
   })
 
+  // Both directions, because a brush drawn in pixels has to be stored in data
+  // units: a rectangle kept as screen coordinates stops meaning anything the
+  // moment the container resizes, and this chart is `width: 100%`.
+  const scale: BrushScale = {
+    toPixelX: (cost) => padL + (cost / xmax) * plotW,
+    toPixelY: (rate) => padT + (1 - rate) * plotH,
+    toDataX: (px) => ((px - padL) / plotW) * xmax,
+    toDataY: (py) => 1 - (py - padT) / plotH,
+  }
+
   const onFrontier = priced
     .filter((p) => frontier.includes(p.agent))
     .sort((a, b) => (a.cost_per_resolved_task as number) - (b.cost_per_resolved_task as number))
   const path = onFrontier.map(at).map((c, i) => `${i === 0 ? 'M' : 'L'}${c.x},${c.y}`).join(' ')
 
+  const drag = useBrush(scale, W, H, onBrush)
+  // While dragging, outline what is being drawn; otherwise what the caller
+  // holds. Reading the caller's value back means a range typed into the number
+  // inputs appears on the chart too, which is the point of having both.
+  const outline = drag.dragging ?? brush ?? null
+
   return (
     <svg
       viewBox={`0 0 ${W} ${H}`}
-      role="img"
+      // `img` is a leaf in the accessibility tree, so the per-agent buttons
+      // inside it were unreachable -- axe reports `nested-interactive`, and it
+      // is right. The violation is as old as the selectable points and was
+      // never seen because the published dataset has one agent, so this chart
+      // renders its empty state and never draws. `group` is the role for a
+      // labelled container of interactive children; a static chart with no
+      // `onSelect` stays an image, which is what it is.
+      role={onSelect ? 'group' : 'img'}
       aria-label={`Cost against accuracy for ${priced.length} agents; ${frontier.length} on the frontier`}
       style={{ width: '100%', maxWidth: 760 }}
+      className={onBrush ? 'brush-surface' : undefined}
+      onPointerDown={onBrush ? drag.onPointerDown : undefined}
+      onPointerMove={onBrush ? drag.onPointerMove : undefined}
+      onPointerUp={onBrush ? drag.onPointerUp : undefined}
     >
       {[0, 0.25, 0.5, 0.75, 1].map((tick) => (
         <g key={tick}>
@@ -316,6 +367,7 @@ export function ParetoChart({
           </text>
         </g>
       ))}
+      <BrushRect brush={outline} scale={scale} />
       {onFrontier.length > 1 && (
         <path d={path} fill="none" stroke="var(--accent)" strokeWidth="1.5" strokeDasharray="5 3" />
       )}

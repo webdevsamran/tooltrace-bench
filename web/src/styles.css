@@ -925,3 +925,109 @@ tbody tr:hover { background: var(--bg-sunken); }
   .topbar, .sidebar, .subbar, .footer, .skip-link { display: none !important; }
   .card { box-shadow: none; break-inside: avoid; }
 }
+
+/* --- toasts -----------------------------------------------------------------
+ *
+ * Fixed to the bottom-right and stacked newest-last, so an arriving message
+ * never shifts the one being read. The region is always in the DOM: a live
+ * region inserted at the same moment as its content is not announced by most
+ * screen readers, which is the difference between a confirmation and silence.
+ */
+.toast-region {
+  position: fixed;
+  right: var(--s-4);
+  bottom: var(--s-4);
+  z-index: 90;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  max-width: min(24rem, calc(100vw - var(--s-8)));
+  pointer-events: none;
+}
+
+.toast {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s-3);
+  padding: var(--s-3) var(--s-3) var(--s-3) var(--s-4);
+  background: var(--n-1);
+  color: var(--ink);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--info);
+  border-radius: var(--r-2);
+  box-shadow: var(--e-2);
+  pointer-events: auto;
+  animation: toast-in var(--t-local) var(--ease);
+}
+
+.toast-ok   { border-left-color: var(--ok); }
+.toast-warn { border-left-color: var(--warn); }
+.toast-bad  { border-left-color: var(--bad); }
+
+.toast-message { flex: 1; font-size: var(--fs-1); line-height: 1.4; }
+
+.toast-dismiss {
+  flex: none;
+  background: none;
+  border: 0;
+  color: var(--muted);
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 var(--s-1);
+  border-radius: var(--r-1);
+}
+.toast-dismiss:hover { color: var(--ink); }
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(var(--s-3)); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* --- chart brushing ---------------------------------------------------------
+ *
+ * The rectangle is decorative; the counts live in a live region and the range
+ * is settable from four number inputs, because a filter reachable only by drag
+ * is a filter a keyboard user does not have.
+ */
+.brush-rect { pointer-events: none; }
+
+.brush-surface { cursor: crosshair; }
+
+.brush-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--s-3);
+  margin: var(--s-3) 0 0;
+  padding: var(--s-3);
+  border: 1px solid var(--border);
+  border-radius: var(--r-2);
+}
+
+.brush-controls legend {
+  padding: 0 var(--s-2);
+  font-size: var(--fs-0);
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.brush-controls label {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-1);
+  font-size: var(--fs-0);
+  color: var(--muted);
+}
+
+.brush-controls input {
+  width: 7rem;
+  padding: var(--s-1) var(--s-2);
+  background: var(--n-0);
+  color: var(--ink);
+  border: 1px solid var(--border);
+  border-radius: var(--r-1);
+  font: inherit;
+  font-size: var(--fs-1);
+}

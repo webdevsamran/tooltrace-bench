@@ -1,5 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { Counter } from '../motion'
+import {
+  BrushControls,
+  describeBrush,
+  isEmptyRange,
+  withinBrush,
+  type BrushRange,
+} from '../brush'
 import {
   assetUrl,
   getIndex,
@@ -153,6 +161,15 @@ export function TraceExplorerPage() {
           {!events && !traceError && <Loading />}
           {events && (
             <>
+              {/* The count rolls, because it is a number that changes as a
+                  result of what you just typed -- which is the only place a
+                  rolling counter earns its 200ms. The accessible text is the
+                  settled value, never the animating one; see `motion.tsx`. */}
+              <p className="muted" role="status" aria-live="polite" aria-label="Matching events">
+                <Counter value={filtered.length} /> of {events.length} event
+                {events.length === 1 ? '' : 's'}
+                {filter ? ' match the filter' : ''}
+              </p>
               {filtered.length === 0 ? (
                 <p className="state empty">No events match the filter.</p>
               ) : (
@@ -505,6 +522,7 @@ export function PluginCatalogPage() {
 export function ParetoExplorerPage() {
   const pareto = useAsync(getPareto)
   const [selected, setSelected] = useUrlState('agent')
+  const [brush, setBrush] = useState<BrushRange | null>(null)
 
   if (pareto.loading) return <Loading />
   if (pareto.error) return <ErrorState message={pareto.error} />
@@ -513,6 +531,17 @@ export function ParetoExplorerPage() {
 
   const priced = data.points.filter((p) => p.cost_per_resolved_task !== null)
   const focus = data.points.find((p) => p.agent === selected) ?? null
+
+  const costs = priced.map((p) => p.cost_per_resolved_task as number)
+  const bounds: BrushRange = {
+    x0: 0,
+    x1: Math.max(...costs, 0),
+    y0: 0,
+    y1: 1,
+  }
+  const inRange = priced.filter((p) =>
+    withinBrush({ x: p.cost_per_resolved_task as number, y: p.success_rate }, brush),
+  )
 
   return (
     <section>
@@ -542,7 +571,32 @@ export function ParetoExplorerPage() {
             frontier={data.frontier}
             selected={selected || null}
             onSelect={(agent) => setSelected(agent ?? '')}
+            brush={brush}
+            onBrush={setBrush}
           />
+          {/* Drag on the chart, or type the range. The second is not a
+              consolation: a filter reachable only by drag is a filter a
+              keyboard user does not have, and axe gates this build. */}
+          <BrushControls
+            brush={brush}
+            bounds={bounds}
+            onChange={setBrush}
+            xLabel="cost"
+            yLabel="accuracy"
+            xStep={0.001}
+          />
+          {/* The brushed set is *named*, never quietly removed from the chart.
+              A reader looking at a subset that believed it was the whole is the
+              same defect as a shard's rate read as a sweep's. */}
+          {/* Named, because the toast region is also a live region: a reader
+              hearing an unattributed announcement cannot tell which part of the
+              page spoke. */}
+          <p className="muted" role="status" aria-live="polite" aria-label="Selected range">
+            {describeBrush(inRange.length, priced.length, brush)}
+            {!isEmptyRange(brush) && inRange.length > 0 && (
+              <> In range: {inRange.map((p) => p.agent).join(', ')}.</>
+            )}
+          </p>
           <p className="muted">{data.statement}</p>
         </>
       )}

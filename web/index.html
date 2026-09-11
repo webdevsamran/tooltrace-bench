@@ -7,6 +7,36 @@
     <link rel="manifest" href="./manifest.webmanifest" />
     <meta name="theme-color" content="#1a1a1a" />
     <title>ToolTrace Bench</title>
+    <!--
+      Stamp the theme before the first paint.
+
+      `useTheme` in src/App.tsx does exactly this, correctly, and one turn too
+      late: it runs in an effect, so the first paint happens with `data-theme`
+      unset and a system-dark user watches a white page flash to dark.
+
+      Four lines and no duplicated palette -- the alternative was copying forty
+      custom properties into a `prefers-color-scheme` block, where they would
+      drift. It must stay in the <head> and stay blocking; moved below the app
+      script it would run after the paint it exists to precede.
+
+      web/src/__tests__/theme.test.tsx checks that the storage key and the three
+      accepted values here still match the hook's.
+    -->
+    <script>
+      (function () {
+        try {
+          var saved = localStorage.getItem('ttb-theme')
+          var choice =
+            saved === 'light' || saved === 'dark' || saved === 'system' ? saved : 'system'
+          var dark =
+            choice === 'dark' ||
+            (choice === 'system' && matchMedia('(prefers-color-scheme: dark)').matches)
+          document.documentElement.dataset.theme = dark ? 'dark' : 'light'
+        } catch (e) {
+          /* private mode blocks localStorage; the effect in App.tsx still runs */
+        }
+      })()
+    </script>
   </head>
   <body>
     <div id="root"></div>

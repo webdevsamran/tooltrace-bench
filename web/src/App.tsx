@@ -2,6 +2,7 @@ import { Suspense, lazy, useCallback, useEffect, useMemo, useState } from 'react
 import { NavLink, Route, Routes, useLocation } from 'react-router-dom'
 import { ErrorBoundary, Loading, OfflineBanner, useOnlineStatus } from './components'
 import { CommandPalette, usePaletteHotkey, type Command } from './palette'
+import { useViewTransition } from './motion'
 
 // Route-level code splitting keeps the initial bundle small; each page chunk
 // loads on first visit. Public dataset pages and the team console share the
@@ -188,6 +189,10 @@ function useTheme(): [ThemeChoice, () => void] {
 
 export default function App() {
   const [theme, cycleTheme] = useTheme()
+  // The location the routes render. One transition behind the router while a
+  // cross-fade is running, and identical to it everywhere else -- including
+  // Firefox, and anyone who asked for reduced motion. See `motion.tsx`.
+  const rendered = useViewTransition()
   const [paletteOpen, setPaletteOpen] = useState(false)
   const online = useOnlineStatus()
   const location = useLocation()
@@ -280,7 +285,7 @@ export default function App() {
         <main id="main" className="content">
           <ErrorBoundary>
             <Suspense fallback={<Loading />}>
-              <Routes>
+              <Routes location={rendered}>
                 {/* Public dataset & analysis console */}
                 <Route path="/" element={<HomePage />} />
                 <Route path="/methodology" element={<MethodologyPage />} />
