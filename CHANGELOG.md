@@ -7,6 +7,42 @@ versioning follows [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- **The four interaction primitives the design spec asks for**, each written
+  around the way it degrades rather than the way it animates:
+  `useViewTransition` cross-fades route changes and returns the new route
+  immediately in Firefox, which has no View Transitions API -- a hook that
+  assumed one would leave the page frozen on the previous route, which is worse
+  than no animation. `ToastProvider` stacks confirmations in a live region that
+  is in the DOM before the first message, because a region added at the same
+  moment as its content is not announced; the stack is capped so a loop cannot
+  cover the page. `Counter` rolls a number and **lands on it exactly** --
+  the last frame is assigned, not interpolated, because a counter that
+  approaches 100 asymptotically renders 99.97 forever -- and the animating text
+  is `aria-hidden` while the accessible name is the settled value, so a screen
+  reader is not read sixty numbers to hear one. And every one of them collapses
+  to an instant state change under `prefers-reduced-motion`.
+
+- **Drag-to-brush on the cost–accuracy frontier, and four number inputs that
+  set the same range.** The second is not a consolation prize: axe gates this
+  build and WCAG 2.2 AA requires that anything a pointer can do a keyboard can
+  do, so a drag-only brush would be a filter half this dashboard's users cannot
+  operate. The range is stored in data units rather than pixels, so it still
+  means something after a resize, and the chart **reports** the selection
+  instead of applying it -- a reader looking at a silently filtered subset and
+  believing it was the whole is the same defect as reading a shard's pass rate
+  as the sweep's.
+
+  The published dataset has one agent, unpriced, so `/frontier` renders its
+  empty state and the chart never draws. The end-to-end tests intercept
+  `pareto.json` rather than inventing multi-agent priced results to put on the
+  real site.
+
+- **`tests/test_frontend_primitives_are_reachable.py`**, because each of those
+  primitives was written before it had a home, and a toast system nobody pushes
+  to is a live region that never speaks. It asserts every one is called from
+  outside its own module — this project's most common defect, checked rather
+  than remembered.
+
 - **A VS Code extension**, under `extensions/vscode`: run a task, read a trace,
   verify a bundle, from the editor. The Explorer gets a task tree; a task this
   machine cannot run is shown and labelled rather than hidden, and a skipped run
@@ -115,6 +151,26 @@ versioning follows [Semantic Versioning](https://semver.org/).
   self-contained ones are executed as well.
 
 ### Fixed
+- **A system-dark reader watched the page flash white on every load.**
+  `useTheme` reads `prefers-color-scheme` and stamps `data-theme` correctly, and
+  one turn too late: it runs in an effect, so the first paint happens with the
+  attribute unset. Four lines of blocking script in `index.html` stamp it
+  first. Two tests keep the copies honest — one that the script and the hook
+  still agree, and one that the attribute they set selects a rule that exists.
+
+- **The Pareto chart was `role="img"` with focusable buttons inside it**, which
+  axe reports as `nested-interactive` and is right: `img` is a leaf in the
+  accessibility tree, so the per-agent controls were unreachable. As old as the
+  selectable points, and never seen, because the published dataset has one agent
+  and the chart renders an empty state. It is a `group` when it is interactive
+  and an `img` when it is not.
+
+- **`useCountUp` mixed two clocks.** The start time came from
+  `performance.now()` and each frame from `requestAnimationFrame`, which do not
+  share an origin; in jsdom they were ten seconds apart, driving the eased
+  fraction to -51 and rendering a counter at -14,405,375 on its way to 100. The
+  start now comes from the first frame.
+
 - **Every worker reported "no GPU" whether or not it had one.**
   `WorkerInventory.gpu` defaulted to `False` and nothing ever set it, so a
   fleet's capability inventory was a hardcoded claim about every machine in it.

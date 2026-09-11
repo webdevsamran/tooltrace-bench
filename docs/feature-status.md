@@ -216,6 +216,12 @@ and a row claiming a task pack has to have that pack on disk.
 | 75co | A vision task is skipped against a blind adapter, never scored | I | `tooltrace/tasks/availability.py` (`vision_gap`), `tooltrace/agents/vision.py` (`VISION_SUPPORT`), `tooltrace/cli/main.py` (`cmd_agents`) |
 | 75cp | VS Code extension: run a task, read a trace, no build step | I | `extensions/vscode/extension.js`, `extensions/vscode/lib/cli.js`, `extensions/vscode/test/cli.test.js` (18 tests under `node --test`, no dependencies) |
 | 75cq | The extension's command lines are checked against the real parser | I | `tests/test_vscode_extension_matches_the_cli.py`. An extension that shells out to a CLI is a second, unchecked copy of its interface -- the same defect class as the `--pack` flag the 0.3.0 quickstart documented and the CLI never had |
+| 75cr | Route cross-fades that degrade to an instant change | I | `web/src/motion.tsx` (`useViewTransition`), `web/src/App.tsx`, `web/src/__tests__/motion.test.tsx`. Firefox has no View Transitions API, and a hook that assumed one would leave the route frozen on the previous page |
+| 75cs | Stacked toasts, announced once, capped | I | `web/src/motion.tsx` (`ToastProvider`, `useToast`), `web/src/main.tsx`, `web/src/pages/workspace/experiments.tsx` |
+| 75ct | A number that rolls and lands exactly on its target | I | `web/src/motion.tsx` (`useCountUp`, `Counter`), `web/src/pages/operations.tsx`. The animating text is `aria-hidden`; the accessible name is the settled value |
+| 75cu | Drag-to-brush on the frontier, reachable from the keyboard | I | `web/src/brush.tsx` (`useBrush`, `BrushControls`), `web/src/charts.tsx`, `web/src/__tests__/brush.test.tsx`, `web/tests/e2e/smoke.spec.ts` |
+| 75cv | Every frontend interaction primitive has a caller outside its own module | I | `tests/test_frontend_primitives_are_reachable.py` |
+| 75cw | The theme is right on the first paint, not one turn later | I | `web/index.html`, `web/src/__tests__/theme.test.tsx`, `tests/test_theme_stamp_has_something_to_select.py` |
 | 76 | Failure clustering (deterministic vectors; semantic labeled) | I | `tooltrace/analysis/core.py` (`cluster_failures`) |
 | 77 | Root-cause drill-down aggregate → trace/assertion | I | `tooltrace/analysis/failures.py` (`Classification.seq`), `tooltrace/metrics/aggregate.py` (`failure_step`), `tooltrace/cli/main.py` (`cmd_trace`), `web/src/lib/clusters.ts` (`clusterFailures`, `stepLink`) |
 | 78 | Reproducibility score (metadata completeness, not validity) | I | `tooltrace/analysis/core.py` (`reproducibility_score`) |

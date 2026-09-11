@@ -60,6 +60,90 @@ test.describe('accessibility (axe)', () => {
   }
 })
 
+/**
+ * The brush, against a frontier that exists.
+ *
+ * The published dataset has exactly one agent -- `scripted`, which has no model
+ * and therefore no cost -- so `/frontier` renders its empty state and the chart
+ * never draws. That is the page behaving correctly, and it means the shipped
+ * data cannot exercise the brush. Inventing multi-agent priced results to put
+ * on the real site would be the dishonesty this whole project is built against.
+ *
+ * So the data is intercepted, exactly as the failure-cluster suite above does:
+ * real component, real browser, real keyboard, synthetic input that is
+ * obviously synthetic and never leaves this file.
+ */
+test.describe('chart brushing', () => {
+  const FRONTIER = {
+    points: [
+      { agent: 'alpha', success_rate: 0.9, cost_per_resolved_task: 0.4, total_cost: 4, priced_runs: 10, runs: 10 },
+      { agent: 'beta', success_rate: 0.7, cost_per_resolved_task: 0.1, total_cost: 1, priced_runs: 10, runs: 10 },
+      { agent: 'gamma', success_rate: 0.5, cost_per_resolved_task: 0.9, total_cost: 9, priced_runs: 10, runs: 10 },
+    ],
+    frontier: ['alpha', 'beta'],
+    unpriced: [],
+    statement: 'two agents on the frontier, one dominated',
+  }
+
+  test.beforeEach(async ({ page }) => {
+    await page.route('**/data/pareto.json', (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(FRONTIER) }),
+    )
+  })
+
+  test('is reachable and usable without a mouse', async ({ page }) => {
+    // The justification for building the brush as four number inputs *plus* a
+    // drag rather than a drag alone. `brush.test.tsx` proves the controls work;
+    // only a real browser proves they are reachable on the real page -- an
+    // input behind an overflow clip, or with a negative tabindex, passes every
+    // unit test and is still unreachable.
+    await page.goto('/frontier')
+    const min = page.getByLabel('Min cost')
+    await min.focus()
+    await expect(min).toBeFocused()
+
+    // Tab order walks the four edges and then the clear button.
+    for (const label of ['Max cost', 'Min accuracy', 'Max accuracy']) {
+      await page.keyboard.press('Tab')
+      await expect(page.getByLabel(label)).toBeFocused()
+    }
+    await page.keyboard.press('Tab')
+    await expect(page.getByRole('button', { name: 'Clear range' })).toBeFocused()
+  })
+
+  test('narrows the reported set rather than hiding points', async ({ page }) => {
+    // The rule the brush exists to obey: a reader looking at a subset must be
+    // told it is a subset. Silently dropping the other points is the same
+    // defect as reading a shard's pass rate as the sweep's.
+    await page.goto('/frontier')
+    await expect(page.getByRole('status', { name: 'Selected range' })).toContainText('No range selected; showing all 3.')
+
+    await page.getByLabel('Min cost').fill('0.3')
+    await expect(page.getByRole('status', { name: 'Selected range' })).toContainText('2 of 3 in the selected range.')
+    await expect(page.getByRole('status', { name: 'Selected range' })).toContainText('alpha')
+
+    // Every agent is still drawn: the range is an annotation, not a filter that
+    // removes evidence from the chart.
+    await expect(page.getByRole('button', { name: /^gamma:/ })).toBeVisible()
+  })
+
+  test('clearing returns to the whole set', async ({ page }) => {
+    await page.goto('/frontier')
+    await page.getByLabel('Min cost').fill('0.3')
+    await expect(page.getByRole('status', { name: 'Selected range' })).toContainText('2 of 3')
+    await page.getByRole('button', { name: 'Clear range' }).click()
+    await expect(page.getByRole('status', { name: 'Selected range' })).toContainText('showing all 3')
+  })
+
+  test('no critical accessibility violations with a brush on screen', async ({ page }) => {
+    await page.goto('/frontier')
+    await page.getByLabel('Min cost').fill('0.3')
+    const results = await new AxeBuilder({ page }).analyze()
+    const serious = results.violations.filter((v) => ['critical', 'serious'].includes(v.impact ?? ''))
+    expect(serious.map((v) => `${v.id} on ${v.nodes.length} node(s)`)).toEqual([])
+  })
+})
+
 test.describe('keyboard navigation', () => {
   test('skip link is the first tab stop', async ({ page }) => {
     await page.goto('/')
