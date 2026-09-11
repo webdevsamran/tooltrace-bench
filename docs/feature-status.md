@@ -222,6 +222,7 @@ and a row claiming a task pack has to have that pack on disk.
 | 75cu | Drag-to-brush on the frontier, reachable from the keyboard | I | `web/src/brush.tsx` (`useBrush`, `BrushControls`), `web/src/charts.tsx`, `web/src/__tests__/brush.test.tsx`, `web/tests/e2e/smoke.spec.ts` |
 | 75cv | Every frontend interaction primitive has a caller outside its own module | I | `tests/test_frontend_primitives_are_reachable.py` |
 | 75cw | The theme is right on the first paint, not one turn later | I | `web/index.html`, `web/src/__tests__/theme.test.tsx`, `tests/test_theme_stamp_has_something_to_select.py` |
+| 75cx | A live run console you can leave open: pause, filter, bounded buffer | I | `web/src/pages/workspace/console.tsx` (`LiveConsolePage`, `parseFrame`, `describeBuffer`), `web/src/__tests__/console.test.tsx`, `web/tests/e2e/smoke.spec.ts`. Announcing is **off** by default: a live region attached to a running sweep reads every frame aloud and interrupts itself. Pausing stops rendering, never receiving, and says how many arrived meanwhile |
 | 76 | Failure clustering (deterministic vectors; semantic labeled) | I | `tooltrace/analysis/core.py` (`cluster_failures`) |
 | 77 | Root-cause drill-down aggregate → trace/assertion | I | `tooltrace/analysis/failures.py` (`Classification.seq`), `tooltrace/metrics/aggregate.py` (`failure_step`), `tooltrace/cli/main.py` (`cmd_trace`), `web/src/lib/clusters.ts` (`clusterFailures`, `stepLink`) |
 | 78 | Reproducibility score (metadata completeness, not validity) | I | `tooltrace/analysis/core.py` (`reproducibility_score`) |
