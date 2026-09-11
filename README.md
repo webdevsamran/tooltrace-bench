@@ -205,7 +205,7 @@ Details in [ARCHITECTURE.md](ARCHITECTURE.md). The sandbox threat model is in [d
 
 ## Task types shipped
 
-28 packs, 38 tasks. `tooltrace tasks` prints the authoritative list
+29 packs, 44 tasks. `tooltrace tasks` prints the authoritative list
 with difficulty; the pack directory names below are the ones you pass to
 `--task`.
 
@@ -239,19 +239,7 @@ with difficulty; the pack directory names below are the ones you pass to
 | `healthcare` | redaction: carry the clinical content forward, drop every identifier |
 | `legal` | verbatim quotation, where helpfully tidying the wording produces a different clause |
 | `multi-agent` | collaboration measured at the hand-off, which is where it actually breaks |
-| `adversarial-user` | a user who changes their mind mid-run; an agent that already committed to a plan produces a confidently wrong result |
-| `human-in-the-loop` | dual control, both ways: an *enforced* gate that stops the run, and an *advisory* denial the agent could ignore but should not |
-| `long-horizon` | resumption from persistent session state; restarting from scratch produces duplicates that look like progress |
-| `browser` | extraction from saved HTML (offline: no browser tool ships) |
-| `database` | SQL against a disposable in-memory SQLite database built by the check itself |
-| `devops` | CI configuration whose steps are individually valid and collectively wrong |
-| `knowledge` | retrieval with citation scoring, against a deliberate distractor source |
-| `terminal` | a process whose stdout says success and whose exit code says failure |
-| `concurrency` | a lost-update race, where the seductive wrong fix is to delete the threads |
-| `finance` | ledger reconciliation where summing absolute values gives a plausible wrong answer |
-| `healthcare` | redaction: carry the clinical content forward, drop every identifier |
-| `legal` | verbatim quotation, where helpfully tidying the wording produces a different clause |
-| `multi-agent` | collaboration measured at the hand-off, which is where it actually breaks |
+| `multimodal` | an error code that appears in an attached screenshot and nowhere in the text, with a plausible wrong code sitting in the ticket for anyone who does not look |
 
 Two tasks in `shell-workflow` exercise **compiled-language** workflows, where
 the failure is a compiler diagnostic before anything runs rather than a runtime
@@ -322,6 +310,20 @@ Traces produced *outside* the harness can be scored too: `tooltrace ingest`
 converts OpenTelemetry GenAI spans or plain OpenAI assistant-step logs into
 ToolTrace trace events, which then flow through classification, replay and
 scoring unchanged. See [docs/cli-reference.md](docs/cli-reference.md).
+
+## Editor integration
+
+A VS Code extension lives in [`extensions/vscode/`](extensions/vscode/): run a
+task from the Explorer, read a trace in a webview, verify a bundle, all against
+the CLI you already have. It is a front end to `tooltrace`, not a second
+implementation -- it never bundles or installs this package, and a task this
+machine cannot run is labelled rather than hidden.
+
+No TypeScript, no bundler, no `node_modules`. Everything that does not need an
+editor is tested by `node --test` with nothing to install, and every command
+line the extension can produce is fed to the real argument parser by
+`tests/test_vscode_extension_matches_the_cli.py` -- because an extension that
+shells out to a CLI is an unchecked second copy of that CLI's interface.
 
 ## Frontend
 

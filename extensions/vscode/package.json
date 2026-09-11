@@ -1,0 +1,86 @@
+{
+  "name": "tooltrace-bench",
+  "displayName": "ToolTrace Bench",
+  "description": "Run a ToolTrace Bench task and inspect the trace, from the editor.",
+  "version": "0.1.0",
+  "license": "Apache-2.0",
+  "publisher": "tooltrace-bench",
+  "private": true,
+  "engines": {
+    "vscode": "^1.90.0",
+    "node": ">=18"
+  },
+  "categories": [
+    "Testing",
+    "Other"
+  ],
+  "main": "./extension.js",
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  },
+  "activationEvents": [
+    "onView:tooltraceTasks"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "tooltrace.runTask",
+        "title": "ToolTrace: Run a task",
+        "category": "ToolTrace"
+      },
+      {
+        "command": "tooltrace.openTrace",
+        "title": "ToolTrace: Open a bundle trace",
+        "category": "ToolTrace"
+      },
+      {
+        "command": "tooltrace.verifyBundle",
+        "title": "ToolTrace: Verify a bundle",
+        "category": "ToolTrace"
+      },
+      {
+        "command": "tooltrace.lintPack",
+        "title": "ToolTrace: Lint a task pack",
+        "category": "ToolTrace"
+      },
+      {
+        "command": "tooltrace.doctor",
+        "title": "ToolTrace: Doctor",
+        "category": "ToolTrace"
+      },
+      {
+        "command": "tooltrace.refreshTasks",
+        "title": "ToolTrace: Refresh tasks",
+        "category": "ToolTrace",
+        "icon": "$(refresh)"
+      }
+    ],
+    "views": {
+      "explorer": [
+        {
+          "id": "tooltraceTasks",
+          "name": "ToolTrace Tasks"
+        }
+      ]
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "tooltrace.refreshTasks",
+          "when": "view == tooltraceTasks",
+          "group": "navigation"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "ToolTrace Bench",
+      "properties": {
+        "tooltrace.executablePath": {
+          "type": "string",
+          "default": "",
+          "description": "Path to the tooltrace executable. Empty means whatever is on PATH. This extension never installs tooltrace: it is a Python package."
+        }
+      }
+    }
+  }
+}

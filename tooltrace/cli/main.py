@@ -16,6 +16,7 @@ import argparse
 import contextlib
 import json
 import random
+import shutil
 import sys
 import time
 from collections.abc import Callable
@@ -926,11 +927,38 @@ def cmd_mcp_fuzz(args: argparse.Namespace) -> int:
 
 
 def cmd_agents(args: argparse.Namespace) -> int:
+    """The adapters, and -- with `--vision` -- what an image can reach.
+
+    A task carrying an attachment is skipped against an adapter with nowhere to
+    put one, so "which adapters can be shown a screenshot" is a question with an
+    answer before any run happens. Sending an image is not the same as the model
+    being able to read it, and the report says so rather than implying otherwise.
+    """
     from tooltrace.agents import AgentAdapter  # noqa: F401
     from tooltrace.core.registry import agent_registry
 
+    if getattr(args, "vision", False):
+        from tooltrace.agents.vision import report as vision_report
+
+        payload = vision_report()
+        if args.json:
+            _emit(payload, True)
+        else:
+            for row in payload["adapters"]:
+                print(f"{row['adapter']:<16} {row['state']:<10} {row['field']}")
+                print(f"{'':<16} {row['note']}")
+            print()
+            print(payload["statement"])
+        return EXIT_OK
+
+    from tooltrace.agents.vision import support_for
+
     rows = [
-        {"name": n, "class": getattr(a, "__name__", str(a))}
+        {
+            "name": n,
+            "class": getattr(a, "__name__", str(a)),
+            "vision": support_for(n).state,
+        }
         for n, a in sorted(agent_registry.items())
     ]
     _emit(rows if args.json else chr(10).join(r["name"] for r in rows), args.json)
@@ -997,7 +1025,8 @@ def cmd_tasks(args: argparse.Namespace) -> int:
             "version": t.version,
             "category": t.category,
             "difficulty": t.difficulty.value,
-            "runnable_here": availability(t).runnable,
+            "runnable_here": availability(t, getattr(args, "agent", None)).runnable,
+            "attachments": len(t.attachments),
             "requires_tools": t.requires_tools,
             "tags": t.tags,
             "max_steps": t.max_steps,
@@ -1029,7 +1058,7 @@ def cmd_run(args: argparse.Namespace) -> int:
     # installed software rather than on the agent.
     from tooltrace.tasks.availability import availability
 
-    state = availability(task)
+    state = availability(task, getattr(args, "agent", None))
     if not state.runnable:
         _emit(
             {
@@ -1115,6 +1144,414 @@ def _select_tasks(
     return chosen, selection
 
 
+def _parse_shard(args: argparse.Namespace) -> tuple[int, int] | None:
+    """`--shard i/n`, validated, or None.
+
+    Zero-based `i` because the surrounding tooling is: a CI matrix index and a
+    Python list index both start at zero, and a one-based flag would put an
+    off-by-one in every user's workflow file rather than in this function.
+    """
+    raw = getattr(args, "shard", None)
+    if not raw:
+        return None
+    try:
+        left, _, right = str(raw).partition("/")
+        index, count = int(left), int(right)
+    except ValueError:
+        raise SystemExit(f"--shard expects i/n, got {raw!r}") from None
+    if count < 1 or not (0 <= index < count):
+        raise SystemExit(f"--shard {raw!r}: need 0 <= i < n and n >= 1")
+    return index, count
+
+
+def cmd_fleet(args: argparse.Namespace) -> int:
+    """A queue, workers that claim from it, and a merge that refuses on conflict.
+
+    `Coordinator`, `default_worker_inventory`, `execute_experiment` and
+    `merge_run_states` shipped in `executors/experiment.py` with no caller
+    outside their own tests. A complete file-queue fleet existed and could not
+    be started, which is this project's recurring defect at its largest scale.
+
+    A file queue rather than a broker, for the same reason the rest of this
+    project is offline-first: a shared directory is something a lab, a CI cache
+    or an NFS mount already has, and a claim is `os.replace`, which is atomic on
+    every filesystem this runs on. Two workers racing for one job cannot both
+    win.
+
+    Four steps, and they are separate commands because they run on different
+    machines:
+
+        tooltrace fleet enqueue --queue Q --agent A --runs 3
+        tooltrace fleet work    --queue Q --worker-id w1     # on each machine
+        tooltrace fleet status  --queue Q
+        tooltrace fleet collect --queue Q --out merged.json
+    """
+    from tooltrace.executors.experiment import (
+        Coordinator,
+        ExperimentManifest,
+        RunState,
+        default_worker_inventory,
+        execute_experiment,
+        idempotent_key,
+        merge_run_states,
+    )
+    from tooltrace.runners.runner import TaskRunner
+    from tooltrace.tasks import load_all_tasks
+    from tooltrace.tasks.governance import sha256_text
+
+    queue = Path(args.queue)
+    command = args.fleet_cmd
+
+    if command == "enqueue":
+        tasks, _selection = _select_tasks(load_all_tasks(), args)
+        if not tasks:
+            print("error: no tasks selected", file=sys.stderr)
+            return EXIT_TASK
+        # The same skip rule the single-machine path uses: a task this fleet
+        # cannot run against this agent is not a task the agent failed.
+        from tooltrace.tasks.availability import partition
+
+        tasks, skipped = partition(tasks, args.agent)
+        for task, reason in skipped:
+            print(f"skipping {task.id}: {reason}", file=sys.stderr)
+        if not tasks:
+            print("error: every selected task was skipped -- see above", file=sys.stderr)
+            return EXIT_TASK
+        manifest = ExperimentManifest(
+            experiment_id=args.experiment,
+            suite_id=args.experiment,
+            agent_adapter=args.agent,
+            # The selection is hashed rather than listed: the manifest travels
+            # into every job, and a worker that ran a different set of tasks
+            # than the one queued would otherwise be indistinguishable.
+            selection_sha256=sha256_text(",".join(sorted(t.id for t in tasks))),
+            repetitions=args.runs,
+        ).finalize()
+        coordinator = Coordinator(queue)
+        job_ids = [
+            coordinator.enqueue(
+                {
+                    "experiment": manifest.model_dump(),
+                    "task_id": task.id,
+                    "repetition": repetition,
+                },
+                priority=args.priority,
+            )
+            for task in tasks
+            for repetition in range(args.runs)
+        ]
+        payload = {
+            "queue": str(queue),
+            "experiment": manifest.experiment_id,
+            "checksum": manifest.manifest_sha256,
+            "jobs": len(job_ids),
+            "statement": (
+                f"{len(job_ids)} job(s) queued for experiment {manifest.experiment_id!r} "
+                f"({len(tasks)} task(s) x {args.runs} run(s)). Nothing runs until a worker "
+                "claims them"
+            ),
+        }
+        if args.json:
+            _emit(payload, True)
+        else:
+            print(payload["statement"])
+        return EXIT_OK
+
+    if command == "work":
+        coordinator = Coordinator(queue)
+        inventory = default_worker_inventory(args.worker_id)
+        claimed: list[dict[str, Any]] = []
+        while True:
+            job = coordinator.claim_next(args.worker_id)
+            if job is None:
+                break
+            claimed.append(job)
+            if args.once:
+                break
+
+        if not claimed:
+            payload = {
+                "worker": inventory.model_dump(),
+                "claimed": 0,
+                "statement": f"no jobs in {queue}; nothing to do",
+            }
+            if args.json:
+                _emit(payload, True)
+            else:
+                print(payload["statement"])
+            return EXIT_OK
+
+        # One experiment id per queue in practice, but a worker that claimed
+        # jobs from two would silently merge them under the first id.
+        experiment_ids = {str(job["experiment"]["experiment_id"]) for job in claimed}
+        if len(experiment_ids) > 1:
+            print(
+                f"error: claimed jobs from {len(experiment_ids)} experiments "
+                f"({sorted(experiment_ids)}); use one queue per experiment",
+                file=sys.stderr,
+            )
+            return EXIT_USAGE
+        experiment_id = experiment_ids.pop()
+
+        agent = args.agent or str(claimed[0]["experiment"]["agent_adapter"])
+        by_key = {
+            idempotent_key(experiment_id, str(job["task_id"]), int(job["repetition"])): job
+            for job in claimed
+        }
+        work_items = [(str(job["task_id"]), int(job["repetition"])) for job in claimed]
+
+        installed = {t.id: t for t in load_all_tasks()}
+
+        def runner(task_id: str, repetition: int) -> dict[str, Any]:
+            task = installed.get(task_id)
+            if task is None:
+                # Raised, not returned: `execute_experiment` isolates a failing
+                # item, and a worker missing a task pack is a fact about that
+                # worker rather than a result for the whole sweep.
+                raise ValueError(f"{task_id} is not installed on {args.worker_id}")
+            result, _events, _diff = TaskRunner().run(task, agent, {})
+            return {
+                "task_id": task_id,
+                "repetition": repetition,
+                "success": bool(result.success),
+                "score": result.score.total,
+                "worker_id": args.worker_id,
+            }
+
+        state_path = queue / "states" / f"{args.worker_id}.json"
+        state = execute_experiment(
+            ExperimentManifest.model_validate(claimed[0]["experiment"]),
+            work_items,
+            runner,
+            state_path,
+            max_workers=args.max_workers or inventory.max_concurrency,
+        )
+        for key, result in state.completed.items():
+            job = by_key.get(key)
+            if job is not None:
+                coordinator.submit_result(str(job["job_id"]), result)
+
+        payload = {
+            "worker": inventory.model_dump(),
+            "claimed": len(claimed),
+            "completed": len(state.completed),
+            "failures": state.failures,
+            "state_path": str(state_path),
+            "statement": (
+                f"{args.worker_id}: {len(state.completed)} of {len(claimed)} job(s) completed"
+                + (f", {len(state.failures)} failed" if state.failures else "")
+            ),
+        }
+        if args.json:
+            _emit(payload, True)
+        else:
+            print(payload["statement"])
+        # A failed item is a result, not a broken worker: the sweep records it
+        # and the merge reports it.
+        return EXIT_OK
+
+    if command == "status":
+        coordinator = Coordinator(queue)
+        states = sorted((queue / "states").glob("*.json")) if (queue / "states").is_dir() else []
+        claimed_workers: list[str] = (
+            sorted(p.name for p in (queue / "claimed").iterdir())
+            if (queue / "claimed").is_dir()
+            else []
+        )
+        payload = {
+            "queue": str(queue),
+            "pending": coordinator.pending_count(),
+            "workers_claimed": claimed_workers,
+            "states": [str(p) for p in states],
+            "results": len(list((queue / "results").glob("*.json"))),
+            "this_machine": default_worker_inventory("local").model_dump(),
+            "statement": (
+                f"{coordinator.pending_count()} job(s) pending, "
+                f"{len(claimed_workers)} worker(s) have claimed work, "
+                f"{len(states)} state file(s) ready to merge"
+            ),
+        }
+        if args.json:
+            _emit(payload, True)
+        else:
+            print(payload["statement"])
+        return EXIT_OK
+
+    # collect
+    states = sorted((queue / "states").glob("*.json"))
+    if not states:
+        print(f"error: no worker states under {queue / 'states'}", file=sys.stderr)
+        return EXIT_USAGE
+    experiment_id = args.experiment or RunState.load(states[0]).experiment_id
+    try:
+        merged = merge_run_states(states, experiment_id)
+    except ValueError as exc:
+        # Refused rather than resolved. Two workers reporting different results
+        # for the same (task, repetition) means the runs were not what they
+        # claim to be, and picking one would hide that behind a clean total.
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_RUN
+    if args.out:
+        merged.save(Path(args.out))
+    payload = {
+        "experiment": merged.experiment_id,
+        "states": [str(p) for p in states],
+        "completed": len(merged.completed),
+        "failures": merged.failures,
+        "status": merged.status,
+        "out": str(args.out) if args.out else None,
+        "statement": (
+            f"{len(merged.completed)} run(s) from {len(states)} worker(s); "
+            f"status {merged.status}"
+            + (f", {len(merged.failures)} failure(s)" if merged.failures else "")
+            + ". No worker disagreed with another"
+        ),
+    }
+    if args.json:
+        _emit(payload, True)
+    else:
+        print(payload["statement"])
+    return EXIT_OK
+
+
+def cmd_merge(args: argparse.Namespace) -> int:
+    """Combine shards of one sweep into a set that can be read as a whole.
+
+    A shard's numbers describe a slice. Reading a rate off one is reading the
+    rate of whichever tasks landed in that bucket, and the sharding is
+    deterministic, so that number is stable and wrong in the same way every
+    time -- which is worse than noisy.
+
+    Merging refuses on a conflict rather than picking a winner. Two shards
+    reporting different results for the same (task, repetition) means the runs
+    were not what they claim to be, and silently keeping one would hide that
+    behind a clean-looking total.
+    """
+    from tooltrace.artifacts.bundles import load_bundle_result
+
+    directories = [Path(d) for d in args.shards]
+    missing = [str(d) for d in directories if not d.is_dir()]
+    if missing:
+        print(f"error: not a directory: {missing}", file=sys.stderr)
+        return EXIT_USAGE
+
+    bundles: list[Path] = []
+    for directory in directories:
+        bundles.extend(sorted(directory.glob("*.tooltrace")))
+    if not bundles:
+        print(f"error: no .tooltrace bundles under {args.shards}", file=sys.stderr)
+        return EXIT_USAGE
+
+    # Keyed by what identifies one unit of work. Two shards holding the same
+    # key is the conflict worth refusing on; the same task at a different
+    # repetition is ordinary.
+    seen: dict[tuple[str, str], str] = {}
+    conflicts: list[str] = []
+    keys_by_shard: dict[str, int] = {}
+
+    for bundle in bundles:
+        result = load_bundle_result(bundle)
+        key = (result.task_id, result.run_id)
+        fingerprint = f"{result.success}:{result.score.total}"
+        shard_name = bundle.parent.name
+        keys_by_shard[shard_name] = keys_by_shard.get(shard_name, 0) + 1
+        if key in seen and seen[key] != fingerprint:
+            conflicts.append(f"{result.task_id} ({result.run_id}) differs between shards")
+        seen[key] = fingerprint
+
+    if args.out:
+        out = Path(args.out)
+        out.mkdir(parents=True, exist_ok=True)
+        for bundle in bundles:
+            target = out / bundle.name
+            if target.exists():
+                continue
+            shutil.copytree(bundle, target)
+
+    payload = {
+        "shards": len(directories),
+        "bundles": len(bundles),
+        "unique_runs": len(seen),
+        "per_shard": keys_by_shard,
+        "conflicts": conflicts,
+        "out": str(args.out) if args.out else None,
+        "statement": (
+            f"{len(bundles)} bundle(s) across {len(directories)} shard(s)"
+            + (
+                f"; **{len(conflicts)} conflict(s)**: two shards report different results for "
+                "the same run, so these sweeps are not what they claim to be"
+                if conflicts
+                else "; no shard disagreed with another"
+            )
+            + "."
+        ),
+    }
+    if args.json:
+        _emit(payload, True)
+    else:
+        print(payload["statement"])
+        for conflict in conflicts[:5]:
+            print(f"  {conflict}")
+    return EXIT_RUN if conflicts else EXIT_OK
+
+
+def cmd_sign(args: argparse.Namespace) -> int:
+    """Sign a bundle with cosign, or say plainly that it was not signed.
+
+    Checksums are tamper-*evident*: they detect that a bundle changed. A
+    signature establishes *who* produced it, which is the question an
+    independent reader actually has, and `verify --signature` has been able to
+    check one since before anything here could produce one.
+
+    No custom cryptography, ever. This shells out to cosign and reports honestly
+    when cosign is absent -- an unsigned bundle that says so is fine, and one
+    that silently pretends is not.
+    """
+    from tooltrace.analysis.core import sign_bundle, verify_bundle_signature
+
+    bundles = _expand_bundles(args.bundles)
+    if not bundles:
+        print("error: no .tooltrace bundles found", file=sys.stderr)
+        return EXIT_USAGE
+
+    results = []
+    for bundle in bundles:
+        outcome = sign_bundle(bundle, signer=args.signer)
+        if outcome.get("signed") and args.verify:
+            # Signing and then failing to verify the signature is worth knowing
+            # immediately rather than when somebody else tries.
+            check = verify_bundle_signature(
+                bundle, Path(outcome["signature_path"]), signer=args.signer
+            )
+            outcome["verified"] = bool(check.get("verified"))
+        results.append({"bundle": bundle.name, **outcome})
+
+    signed = [r for r in results if r.get("signed")]
+    unsigned = [r for r in results if not r.get("signed")]
+    payload = {
+        "bundles": len(results),
+        "signed": len(signed),
+        "results": results,
+        "statement": (
+            f"{len(signed)} of {len(results)} bundle(s) signed with {args.signer}"
+            + (
+                f". {len(unsigned)} unsigned: {unsigned[0].get('reason', 'unknown reason')}"
+                if unsigned
+                else ""
+            )
+        ),
+    }
+    if args.json:
+        _emit(payload, True)
+    else:
+        print(payload["statement"])
+
+    # Not signing is not a failure of this command: a machine without cosign is
+    # a normal machine, and exiting non-zero would make an optional step look
+    # like a broken build.
+    return EXIT_OK
+
+
 def cmd_benchmark(args: argparse.Namespace) -> int:
     from tooltrace.runners.benchmark import run_benchmark
     from tooltrace.tasks import load_all_tasks
@@ -1132,7 +1569,46 @@ def cmd_benchmark(args: argparse.Namespace) -> int:
     if not tasks:
         print("error: no tasks selected", file=sys.stderr)
         return EXIT_TASK
-    if selection["is_subset"]:
+
+    # `--shard i/n` splits the selected tasks across machines. The sharding
+    # itself already existed in `executors/experiment.py` and had no caller
+    # outside its own tests, so a sweep could be sharded in principle and never
+    # in practice.
+    shard = _parse_shard(args)
+    if shard is not None:
+        index, count = shard
+        from tooltrace.executors.experiment import shard_work_items
+
+        buckets = shard_work_items([(t.id, 0) for t in tasks], count)
+        wanted_ids = {task_id for task_id, _rep in buckets[index]}
+        tasks = [t for t in tasks if t.id in wanted_ids]
+        # The selection record is updated rather than annotated, so the counts a
+        # reader sees describe the shard that actually ran. Leaving `selected`
+        # at the pre-shard figure would print "43 of 43" immediately under
+        # "shard 0 of 4: 11 tasks", and the second line would be wrong.
+        selection = {
+            **selection,
+            "shard": f"{index}/{count}",
+            "selected": len(tasks),
+            "is_subset": True,
+            "policy": f"{selection['policy']}+shard",
+        }
+        # Loud, for the same reason `--limit` is: a shard's numbers describe a
+        # slice, and a report that did not say so would be read as the whole.
+        print(
+            f"note: shard {index} of {count}: {len(tasks)} of "
+            f"{selection['available']} task(s). This is a slice; merge the shards "
+            "before reading a rate",
+            file=sys.stderr,
+        )
+        if not tasks:
+            print(
+                f"note: shard {index} has no tasks. That is a valid outcome of "
+                "sharding a small task set, not an error",
+                file=sys.stderr,
+            )
+            return EXIT_OK
+    elif selection["is_subset"]:
         # A truncated run must never read like a full one.
         print(
             f"note: running {selection['selected']} of {selection['available']} tasks "
@@ -1145,12 +1621,12 @@ def cmd_benchmark(args: argparse.Namespace) -> int:
     # them as failures would blame the agent for the runner's missing software.
     from tooltrace.tasks.availability import partition
 
-    tasks, skipped = partition(tasks)
+    tasks, skipped = partition(tasks, getattr(args, "agent", None))
     for task, reason in skipped:
         print(f"skipping {task.id}: {reason}", file=sys.stderr)
     if not tasks:
         print(
-            "error: every selected task requires tooling this machine lacks",
+            "error: every selected task was skipped -- see the reasons above",
             file=sys.stderr,
         )
         return EXIT_TASK
@@ -2736,7 +3212,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="the server command. Use `--` first if it takes flags. Defaults to the fixture",
     )
 
-    add("agents", cmd_agents, "list registered agent adapters")
+    ag = add("agents", cmd_agents, "list registered agent adapters")
+    ag.add_argument(
+        "--vision",
+        action="store_true",
+        help="where an image goes in each adapter's request, or why it goes nowhere",
+    )
 
     tl = add("tools", cmd_tools, "what a model is told about the tools it may call")
     tl.add_argument(
@@ -2757,6 +3238,14 @@ def build_parser() -> argparse.ArgumentParser:
 
     t = add("tasks", cmd_tasks, "list available tasks")
     t.add_argument("--category")
+    t.add_argument(
+        "--agent",
+        help=(
+            "report `runnable_here` against this adapter as well as this machine. "
+            "A task carrying attachments is not runnable against an adapter that "
+            "cannot be sent an image, and without this the listing cannot know"
+        ),
+    )
 
     r = add("run", cmd_run, "run one agent on one task")
     r.add_argument("--task", required=True)
@@ -2808,6 +3297,16 @@ def build_parser() -> argparse.ArgumentParser:
             help="shuffle before --limit so a subset is not always the same N tasks",
         )
         _sub.add_argument("--seed", type=int, help="seed for --shuffle (default 0)")
+        if _sub is b:
+            _sub.add_argument(
+                "--shard",
+                metavar="i/n",
+                help=(
+                    "run shard i of n (zero-based) so a sweep can be split across "
+                    "machines. Merge the shards with `tooltrace merge` before reading "
+                    "a rate: a shard's numbers describe a slice"
+                ),
+            )
 
     c = add("compare", cmd_compare, "compare two bundles metric-by-metric")
     c.add_argument("--baseline", required=True)
@@ -2959,6 +3458,47 @@ def build_parser() -> argparse.ArgumentParser:
         type=int,
         default=1,
         help="runs per arm. One is a coin flip with a nondeterministic agent",
+    )
+
+    fl = sub.add_parser("fleet", help="run one sweep across a fleet of workers")
+    flsub = fl.add_subparsers(dest="fleet_cmd", required=True)
+    fl_enqueue = flsub.add_parser("enqueue", help="fill a queue with one job per task-run")
+    fl_enqueue.add_argument("--agent", required=True)
+    fl_enqueue.add_argument("--task", help="comma-separated task ids (default: all)")
+    fl_enqueue.add_argument("--runs", type=int, default=1)
+    fl_enqueue.add_argument("--experiment", default="fleet", help="experiment id")
+    fl_enqueue.add_argument("--priority", type=int, default=5, help="lower runs first (default 5)")
+    fl_work = flsub.add_parser("work", help="claim jobs from a queue and run them")
+    fl_work.add_argument("--worker-id", default="local")
+    fl_work.add_argument("--agent", help="override the agent the jobs were queued with")
+    fl_work.add_argument("--max-workers", type=int, help="default: this machine's cpu count")
+    fl_work.add_argument(
+        "--once", action="store_true", help="claim a single job and stop, for a smoke test"
+    )
+    fl_status = flsub.add_parser("status", help="what is pending, claimed and ready to merge")
+    fl_collect = flsub.add_parser("collect", help="merge the workers' states, refusing on conflict")
+    fl_collect.add_argument("--out", help="write the merged run state here")
+    fl_collect.add_argument("--experiment", help="experiment id (default: read from a state)")
+    for _fleet_sub in (fl_enqueue, fl_work, fl_status, fl_collect):
+        _fleet_sub.add_argument(
+            "--queue", required=True, help="shared directory both sides can see"
+        )
+        _fleet_sub.add_argument("--json", action="store_true", help="structured JSON output")
+    fl.set_defaults(func=cmd_fleet)
+
+    mg = add("merge", cmd_merge, "combine shards of one sweep into a readable whole")
+    mg.add_argument("shards", nargs="+", help="directories of bundles, one per shard")
+    mg.add_argument("--out", help="copy every bundle into this directory")
+
+    sg = add("sign", cmd_sign, "sign bundles with cosign, or say why they are unsigned")
+    sg.add_argument(
+        "--bundles", nargs="+", required=True, help="bundle dirs or a directory of them"
+    )
+    sg.add_argument("--signer", default="cosign", help="signing tool on PATH (default: cosign)")
+    sg.add_argument(
+        "--verify",
+        action="store_true",
+        help="verify each signature immediately after making it",
     )
 
     hw = add("hardware", cmd_hardware, "the machine, the latency split, and prefill/cache/energy")

@@ -3,13 +3,22 @@
 from __future__ import annotations
 
 import difflib
+import hashlib
 from pathlib import Path
 
 SKIP_DIRS = {"__pycache__", ".git", ".pytest_cache", ".mypy_cache", ".ruff_cache"}
 
 
 def snapshot(workspace: Path) -> dict[str, str]:
-    """Return {relative path: content} for all text files under *workspace*."""
+    """Return {relative path: content} for all files under *workspace*.
+
+    A file that is not UTF-8 text is recorded as its digest rather than as a
+    fixed string. Every binary used to snapshot to the same `<binary or
+    unreadable>`, so a binary the agent *modified* had an identical before and
+    after and produced an empty diff -- invisible in exactly the case that
+    matters. Nothing put binaries in a workspace before task attachments did;
+    now something does.
+    """
     files: dict[str, str] = {}
     for f in sorted(workspace.rglob("*")):
         if not f.is_file():
@@ -19,9 +28,19 @@ def snapshot(workspace: Path) -> dict[str, str]:
         rel = f.relative_to(workspace).as_posix()
         try:
             files[rel] = f.read_text(encoding="utf-8")
-        except (UnicodeDecodeError, OSError):
-            files[rel] = "<binary or unreadable>"
+        except UnicodeDecodeError:
+            files[rel] = _binary_marker(f)
+        except OSError:
+            files[rel] = "<unreadable>"
     return files
+
+
+def _binary_marker(path: Path) -> str:
+    try:
+        digest = hashlib.sha256(path.read_bytes()).hexdigest()
+    except OSError:
+        return "<unreadable>"
+    return f"<binary {path.stat().st_size} bytes sha256:{digest}>"
 
 
 def workspace_diff(before: dict[str, str], after: dict[str, str]) -> str:

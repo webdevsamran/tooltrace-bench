@@ -70,6 +70,9 @@ EXEMPT = {
     "badge": "needs a summary or bundles",
     "report": "needs bundles",
     "power": "covered by its own tests",
+    "fleet": "a sub-command group needing a queue directory, covered by tests/test_shard_merge_sign.py",
+    "merge": "needs shard directories, covered by tests/test_shard_merge_sign.py",
+    "sign": "needs bundle paths, covered by tests/test_shard_merge_sign.py",
 }
 
 

@@ -181,6 +181,36 @@
       "additionalProperties": {
         "type": "string"
       }
+    },
+    "attachments": {
+      "type": "array",
+      "description": "Binaries the agent is shown rather than told about -- a screenshot, a scanned form. The bytes travel with the task, base64-encoded, so the bundle keeps reproducing when it moves. A task carrying one is skipped against an adapter that cannot send images, never scored: a text-only model asked about a screenshot answers plausibly and wrongly.",
+      "items": {
+        "type": "object",
+        "required": [
+          "path",
+          "media_type",
+          "content_base64"
+        ],
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Where the bytes are written in the workspace."
+          },
+          "media_type": {
+            "type": "string",
+            "pattern": "^[a-z]+/[a-zA-Z0-9.+-]+$"
+          },
+          "content_base64": {
+            "type": "string"
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^([0-9a-f]{64})?$",
+            "description": "Declared digest of the decoded bytes. Empty means not declared, which is not the same as checked and fine."
+          }
+        }
+      }
     }
   }
 }

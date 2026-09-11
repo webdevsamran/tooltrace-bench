@@ -39,13 +39,15 @@ SYSTEM_PROMPT_NOTE = "see tooltrace.agents.chat_base.SYSTEM_PROMPT"
 
 class OpenAICompatAgent(ChatProtocolAgent):
     name = "openai_compat"
+    #: `image_url` blocks carrying a data: URI; see agents/vision.py.
+    dialect = "openai"
 
     def _api_key(self) -> str | None:
         env_name = str(self.config.get("api_key_env", ""))
         return os.environ.get(env_name) if env_name else None
 
     def complete(
-        self, system: str, history: list[dict[str, str]], user: str
+        self, system: str, history: list[dict[str, str]], user: str | list[dict[str, Any]]
     ) -> tuple[str, dict[str, Any] | None]:
         base_url = str(self.config.get("base_url", "")).rstrip("/")
         if not base_url:

@@ -35,6 +35,19 @@ def task_by_id(task_id: str):
     return next((t for t in load_all_tasks() if t.id == task_id), None)
 
 
+#: Packs whose failing agent cannot be a `scripted` script, with where it lives
+#: instead. The rule is "every pack has been seen to fail", not "every pack has
+#: been seen to fail *here*" -- but the exemption names a file, so it is
+#: checkable rather than a promise.
+PROVEN_ELSEWHERE = {
+    # The scripted agent has no model behind it and is deliberately blind, so a
+    # scripted solution to a vision task would be a hardcoded answer measuring
+    # nothing. `BlindGuesserAgent` in that file copies the decoy from the ticket
+    # text and fails, which is the mistake this pack exists to catch.
+    "multimodal/read-error-code-from-screenshot": "tests/test_multimodal_attachments.py",
+}
+
+
 #: task id -> (description of the mistake, script)
 WRONG_AGENTS: dict[str, tuple[str, list[dict]]] = {
     "browser/extract-product-table": (
@@ -409,7 +422,17 @@ def test_every_pack_with_a_reference_script_is_covered_here() -> None:
             "tool-call-structure",
         }
     }
-    missing = sorted(scripted - set(WRONG_AGENTS))
+    missing = sorted(scripted - set(WRONG_AGENTS) - set(PROVEN_ELSEWHERE))
     assert missing == [], (
         f"these packs have no deliberately-wrong agent, so nothing shows they can fail: {missing}"
     )
+
+
+def test_every_exemption_points_at_a_file_that_exists() -> None:
+    """An exemption naming a deleted test file is an exemption for nothing."""
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    for task_id, where in PROVEN_ELSEWHERE.items():
+        assert (root / where).is_file(), f"{task_id} points at {where}, which is not there"
+        assert task_by_id(task_id) is not None, f"{task_id} is exempted and not installed"

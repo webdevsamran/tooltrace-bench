@@ -7,6 +7,101 @@ versioning follows [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- **A VS Code extension**, under `extensions/vscode`: run a task, read a trace,
+  verify a bundle, from the editor. The Explorer gets a task tree; a task this
+  machine cannot run is shown and labelled rather than hidden, and a skipped run
+  is reported as skipped rather than as a failure.
+
+  It does not bundle, vendor or install this package -- it runs whatever
+  `tooltrace` is on PATH. A bundled copy would drift from the installed one, and
+  the two would disagree about results while looking identical.
+
+  No TypeScript, no bundler, no `node_modules`: VS Code loads CommonJS directly,
+  so the shipped files are the source files. Everything that does not need an
+  editor lives in `lib/cli.js` and is tested by `node --test` with nothing to
+  install; `extension.js` is the thin remainder. And because an extension that
+  shells out to a CLI is a second unchecked copy of that CLI's interface -- the
+  defect that put a `--pack` flag in the 0.3.0 quickstart that the CLI never had
+  -- every command line it can produce is fed to the real argument parser by
+  `tests/test_vscode_extension_matches_the_cli.py`.
+
+  The trace webview runs with scripts disabled under a `default-src 'none'` CSP
+  and escapes every value. Not theoretical: this project ships tasks whose whole
+  purpose is to plant a prompt-injection payload in a file an agent reads, and
+  that payload ends up in the trace somebody is about to open.
+- **A multimodal task can now be run, not only written.** `Attachment` --
+  "multimodal attachment referenced by deterministic hash, never embedded" --
+  had been declarable since the v2 protocol was written, and nothing in this
+  repository ever read the field. There were two copies of the type and zero
+  consumers of either.
+
+  The bytes now travel inside the task, base64-encoded, because a task pointing
+  at a file on disk stops reproducing the moment the bundle moves. They are
+  written into the workspace before the run, sent to the model as a
+  provider-shaped content block on the first turn, and their declared `sha256`
+  is checked rather than trusted. `tooltrace agents --vision` says where an
+  image goes in each adapter's request, or why it goes nowhere.
+
+  The image is **generated**, by a ~200-line PNG encoder and a 5x7 bitmap font
+  with no dependencies. A committed screenshot would be a binary nobody can
+  diff, so nothing would check that it still says what the task claims; this one
+  is re-rendered by a test and compared pixel for pixel against the answer the
+  assertions expect. What is *not* established: that any vision model can read
+  it. That needs a key and a network, so the row is graded **E**.
+
+- **A task carrying an image is skipped against an adapter that cannot send
+  one.** Never scored. A text-only model asked what error code is in a
+  screenshot answers fluently and wrongly, and recording that as the agent's
+  failure would make the result a property of the harness. This is the rule
+  `requires_tools` already applied to a missing `cargo`, on the same machinery,
+  for the same reason -- and `multimodal/read-error-code-from-screenshot` is
+  built so the plausible wrong answer is sitting in the ticket text waiting to
+  be copied.
+
+  `tooltrace tasks --agent A` reports `runnable_here` against the adapter as
+  well as the machine, so the answer is available before the run rather than
+  after it, and `tooltrace agents --vision` says where an image goes in each
+  adapter's request or why it goes nowhere.
+
+- **Sharded sweeps are reachable.** `shard_work_items`, `merge_run_states`,
+  `Coordinator` and `default_worker_inventory` all shipped in this repository
+  with no caller outside their own tests: a sweep could be sharded in principle
+  and never in practice. `benchmark --shard i/n` splits the selection across
+  machines (zero-based, like a CI matrix index), and `tooltrace merge` combines
+  the shards back into a set that can be read as a whole.
+
+  A shard's numbers describe a *slice*, so the run says so on stderr. Because
+  the sharding is deterministic, a rate read off one shard is stable and wrong
+  in the same way every time -- worse than noisy. Merging **refuses on a
+  conflict** rather than picking a winner: two shards reporting different
+  results for the same run means the runs were not what they claim to be, and
+  keeping one silently would hide that behind a clean-looking total.
+
+- **`tooltrace fleet` starts the worker fleet that already existed.**
+  `Coordinator`, `execute_experiment`, `merge_run_states` and
+  `default_worker_inventory` shipped in `executors/experiment.py` with no caller
+  outside their own tests -- a complete file-queue fleet that nothing could
+  start. `fleet enqueue` fills a shared directory with one job per task-run,
+  `fleet work` claims and runs them on each machine, `fleet status` reports what
+  is pending and mergeable, and `fleet collect` merges the workers' states.
+
+  A file queue rather than a broker, for the same reason the rest of this
+  project is offline-first: a shared directory is something a lab, a CI cache or
+  an NFS mount already has, and a claim is `os.replace`, which is atomic on
+  every filesystem this runs on -- two workers racing for one job cannot both
+  win, and a test asserts it. A worker resumes from its own state file, isolates
+  a failed item to that item, and `collect` refuses on a conflict.
+
+- **`tooltrace sign` signs a bundle, or says plainly that it did not.**
+  `verify --signature` has been able to check a cosign signature since before
+  anything here could produce one. Checksums are tamper-*evident* -- they detect
+  that a bundle changed; a signature establishes *who* produced it, which is the
+  question an independent reader actually has.
+
+  No custom cryptography: this shells out to cosign, and a test asserts the
+  module imports no crypto library and still contains the `sign-blob` call. It
+  exits 0 with nothing signed, because a machine without cosign is a normal
+  machine and an optional step that failed the build would be switched off.
 - **Every `tooltrace` command in the documentation is now parsed against the real
   CLI.** The 0.3.0 changelog records this exact failure -- a quickstart naming a
   task id that did not exist and a `--pack` flag the CLI never had -- found by
@@ -20,6 +115,29 @@ versioning follows [Semantic Versioning](https://semver.org/).
   self-contained ones are executed as well.
 
 ### Fixed
+- **Every worker reported "no GPU" whether or not it had one.**
+  `WorkerInventory.gpu` defaulted to `False` and nothing ever set it, so a
+  fleet's capability inventory was a hardcoded claim about every machine in it.
+  `tooltrace/telemetry/hardware.py` names this exact failure in its own
+  docstring -- a hardcoded `False` reads as "checked, and there is no GPU" --
+  and had the detection sitting next to it. It is now set from `nvidia-smi`, and
+  `gpu_detection` distinguishes `none_found` from `not_detectable`, because an
+  AMD or Apple GPU on a machine without `nvidia-smi` otherwise looks identical
+  to no GPU at all.
+
+- **Every binary in a workspace snapshotted as the same fixed string.** So a
+  binary the agent *modified* had an identical before and after, and produced an
+  empty diff -- invisible in exactly the case that matters. Nothing put binaries
+  in a workspace until task attachments did; now something does, and the
+  snapshot records a size and a digest.
+
+- **The task-tampering check ignored attachments.** `task_matches_published`
+  compared assertions and the starting workspace, so the one file an agent was
+  scored against could be swapped and the bundle would still verify.
+
+- **The linter reported an assertion on an attachment as unreachable**, because
+  `known_paths` was built from `starting_workspace` and `fixtures` only.
+
 - **`README.md` documented a `compare` invocation the CLI has never accepted.**
   `tooltrace compare runs/run-A.tooltrace runs/run-B.tooltrace` uses positional
   arguments; the command takes `--baseline` and `--current`. Anyone following

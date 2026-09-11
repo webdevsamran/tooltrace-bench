@@ -13,7 +13,13 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-from tooltrace.core.models import Assertion, Difficulty, NetworkPolicy, ResourceLimits
+from tooltrace.core.models import (
+    Assertion,
+    Attachment,
+    Difficulty,
+    NetworkPolicy,
+    ResourceLimits,
+)
 
 
 class Domain(StrEnum):
@@ -116,14 +122,6 @@ class CheckpointStage(BaseModel):
     id: str
     after_step_hint: int | None = None
     assertions: list[Assertion] = Field(default_factory=list)
-
-
-class Attachment(BaseModel):
-    """Multimodal attachment referenced by deterministic hash, never embedded."""
-
-    path: str
-    media_type: str  # e.g. image/png, audio/wav
-    sha256: str = ""
 
 
 class TaskDefinitionV2(BaseModel):

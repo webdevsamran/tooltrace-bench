@@ -169,7 +169,18 @@ def merge_run_states(paths: list[Path], experiment_id: str) -> RunState:
 
 
 class WorkerInventory(BaseModel):
-    """Worker capability inventory (feature 63)."""
+    """What a worker can do, with "not checked" kept apart from "no".
+
+    `gpu` used to default to `False` and nothing ever set it, so every worker in
+    a fleet reported "no GPU" whether or not it had one --
+    `tooltrace/telemetry/hardware.py` names this exact failure in its own
+    docstring: a hardcoded `False` reads as "checked, and there is no GPU". It
+    is now set from `nvidia-smi`, and `gpu_detection` says which of the two
+    answers an empty list is.
+
+    `browser` stays `False` and stays honest: no browser tool ships in this
+    package, so no worker has one.
+    """
 
     worker_id: str
     os_name: str
@@ -178,6 +189,11 @@ class WorkerInventory(BaseModel):
     container_runtime: str | None = None  # docker/podman/None
     browser: bool = False
     gpu: bool = False
+    #: `found` | `none_found` | `not_detectable`. An empty `gpu_names` under
+    #: `not_detectable` means no probe was possible -- an AMD or Apple GPU on a
+    #: machine without `nvidia-smi` looks identical to no GPU at all.
+    gpu_detection: str = "not_detectable"
+    gpu_names: list[str] = Field(default_factory=list)
     max_concurrency: int = 1
     registered_at: str = Field(default_factory=utc_now_iso)
 
@@ -242,11 +258,17 @@ def default_worker_inventory(worker_id: str = "local") -> WorkerInventory:
                 break
         except Exception:
             continue
+    from tooltrace.telemetry.hardware import detect_gpus, gpu_detection
+
+    gpus = detect_gpus()
     return WorkerInventory(
         worker_id=worker_id,
         os_name=platform.system(),
         arch=platform.machine(),
         python_version=platform.python_version(),
         container_runtime=runtime,
+        gpu=bool(gpus),
+        gpu_detection="found" if gpus else gpu_detection(),
+        gpu_names=[str(g.get("name", "")) for g in gpus],
         max_concurrency=os.cpu_count() or 1,
     )

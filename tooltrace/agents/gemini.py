@@ -42,9 +42,11 @@ ROLES = {"user": "user", "assistant": "model"}
 
 class GeminiAgent(ChatProtocolAgent):
     name = "gemini"
+    #: `{"inline_data": {...}}` parts; see agents/vision.py.
+    dialect = "gemini"
 
     def complete(
-        self, system: str, history: list[dict[str, str]], user: str
+        self, system: str, history: list[dict[str, str]], user: str | list[dict[str, Any]]
     ) -> tuple[str, dict[str, Any] | None]:
         env_name = str(self.config.get("api_key_env", "GEMINI_API_KEY"))
         api_key = os.environ.get(env_name)
@@ -61,7 +63,10 @@ class GeminiAgent(ChatProtocolAgent):
             {"role": ROLES.get(turn["role"], "user"), "parts": [{"text": turn["content"]}]}
             for turn in history
         ]
-        contents.append({"role": "user", "parts": [{"text": user}]})
+        # Gemini has no "content" key: a turn *is* its list of parts, so
+        # image parts go here directly rather than inside a wrapper.
+        parts = user if isinstance(user, list) else [{"text": user}]
+        contents.append({"role": "user", "parts": parts})
 
         generation: dict[str, Any] = {
             "temperature": float(self.config.get("temperature", 0.0)),  # type: ignore[arg-type]
