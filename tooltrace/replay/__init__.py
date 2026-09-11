@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any
 
 from tooltrace.core.models import TaskDefinition, TraceEvent
+from tooltrace.tasks.attachments import materialize
 from tooltrace.tools.base import ToolContext
 from tooltrace.tools.executor import ToolExecutor
 
@@ -84,6 +85,9 @@ def replay_trace(
             p = workspace / rel
             p.parent.mkdir(parents=True, exist_ok=True)
             p.write_text(content, encoding="utf-8")
+        # A replay that skipped the attachments would re-run against a workspace
+        # the original never had, and report the difference as a mismatch.
+        materialize(task, workspace)
         engine.prepare_workspace(workspace)
 
         for primed_tool, primed_args in prime_with or []:

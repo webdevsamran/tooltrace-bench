@@ -15,6 +15,7 @@ from pathlib import Path
 
 from tooltrace.core.exceptions import SandboxError
 from tooltrace.core.models import ResourceLimits, TaskDefinition
+from tooltrace.tasks.attachments import materialize
 
 
 class DockerSandbox:
@@ -55,6 +56,7 @@ class DockerSandbox:
             target = self.workspace / rel
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_text(content, encoding="utf-8")
+        materialize(task, self.workspace)
         return self.workspace
 
     def run_in_container(self, command: list[str], timeout: float = 60.0) -> tuple[int, str]:

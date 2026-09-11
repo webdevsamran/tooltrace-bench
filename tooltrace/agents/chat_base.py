@@ -29,6 +29,7 @@ from tooltrace.core.models import (
     AgentAction,
     AgentContext,
     AgentOutcome,
+    Attachment,
     TokenUsage,
     UsageMetadata,
 )
@@ -46,6 +47,14 @@ or, when the task is complete:
 Objective: {objective}
 Task description: {description}
 Workspace files: {files}
+"""
+
+#: Appended when an image is sent on the first turn and not afterwards. The
+#: model is told, because a model that assumed the image was still there would
+#: answer from a memory it does not have.
+ATTACHMENT_NOTICE = """
+Attached to the first message only: {names}. You will not be shown it again,
+so record anything you need from it in your first reply.
 """
 
 #: Turns of history sent back to the model. Bounded because an unbounded
@@ -69,10 +78,16 @@ def add_counts(previous: int | None, reported: int | None) -> int | None:
 class ChatProtocolAgent(AgentAdapter):
     """An adapter that drives a chat model through a JSON action protocol.
 
-    Subclasses implement :meth:`complete` and nothing else.
+    Subclasses implement :meth:`complete`, and set :attr:`dialect` if they can
+    carry an image.
     """
 
     name = "chat"
+
+    #: Which content-block shape this provider speaks. `""` means the subclass
+    #: has not declared one, and a task with attachments will refuse rather than
+    #: run text-only -- see :mod:`tooltrace.agents.vision`.
+    dialect = ""
 
     def initialize(self, ctx: AgentContext) -> None:
         self._ctx = ctx
@@ -81,14 +96,21 @@ class ChatProtocolAgent(AgentAdapter):
         self._messages: list[dict[str, str]] = []
         self._usage = UsageMetadata()
         self._model_ms = 0.0
+        self._attachments_sent = False
 
     # -- provider hook -------------------------------------------------------
 
     @abstractmethod
     def complete(
-        self, system: str, history: list[dict[str, str]], user: str
+        self, system: str, history: list[dict[str, str]], user: str | list[dict[str, Any]]
     ) -> tuple[str, dict[str, Any] | None]:
         """One turn against the provider. Returns (text, usage-or-None).
+
+        `user` is a plain string on every turn that carries no attachment, which
+        is almost all of them. It becomes a list of provider-shaped content
+        blocks when an image is being sent; see
+        :func:`tooltrace.agents.vision.content_with_images` for why the common
+        case is not wrapped.
 
         Raise on a transport or protocol failure; :meth:`act` turns that into a
         recorded adapter error rather than a crashed run, because "the endpoint
@@ -114,12 +136,19 @@ class ChatProtocolAgent(AgentAdapter):
             self._ctx.allowed_tools or None, self._ctx.tool_descriptions or None
         )
         files = ", ".join(self._ctx.workspace_files) or "(empty)"
-        return SYSTEM_PROMPT.format(
+        prompt = SYSTEM_PROMPT.format(
             tools=catalogue,
             objective=self._ctx.objective,
             description=self._ctx.description or "(none)",
             files=files,
         )
+        if self._ctx.attachments and not self._sends_every_turn():
+            names = ", ".join(a.path for a in self._ctx.attachments)
+            prompt += ATTACHMENT_NOTICE.format(names=names)
+        return prompt
+
+    def _sends_every_turn(self) -> bool:
+        return str(self.config.get("attachment_policy", "first_turn")) == "every_turn"
 
     def record_usage(self, reported: dict[str, Any] | None) -> None:
         if not reported:
@@ -142,9 +171,45 @@ class ChatProtocolAgent(AgentAdapter):
             ),
         )
 
+    def attachments_for_this_turn(self) -> list[Attachment]:
+        """The images to send now. Empty on every turn but the first, by default.
+
+        An image is the most expensive thing a prompt can carry, and resending
+        it every step would grow the bill linearly in the number of steps
+        without the operator ever seeing why -- the same failure `HISTORY_TURNS`
+        exists to prevent for text. So it goes once, and the system prompt says
+        so, and `attachment_policy: "every_turn"` is available for anyone who
+        would rather pay.
+
+        The history this adapter replays is text (`list[dict[str, str]]`), so
+        "sent once" means the model genuinely sees the image on turn one only.
+        That is stated in the prompt rather than left for the model to discover.
+        """
+        attachments = list(self._ctx.attachments)
+        if not attachments:
+            return []
+        if self._sends_every_turn():
+            return attachments
+        if self._attachments_sent:
+            return []
+        return attachments
+
     def _decide(self, user_content: str) -> dict[str, object]:
+        from tooltrace.agents.vision import UnsupportedAttachment, content_with_images
+
+        sending = self.attachments_for_this_turn()
+        if sending and not self.dialect:
+            # Refused rather than dropped. An adapter that posted the text alone
+            # would get a fluent answer to a question the model was never shown,
+            # and the run would score it as the agent's mistake.
+            raise UnsupportedAttachment(
+                f"the `{self.name}` adapter declares no image dialect, and this task "
+                f"carries {len(sending)} attachment(s)"
+            )
+        body = content_with_images(user_content, sending, self.dialect) if sending else user_content
+
         start = time.perf_counter()
-        text, usage = self.complete(self.system_prompt(), list(self._messages), user_content)
+        text, usage = self.complete(self.system_prompt(), list(self._messages), body)
         self._model_ms += (time.perf_counter() - start) * 1000.0
         self.record_usage(usage)
 
@@ -157,6 +222,12 @@ class ChatProtocolAgent(AgentAdapter):
 
         # Appended only after the turn parsed. A malformed reply is not part of
         # the conversation the next turn should be reasoning from.
+        #
+        # The *text* is appended, never the image: the history is replayed on
+        # every subsequent request, so keeping the blocks here would resend the
+        # bytes each turn and quietly undo `attachments_for_this_turn`.
+        if sending:
+            self._attachments_sent = True
         self._messages.append({"role": "user", "content": user_content})
         self._messages.append({"role": "assistant", "content": text})
         if len(self._messages) > HISTORY_TURNS * 2:

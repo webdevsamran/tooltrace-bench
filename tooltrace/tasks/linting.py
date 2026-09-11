@@ -60,8 +60,13 @@ def lint_task(task: Any) -> list[LintIssue]:
             )
 
     # -- unreachable assertions ----------------------------------------------
-    known_paths = set(dict(getattr(task, "starting_workspace", {}) or {})) | set(
-        dict(getattr(task, "fixtures", {}) or {})
+    known_paths = (
+        set(dict(getattr(task, "starting_workspace", {}) or {}))
+        | set(dict(getattr(task, "fixtures", {}) or {}))
+        # Attachments are written into the workspace before the run, so a path
+        # they create is as reachable as one `starting_workspace` creates.
+        # Without this an assertion on the screenshot itself reads as unreachable.
+        | {a.path for a in getattr(task, "attachments", []) or []}
     )
     # Trace-aware scorers live in their own registry: they take `(params,
     # TraceView)` rather than `(params, workspace)`, so they were never in

@@ -51,9 +51,11 @@ DEFAULT_MAX_TOKENS = 2048
 
 class AnthropicAgent(ChatProtocolAgent):
     name = "anthropic"
+    #: `{"type": "image", "source": {...}}` blocks; see agents/vision.py.
+    dialect = "anthropic"
 
     def complete(
-        self, system: str, history: list[dict[str, str]], user: str
+        self, system: str, history: list[dict[str, str]], user: str | list[dict[str, Any]]
     ) -> tuple[str, dict[str, Any] | None]:
         env_name = str(self.config.get("api_key_env", "ANTHROPIC_API_KEY"))
         api_key = os.environ.get(env_name)

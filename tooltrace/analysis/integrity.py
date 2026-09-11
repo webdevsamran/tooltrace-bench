@@ -100,6 +100,16 @@ def task_matches_published(task: dict[str, Any], installed: dict[str, Any] | Non
         json.dumps(installed.get("starting_workspace"), sort_keys=True)
     ):
         problems.append("starting workspace differs from the published task of the same id")
+    # Attachments are workspace content the run depended on, so a swapped
+    # screenshot is a swapped task. Without this the one file an agent was
+    # scored against could be replaced and the bundle would still verify.
+    # `or []` on both sides: bundles recorded before this field existed carry no
+    # `attachments` key at all, and `null` is not a different value from "none"
+    # -- reporting those as tampered would make every published bundle fail.
+    if sha256_text(json.dumps(task.get("attachments") or [], sort_keys=True)) != sha256_text(
+        json.dumps(installed.get("attachments") or [], sort_keys=True)
+    ):
+        problems.append("attachments differ from the published task of the same id")
     return problems
 
 

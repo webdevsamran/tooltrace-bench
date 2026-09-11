@@ -97,6 +97,56 @@ class ResourceLimits(BaseModel):
     max_disk_mb: int | None = None
 
 
+class Attachment(BaseModel):
+    """A binary the agent is *shown*, carried inside the task.
+
+    `starting_workspace` is `dict[str, str]`: text, because every task before
+    this one was text. An image cannot go there, and a task that pointed at a
+    file on disk would stop reproducing the moment the bundle moved -- which is
+    the one thing a `.tooltrace` bundle promises not to do. So the bytes travel
+    with the task, base64-encoded, and `sha256` is checked rather than trusted.
+
+    An empty `sha256` means "not declared", not "checked and fine": a digest
+    that defaulted to the digest of whatever arrived would verify nothing.
+    """
+
+    path: str
+    media_type: str  # e.g. image/png
+    content_base64: str
+    sha256: str = ""
+
+    def decoded(self) -> bytes:
+        import base64
+        import binascii
+        import hashlib
+
+        # Whitespace removed first. A task file wraps its base64 -- YAML folds a
+        # `>-` block onto one line with spaces in it, JSON needs it split to stay
+        # readable -- and `validate=True` rejects both. Stripping is not laxity:
+        # the alternative is a decoder that tolerates *any* stray character,
+        # which would quietly accept a corrupted payload.
+        packed = "".join(self.content_base64.split())
+        try:
+            raw = base64.b64decode(packed, validate=True)
+        except (binascii.Error, ValueError) as exc:
+            raise ValueError(
+                f"attachment {self.path}: content_base64 is not base64: {exc}"
+            ) from exc
+        if self.sha256:
+            actual = hashlib.sha256(raw).hexdigest()
+            if actual != self.sha256:
+                raise ValueError(
+                    f"attachment {self.path}: declared sha256 {self.sha256} "
+                    f"but the content hashes to {actual}"
+                )
+        return raw
+
+    def digest(self) -> str:
+        import hashlib
+
+        return hashlib.sha256(self.decoded()).hexdigest()
+
+
 class TaskDefinition(BaseModel):
     """A versioned benchmark task (validated against schemas/task.schema.json)."""
 
@@ -108,6 +158,13 @@ class TaskDefinition(BaseModel):
     description: str = ""
     starting_workspace: dict[str, str] = Field(default_factory=dict)  # path -> content
     fixtures: dict[str, str] = Field(default_factory=dict)  # read-only reference files
+    #: Binaries the agent is shown rather than told about -- a screenshot, a
+    #: scanned form. A task with one of these is *skipped* against an adapter
+    #: that cannot send images, never scored: a text-only model asked about a
+    #: screenshot will answer plausibly and wrongly, and recording that as the
+    #: agent's failure would make the result a property of the harness. See
+    #: `tooltrace/agents/vision.py`.
+    attachments: list[Attachment] = Field(default_factory=list)
     allowed_tools: list[str]
     assertions: list[Assertion] = Field(min_length=1)
     timeout_seconds: float = Field(default=120.0, gt=0)
@@ -361,6 +418,10 @@ class AgentContext(BaseModel):
     #: Descriptions the task substitutes for the registry's own; see
     #: `TaskDefinition.tool_descriptions`.
     tool_descriptions: dict[str, str] = Field(default_factory=dict)
+    #: Images to send with the first turn. Present here rather than only on disk
+    #: because an adapter that can see has to *send* them, and a path in the
+    #: workspace is something only a tool call can reach.
+    attachments: list[Attachment] = Field(default_factory=list)
     max_steps: int = 25
     timeout_seconds: float = 120.0
     extra: dict[str, Any] = Field(default_factory=dict)

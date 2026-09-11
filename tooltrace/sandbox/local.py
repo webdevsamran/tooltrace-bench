@@ -17,6 +17,7 @@ from pathlib import Path
 
 from tooltrace.core.exceptions import SandboxError
 from tooltrace.core.models import TaskDefinition
+from tooltrace.tasks.attachments import materialize
 
 
 class TempWorkspaceSandbox:
@@ -38,6 +39,7 @@ class TempWorkspaceSandbox:
                 target = self.workspace / rel
                 target.parent.mkdir(parents=True, exist_ok=True)
                 target.write_text(content, encoding="utf-8")
+            materialize(task, self.workspace)
             fixtures_dir = root / "fixtures"
             fixtures_dir.mkdir()
             for rel, content in task.fixtures.items():

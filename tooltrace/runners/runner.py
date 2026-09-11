@@ -135,6 +135,11 @@ class TaskRunner:
                     for name, text in (task.tool_descriptions or {}).items()
                     if name in set(task.allowed_tools)
                 },
+                # The bytes, not the path. An adapter that can send images has
+                # to send them; a path in the workspace is something only a tool
+                # call can reach, and the model has to see the screenshot before
+                # it decides which tool to call.
+                attachments=list(task.attachments),
                 max_steps=task.max_steps,
                 timeout_seconds=task.timeout_seconds,
                 extra={"workspace_path": str(workspace)},

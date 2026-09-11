@@ -19,6 +19,7 @@
 | [Competitive analysis](competitive-analysis.md) | Verified competitor capability matrix |
 | [Statistical policy](statistics.md) | Which estimator is used for which metric, and why |
 | [Troubleshooting & FAQ / glossary](troubleshooting-faq.md) | Common problems, answers, glossary |
+| [VS Code extension](../extensions/vscode/README.md) | Run a task and read a trace from the editor; a front end to the CLI, never a second copy of it |
 
 Root documents: `README.md` (landing), `ARCHITECTURE.md`, `ROADMAP.md`,
 `CONTRIBUTING.md`, `SECURITY.md`, `product-gaps.md`, `differentiators.md`.
