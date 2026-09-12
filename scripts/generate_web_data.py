@@ -23,6 +23,7 @@ import shutil
 import sys
 from collections import defaultdict
 from pathlib import Path
+from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -34,6 +35,7 @@ from tooltrace.artifacts.bundles import (
     read_manifest,
     verify_bundle,
 )
+from tooltrace.core.models import EvalResult
 from tooltrace.core.versions import FRAMEWORK_VERSION
 from tooltrace.metrics.aggregate import failure_step
 from tooltrace.metrics.economics import cost_accuracy_points, pareto_frontier
@@ -46,7 +48,7 @@ RESULTS = ROOT / "results"
 WEB_PUBLIC = ROOT / "web" / "public"
 
 
-def _identity(result) -> str:
+def _identity(result: EvalResult) -> str:
     """What the leaderboard treats as one competitor.
 
     The adapter name alone is wrong: `openai_compat` drives Ollama, llama.cpp,
@@ -62,11 +64,11 @@ def _identity(result) -> str:
     return f"{result.agent} · {model}" if model else str(result.agent)
 
 
-def generated_at_stamp(results_rows: list[dict]) -> str:
+def generated_at_stamp(results_rows: list[dict[str, Any]]) -> str:
     return max((r["created_at"] for r in results_rows), default="")
 
 
-def _cost_axis(results: list) -> dict[str, object]:
+def _cost_axis(results: list[EvalResult]) -> dict[str, object]:
     """Cost per resolved task, or nulls when no adapter reported spend."""
     from tooltrace.metrics.economics import cost_summary
 
@@ -79,7 +81,9 @@ def _cost_axis(results: list) -> dict[str, object]:
     }
 
 
-def _security_axis(results: list, metadata_by_task: dict[str, dict]) -> dict[str, object]:
+def _security_axis(
+    results: list[EvalResult], metadata_by_task: dict[str, dict[str, Any]]
+) -> dict[str, object]:
     """Attack-success rate, with the interval and the small-sample flag.
 
     Derived by `tooltrace.metrics.security.attack_success_rate` rather than
@@ -112,7 +116,9 @@ def _security_axis(results: list, metadata_by_task: dict[str, dict]) -> dict[str
 
 
 def _security_posture(
-    results_by_agent: dict[str, list], metadata_by_task: dict[str, dict], rows: list[dict]
+    results_by_agent: dict[str, list[EvalResult]],
+    metadata_by_task: dict[str, dict[str, Any]],
+    rows: list[dict[str, Any]],
 ) -> dict[str, object]:
     """The security-posture index: overall, per attack class, and per run.
 
@@ -146,7 +152,12 @@ def _security_posture(
     runs = []
     for row in sorted(security_rows, key=lambda r: str(r["created_at"])):
         metadata = metadata_by_task.get(str(row["task_id"]), {})
-        attack = metadata.get("attack") if isinstance(metadata.get("attack"), dict) else {}
+        # Bound once and narrowed on that binding. Calling `.get("attack")`
+        # twice -- once in the test and once in the branch -- gives mypy two
+        # unrelated expressions, so the isinstance check narrows the first and
+        # the second stays `Any | dict | None`.
+        raw_attack = metadata.get("attack")
+        attack: dict[str, Any] = raw_attack if isinstance(raw_attack, dict) else {}
         runs.append(
             {
                 "bundle": row["bundle"],
@@ -172,12 +183,12 @@ def main() -> int:
     shutil.rmtree(WEB_PUBLIC / "bundles", ignore_errors=True)
 
     bundles = sorted(RESULTS.glob("*.tooltrace"))
-    results_rows: list[dict] = []
-    tasks: dict[str, dict] = {}
-    per_agent: dict[str, list] = defaultdict(list)
+    results_rows: list[dict[str, Any]] = []
+    tasks: dict[str, dict[str, Any]] = {}
+    per_agent: dict[str, list[EvalResult]] = defaultdict(list)
     # Task metadata carries the declared attack class, which is what turns a
     # failed security run into "an exfiltration attempt succeeded".
-    metadata_by_task: dict[str, dict] = {}
+    metadata_by_task: dict[str, dict[str, Any]] = {}
     verified_bundles: list[Path] = []
     skipped = 0
 

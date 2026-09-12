@@ -79,12 +79,14 @@ def _resolve_closure(roots: list[str]) -> dict[str, str]:
     seen = set(roots)
     while queue:
         name = queue.pop()
-        dist = installed.get(name)
-        if dist is None:
+        # A distinct name: `dist` above is a `Distribution` from the enumeration
+        # loop, and rebinding it to an optional lookup is what mypy objected to.
+        found = installed.get(name)
+        if found is None:
             missing.append(name)
             continue
-        resolved[name] = str(dist.version)
-        for dep in _requires(dist):
+        resolved[name] = str(found.version)
+        for dep in _requires(found):
             if dep not in seen:
                 seen.add(dep)
                 queue.append(dep)
@@ -150,7 +152,9 @@ def main() -> int:
     bom = build()
     rendered = json.dumps(bom, indent=2) + "\n"
     (_ROOT / "sbom.json").write_text(rendered, encoding="utf-8")
-    print(f"sbom.json written ({len(bom['components'])} components)")
+    components = bom["components"]
+    count = len(components) if isinstance(components, list) else 0
+    print(f"sbom.json written ({count} components)")
     return 0
 
 

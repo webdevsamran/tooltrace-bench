@@ -13,11 +13,11 @@
     "scoring.json"
   ],
   "checksums": {
-    "result.json": "33a30abde1cee1f9ed8f192ec8ae62ba02729c2df00f39daa940072a934d54d5",
-    "trace.jsonl": "43a7cedcda542998f6df3f0a66fe306317a67375a890f18ef330ebe02863e780",
-    "task.yaml": "d76dc71a8ec892ea130ac480f5970548bc28e9e885a00db697a42fa9b527cb60",
-    "environment.json": "2c9656f6b16c6316c16ccc9be5f68652fec44ea344cba1d9724cb5c0ba23848a",
-    "workspace.diff": "dbf561fedec2af8389b17cd3f50ef34a4e3cee1d6cf12f810b7fa837e24802ba",
-    "scoring.json": "d869f296765f479d3e681bd12e46c91dd03c8f4218e9eabe45243ed5c97f29a5"
+    "result.json": "5dd2245e518adfb374c5786217dd7f4202a6f9e03fd65a7ffa8a1bccb3cea9c6",
+    "trace.jsonl": "5040d345c5d10faec1ffe5a4626b62834dd27b95b0488eb27907366130203ac7",
+    "task.yaml": "022122819e766419a891a1ad333306820e15c9971ac4c79e79b6fcb940dea4ce",
+    "environment.json": "694e6e52c05738a1059ef9ef0df92e8b6600e68be7ed5438e9e58a7b2c277334",
+    "workspace.diff": "3385c823cbe29bef4959bb3e98c0e4b97df285e416b7ef4d551ec5329f71efbd",
+    "scoring.json": "4fe65e906a3b3d4c0146a242a326cbba167b23f2172b1dd1241a06168921efa8"
   }
 }

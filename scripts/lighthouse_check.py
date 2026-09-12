@@ -37,6 +37,7 @@ import sys
 import tempfile
 import time
 from pathlib import Path
+from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 WEB = ROOT / "web"
@@ -76,7 +77,7 @@ def wait_for(port: int, timeout: float = 60.0) -> bool:
     return False
 
 
-def run_lighthouse(url: str, npx: str) -> dict[str, float] | None:
+def run_lighthouse(url: str, npx: str) -> dict[str, int] | None:
     """Category scores 0-100, or None if Lighthouse could not produce them."""
     with tempfile.TemporaryDirectory(prefix="tooltrace-lh-") as tmp:
         out = Path(tmp) / "report.json"
@@ -150,7 +151,10 @@ def main(argv: list[str] | None = None) -> int:
         origin = f"http://localhost:{args.port}"
 
     try:
-        rows = []
+        # Annotated: a row is a route name beside a set of integer scores,
+        # so the inferred element type would be `dict[str, object]` and
+        # every later comparison against FLOOR an error.
+        rows: list[dict[str, Any]] = []
         for route in ROUTES:
             scores = run_lighthouse(f"{origin.rstrip('/')}{route}", npx)
             if scores is None:
