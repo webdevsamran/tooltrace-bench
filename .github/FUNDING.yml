@@ -1,0 +1,10 @@
+# Renders the "Sponsor" button on the repository page.
+#
+# GitHub Sponsors only. No Open Collective, no Patreon, no crypto address: each
+# extra channel is another account to keep alive and another place a reader has
+# to decide whether to trust, and this project has one maintainer.
+#
+# The terms are in SPONSORS.md, and the first of them is that sponsorship buys
+# no influence over results. That is on the record before any money arrives
+# rather than after.
+github: [webdevsamran]

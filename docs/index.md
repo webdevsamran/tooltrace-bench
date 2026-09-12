@@ -3,6 +3,8 @@
 | Document | Purpose |
 |---|---|
 | [Getting started](getting-started.md) | Install, first run, first benchmark |
+| [Use cases](use-cases.md) | Nine real workflows, from one laptop to an audit committee |
+| [Why ToolTrace Bench](why-tooltrace-bench.md) | Positioning, the category map, and when to use something else |
 | [CLI reference](cli-reference.md) | Every command, flags, exit codes |
 | [Architecture & pipeline](architecture-pipeline.md) | Task/Pack → Experiment → … → Dataset/UI |
 | [Self-hosting & teams](self-hosting.md) | Server mode: RBAC, policy, audit, quotas, webhooks |
