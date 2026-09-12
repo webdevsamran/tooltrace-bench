@@ -7,6 +7,15 @@ versioning follows [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- **Seven read endpoints for the team console**, backed by state the server
+  already held and nothing could ask for: `GET /api/v1/users`, `/approvals`,
+  `/audit`, `/policies`, `/webhooks`, `/workers` and `/baselines`. Users and
+  approvals are scoped to the caller's workspace by the server rather than
+  filtered by the client. The audit endpoint returns the hash-chain verdict
+  *with* the rows, because entries without it are a list of claims. The webhook
+  endpoint never returns the signing secret -- it is the only thing that makes a
+  delivery verifiable, and handing it to a viewer would let them forge one.
+
 - **The quality bar is measured rather than asserted.** Every other end-to-end
   case ran at 1280x800, which is the one width a layout is never broken at. The
   suite now checks five routes at **360px** for sideways scroll, checks that
@@ -181,6 +190,31 @@ versioning follows [Semantic Versioning](https://semver.org/).
   self-contained ones are executed as well.
 
 ### Fixed
+- **The team console showed invented data to a connected server.** Every page
+  under `web/src/pages/workspace/` rendered its `DEMO_*` fixture
+  unconditionally, and `isServerMode()` gated only the DEMO badge — so an
+  administrator who connected a real deployment saw an invented user list, an
+  invented approval queue and three invented workers with invented utilisation
+  rings, **with the badge suppressed precisely because a server was connected**.
+  `shared.tsx` has always opened with the comment "demo rows never leak into
+  data". The claim was exactly backwards.
+
+  The rule now lives in a component rather than a comment: `ConsoleData` takes
+  the live loader *and* the fixture and picks between them, and
+  `tests/test_demo_rows_never_leak.py` refuses a page that reaches around it.
+
+- **The demo fixtures described a product that does not exist.** The baselines
+  fixture had `scope`, `metric` and `tolerance` columns; the webhooks fixture a
+  health `status`; the workers fixture a `utilization` ratio drawn as a progress
+  ring. Nothing in this project measures any of them — there is no heartbeat, so
+  "idle/busy/offline" was a guess. Anyone evaluating the console was being shown
+  a roadmap as if it were a screenshot. Every fixture is now typed as the type
+  the API actually returns, so the compiler refuses the next one.
+
+- **The audit page promised that "tampering breaks verification" and never said
+  whether verification had passed.** A hash chain whose verdict is not displayed
+  is a more expensive text file. The verdict is now above the table.
+
 - **The command-palette button had no accessible name on a phone.** Below 60rem
   its label and shortcut are `display: none` and the glyph is `aria-hidden`, so
   the accessible name was empty. The desktop axe run never saw it — the label is

@@ -331,6 +331,12 @@ class AuditLog:
                 fh.write(json.dumps(entry) + chr(10))
         return entry
 
+    def entries(self, limit: int | None = None) -> list[dict[str, Any]]:
+        """Newest first. A copy, so a caller cannot rewrite the chain by
+        mutating what it was handed."""
+        rows = [dict(e) for e in reversed(self._entries)]
+        return rows[:limit] if limit else rows
+
     def verify_chain(self) -> bool:
         prev = "genesis"
         for e in self._entries:
@@ -443,6 +449,10 @@ class ServerState:
         self.policies: dict[str, WorkspacePolicy] = {}
         self.quotas: dict[str, QuotaTracker] = {}
         self.experiments: dict[str, dict[str, Any]] = {}
+        # Held here rather than constructed per-call so its subscriptions are
+        # addressable: `GET /api/v1/webhooks` cannot list what it cannot reach,
+        # and the console showed invented rows for exactly that reason.
+        self.webhooks: WebhookDispatcher | None = None
         self.events: list[dict[str, Any]] = []  # for SSE
         self.metrics_counters: dict[str, int] = {
             "runs_started": 0,
@@ -625,6 +635,160 @@ def _decide_approval(body: dict[str, Any], user: User | None) -> tuple[int, dict
         details={"approved": body.get("approve")},
     )
     return 200, req.model_dump(mode="json")
+
+
+# ---------------------------------------------------------------------------
+# Read endpoints for the team console.
+#
+# Every one of these existed as server state with no way to ask for it, and the
+# dashboard filled the gap with `DEMO_*` fixtures that it rendered *whether or
+# not a server was connected* -- a connected administrator saw an invented user
+# list, an invented approval queue and three invented workers with invented
+# utilisation. `web/src/pages/workspace/shared.tsx` opens with the comment "demo
+# rows never leak into data". They leaked.
+#
+# Where the server genuinely holds nothing -- there is no baseline store in this
+# process, for instance -- the endpoint says so rather than inventing a row. An
+# empty list with a reason is an answer; a fabricated one is not.
+# ---------------------------------------------------------------------------
+
+
+@route("GET", "/api/v1/users")
+def _list_users(body: dict[str, Any], user: User | None) -> tuple[int, dict[str, Any]]:
+    if user is None:
+        return 401, {"error": "unauthorized"}
+    # Scoped to the caller's workspace, like experiments: a viewer in one
+    # workspace has no business enumerating another's members.
+    visible = [
+        {
+            "user_id": u.user_id,
+            "display_name": u.display_name,
+            "role": u.role,
+            "workspace_id": u.workspace_id,
+            "kind": "service_account" if u.role == "service_account" else "user",
+        }
+        for u in STATE.users.values()
+        if u.workspace_id == user.workspace_id
+    ]
+    return 200, {"users": sorted(visible, key=lambda r: r["user_id"])}
+
+
+@route("GET", "/api/v1/approvals")
+def _list_approvals(body: dict[str, Any], user: User | None) -> tuple[int, dict[str, Any]]:
+    if user is None:
+        return 401, {"error": "unauthorized"}
+    visible = [
+        r.model_dump(mode="json")
+        for r in STATE.approvals.requests.values()
+        if r.workspace_id == user.workspace_id
+    ]
+    return 200, {"approvals": sorted(visible, key=lambda r: str(r.get("request_id")))}
+
+
+@route("GET", "/api/v1/audit")
+def _list_audit(body: dict[str, Any], user: User | None) -> tuple[int, dict[str, Any]]:
+    """The chain, and whether it still verifies.
+
+    The verdict travels with the rows. An audit view that showed entries
+    without saying whether the chain is intact is a list of claims, and the
+    hash chain is the only reason to prefer it to a text file.
+    """
+    if user is None:
+        return 401, {"error": "unauthorized"}
+    # `read_evidence`, which auditor and admin carry: the audit chain is the
+    # evidence, and a viewer has no business enumerating who did what.
+    if not authorize(user, "read_evidence", user.workspace_id):
+        return 403, {"error": "forbidden"}
+    limit = int(body.get("limit") or 200)
+    return 200, {
+        "entries": STATE.audit.entries(limit=limit),
+        "chain_verified": STATE.audit.verify_chain(),
+        "limit": limit,
+    }
+
+
+@route("GET", "/api/v1/policies")
+def _list_policies(body: dict[str, Any], user: User | None) -> tuple[int, dict[str, Any]]:
+    if user is None:
+        return 401, {"error": "unauthorized"}
+    policy = STATE.policies.get(user.workspace_id)
+    quota = STATE.quotas.get(user.workspace_id)
+    return 200, {
+        "workspace_id": user.workspace_id,
+        "policy": policy.model_dump(mode="json") if policy else None,
+        "quota": (
+            {"limits": dict(quota.limits), "used": dict(quota.used)} if quota is not None else None
+        ),
+    }
+
+
+@route("GET", "/api/v1/webhooks")
+def _list_webhooks(body: dict[str, Any], user: User | None) -> tuple[int, dict[str, Any]]:
+    """Subscriptions, never the signing secret.
+
+    The secret is what makes a delivery verifiable; putting it in a read
+    endpoint would hand every viewer the ability to forge one.
+    """
+    if user is None:
+        return 401, {"error": "unauthorized"}
+    dispatcher = STATE.webhooks
+    if dispatcher is None:
+        return 200, {
+            "webhooks": [],
+            "configured": False,
+            "note": "no webhook dispatcher is configured on this server",
+        }
+    return 200, {
+        "webhooks": [
+            {"url": sub["url"], "events": list(sub["events"])} for sub in dispatcher.subscriptions
+        ],
+        "configured": True,
+    }
+
+
+@route("GET", "/api/v1/workers")
+def _list_workers(body: dict[str, Any], user: User | None) -> tuple[int, dict[str, Any]]:
+    """This server's own node, measured -- not a fleet it does not coordinate.
+
+    `tooltrace fleet` coordinates workers through a shared directory, not
+    through this process, so a server asked for "the workers" can honestly
+    report exactly one: itself. Reporting a fleet it has no connection to would
+    be the invented data this endpoint exists to remove.
+    """
+    if user is None:
+        return 401, {"error": "unauthorized"}
+    from tooltrace.executors.experiment import default_worker_inventory
+
+    node = default_worker_inventory("server")
+    return 200, {
+        "workers": [node.model_dump(mode="json")],
+        "note": (
+            "this server's own node. Fleet workers enrol through a shared queue "
+            "(`tooltrace fleet work`) and are not registered with this process"
+        ),
+    }
+
+
+@route("GET", "/api/v1/baselines")
+def _list_baselines(body: dict[str, Any], user: User | None) -> tuple[int, dict[str, Any]]:
+    """The registry `tooltrace baseline` writes, read from where it writes it."""
+    if user is None:
+        return 401, {"error": "unauthorized"}
+    registry_path = Path(".tooltrace-baselines.json")
+    if not registry_path.is_file():
+        return 200, {
+            "baselines": [],
+            "note": "no .tooltrace-baselines.json in this server's working directory",
+        }
+    try:
+        registry = json.loads(registry_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        return 200, {"baselines": [], "note": f"baseline registry unreadable: {exc}"}
+    return 200, {
+        "baselines": [
+            {"name": name, "bundle": str(bundle)} for name, bundle in sorted(registry.items())
+        ]
+    }
 
 
 OPENAPI_SPEC: dict[str, Any] = {

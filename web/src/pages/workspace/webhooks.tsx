@@ -1,37 +1,35 @@
-// HMAC-signed webhooks / integration targets view.
+// Outbound webhook subscriptions.
 
-import { isServerMode } from '../../api'
-import { DataTable, DemoBadge, type Column } from '../../components'
+import { listWebhooks, type WebhookRow } from '../../api'
+import { type Column } from '../../components'
 import { DEMO_WEBHOOKS } from '../demoData'
-import { ServerGate, ServerStatus } from './shared'
+import { ConsoleData, ServerGate, ServerStatus } from './shared'
 
-interface WebhookDisplay {
-  id: string
-  url: string
-  events: string
-  status: string
-}
-
-const WEBHOOK_COLS: Column<WebhookDisplay>[] = [
-  { key: 'id', header: 'ID', value: (w) => w.id },
+const HOOK_COLS: Column<WebhookRow>[] = [
   { key: 'url', header: 'Endpoint', value: (w) => w.url },
-  { key: 'events', header: 'Events', value: (w) => w.events },
-  { key: 'status', header: 'Delivery status', value: (w) => w.status },
+  { key: 'events', header: 'Events', value: (w) => w.events.join(', ') },
 ]
 
 export function WebhooksPage() {
   return (
     <ServerGate>
       <section>
-        <h1>Webhooks & integrations</h1>
+        <h1>Webhooks</h1>
         <p>
-          <ServerStatus /> <span className="muted">
-            Deliveries are HMAC-SHA256 signed with retries and backoff. Email/Slack-compatible targets are
-            generic webhook receivers — vendor secrets never enter core benchmark data.
+          <ServerStatus />{' '}
+          <span className="muted">
+            Deliveries are signed with HMAC-SHA256 in <code>X-ToolTrace-Signature</code> and retried
+            on a non-2xx response. <strong>The signing secret is never returned by the API</strong>:
+            it is the only thing that makes a delivery verifiable, and a read endpoint that handed
+            it out would let any viewer forge one.
           </span>
         </p>
-        {!isServerMode() && <DemoBadge />}
-        <DataTable rows={DEMO_WEBHOOKS} columns={WEBHOOK_COLS} emptyHint="No webhooks registered." />
+        <ConsoleData
+          load={listWebhooks}
+          demo={DEMO_WEBHOOKS}
+          columns={HOOK_COLS}
+          emptyHint="No endpoints subscribed."
+        />
       </section>
     </ServerGate>
   )
