@@ -7,6 +7,23 @@ versioning follows [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- **Backup and restore, because the console was already promising them.**
+  `GET /api/v1/export` returns everything this server holds that exists only in
+  memory -- users, policies, quotas, approvals, experiments and the audit chain
+  -- as one JSON snapshot, and `POST /api/v1/import` restores it. The restore is
+  destructive by design (one that left yesterday's deleted user in place is not
+  a restore), refuses a snapshot from a version it does not understand rather
+  than restoring the half it recognises, and **re-verifies the audit chain**
+  instead of trusting it -- a backup that laundered a tampered chain would
+  defeat the chain. `.tooltrace` bundles are deliberately excluded: they are
+  checksummed files on a disk, and inlining them would be a slower `cp`.
+
+- **`POST /api/v1/retention` applies the retention policy**, with `dry_run`
+  defaulting to **true**. A deletion endpoint whose default is to delete is one
+  somebody triggers while exploring the API. Legal holds are honoured, the
+  deletion is recorded in the audit log, and the response says plainly that
+  administrative retention is not a legal-compliance determination.
+
 - **Seven read endpoints for the team console**, backed by state the server
   already held and nothing could ask for: `GET /api/v1/users`, `/approvals`,
   `/audit`, `/policies`, `/webhooks`, `/workers` and `/baselines`. Users and
@@ -190,6 +207,25 @@ versioning follows [Semantic Versioning](https://semver.org/).
   self-contained ones are executed as well.
 
 ### Fixed
+- **The settings page described two features that did not exist.** It told
+  operators retention was "configurable with deletion of expired records" --
+  `apply_retention` was written, tested, and called by nothing outside its own
+  tests -- and that "self-hosted metadata and artifact references support
+  backup/restore", linking to `docs/self-hosting.md#backup-and-restore`, an
+  anchor that did not exist, for a feature `docs/feature-status.md` graded
+  **N: no backup or restore code ships**. Two shipped artifacts of this project
+  contradicted each other and the console was the one lying. Both are now
+  buttons that call endpoints that do the thing, and row 121 is **I**.
+
+- **The policies page advertised three settings nothing enforces.**
+  `max_concurrency`, `monthly_token_budget` and `monetary_budget_usd` appear
+  nowhere in `WorkspacePolicy` or in any code path. The table is now built from
+  the policy the server returns, so it can only show settings that exist.
+
+- **`POLICY_DEMO` walked straight past the demo-leak gate** by not being called
+  `DEMO_*`. The pattern now matches either spelling: a check that only catches
+  the naming convention catches only the developers who follow it.
+
 - **The team console showed invented data to a connected server.** Every page
   under `web/src/pages/workspace/` rendered its `DEMO_*` fixture
   unconditionally, and `isServerMode()` gated only the DEMO badge — so an
