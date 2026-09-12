@@ -391,3 +391,107 @@ export function useAsync<T>(fn: () => Promise<T>, deps: unknown[] = []): AsyncSt
   }, deps)
   return { data, loading, error }
 }
+
+// ---------- team-console reads (server mode only) ----------
+//
+// Every one of these pages used to render a `DEMO_*` constant, and render it
+// whether or not a server was connected -- the DEMO badge was the only thing
+// gated on `isServerMode()`, so a connected administrator saw invented rows
+// with no indication they were invented. The server had no list endpoints to
+// call; it does now, and these are the calls.
+//
+// Each returns the payload's `note` where the server sends one. "No webhooks"
+// and "webhooks are not configured on this server" are different facts, and a
+// console that rendered both as an empty table would be hiding the difference.
+
+export interface ConsoleUser {
+  user_id: string
+  display_name: string
+  role: string
+  workspace_id: string
+  kind: string
+}
+
+export interface AuditEntry {
+  seq: number
+  timestamp: string
+  actor: string
+  action: string
+  target: string
+  details: Record<string, unknown>
+  entry_hash: string
+  prev_hash: string
+}
+
+export interface WorkerRow {
+  worker_id: string
+  os_name: string
+  arch: string
+  python_version: string
+  container_runtime: string | null
+  browser: boolean
+  gpu: boolean
+  gpu_detection: string
+  gpu_names: string[]
+  max_concurrency: number
+  registered_at: string
+}
+
+export interface WebhookRow {
+  url: string
+  events: string[]
+}
+
+export interface BaselineRow {
+  name: string
+  bundle: string
+}
+
+export interface PolicyView {
+  workspace_id: string
+  policy: Record<string, unknown> | null
+  quota: { limits: Record<string, number>; used: Record<string, number> } | null
+}
+
+/** A list plus whatever the server said about why it is the length it is. */
+export interface Listed<T> {
+  rows: T[]
+  note?: string
+  configured?: boolean
+}
+
+export async function listUsers(): Promise<Listed<ConsoleUser>> {
+  const d = await apiGet<{ users: ConsoleUser[]; note?: string }>('/api/v1/users')
+  return { rows: d.users, note: d.note }
+}
+
+export async function listApprovals(): Promise<Listed<ApprovalRow>> {
+  const d = await apiGet<{ approvals: ApprovalRow[]; note?: string }>('/api/v1/approvals')
+  return { rows: d.approvals, note: d.note }
+}
+
+export async function listAudit(): Promise<Listed<AuditEntry> & { chainVerified: boolean }> {
+  const d = await apiGet<{ entries: AuditEntry[]; chain_verified: boolean }>('/api/v1/audit')
+  return { rows: d.entries, chainVerified: Boolean(d.chain_verified) }
+}
+
+export async function listWorkers(): Promise<Listed<WorkerRow>> {
+  const d = await apiGet<{ workers: WorkerRow[]; note?: string }>('/api/v1/workers')
+  return { rows: d.workers, note: d.note }
+}
+
+export async function listWebhooks(): Promise<Listed<WebhookRow>> {
+  const d = await apiGet<{ webhooks: WebhookRow[]; note?: string; configured?: boolean }>(
+    '/api/v1/webhooks',
+  )
+  return { rows: d.webhooks, note: d.note, configured: d.configured }
+}
+
+export async function listBaselines(): Promise<Listed<BaselineRow>> {
+  const d = await apiGet<{ baselines: BaselineRow[]; note?: string }>('/api/v1/baselines')
+  return { rows: d.baselines, note: d.note }
+}
+
+export async function getPolicies(): Promise<PolicyView> {
+  return apiGet<PolicyView>('/api/v1/policies')
+}

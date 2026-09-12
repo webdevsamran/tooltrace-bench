@@ -1,78 +1,110 @@
 // Worker capacity inventory and live system health/readiness views.
 
 import { useEffect, useState } from 'react'
-import { fetchHealth, isServerMode } from '../../api'
-import { DataTable, EmptyState, ErrorState, Loading, NoPermission, type Column } from '../../components'
-import { Ring } from '../../charts'
-import { DEMO_WORKERS, type DemoWorker } from '../demoData'
-import { ServerGate, ServerStatus } from './shared'
+import { fetchHealth, listWorkers, type WorkerRow } from '../../api'
+import { EmptyState, ErrorState, Loading, NoPermission, type Column } from '../../components'
+import { DEMO_WORKERS } from '../demoData'
+import { ConsoleData, ServerGate, ServerStatus } from './shared'
 
-const WORKER_COLS: Column<DemoWorker>[] = [
-  { key: 'id', header: 'Worker', value: (w) => w.id },
-  { key: 'os', header: 'OS / arch', value: (w) => `${w.os}/${w.arch}` },
-  { key: 'containers', header: 'Containers', value: (w) => w.containers },
-  { key: 'browser', header: 'Browser', value: (w) => w.browser },
-  { key: 'gpu', header: 'GPU', value: (w) => w.gpu },
-  { key: 'status', header: 'Status', value: (w) => w.status },
-  { key: 'util', header: 'Utilization', value: (w) => `${Math.round(w.utilization * 100)}%`, numeric: true },
+/**
+ * The columns are what a `WorkerInventory` actually reports.
+ *
+ * They were `status` and a `utilization` percentage rendered as a progress
+ * ring. Nothing in this project measures either: there is no heartbeat, so
+ * "idle/busy/offline" was a guess, and the ring drew a number that came from a
+ * fixture. Both are gone rather than reworded -- a dashboard that shows a
+ * plausible number nobody computed is the failure this whole project is built
+ * against.
+ *
+ * `gpu_detection` is here because `gpu` alone is not an answer: an AMD or Apple
+ * GPU on a machine without `nvidia-smi` is indistinguishable from no GPU, and
+ * the field says which of the two this is.
+ */
+const WORKER_COLS: Column<WorkerRow>[] = [
+  { key: 'id', header: 'Worker', value: (w) => w.worker_id },
+  { key: 'os', header: 'OS / arch', value: (w) => `${w.os_name} / ${w.arch}` },
+  { key: 'python', header: 'Python', value: (w) => w.python_version },
+  { key: 'containers', header: 'Containers', value: (w) => w.container_runtime ?? 'none' },
+  {
+    key: 'gpu',
+    header: 'GPU',
+    value: (w) => (w.gpu ? w.gpu_names.join(', ') || 'yes' : `none (${w.gpu_detection})`),
+  },
+  { key: 'conc', header: 'Max concurrency', value: (w) => w.max_concurrency, numeric: true },
 ]
 
 export function WorkersPage() {
   return (
     <ServerGate>
       <section>
-        <h1>Workers & capacity</h1>
+        <h1>Workers &amp; capacity</h1>
         <p>
           <ServerStatus />{' '}
-          <span className="muted">Capability inventory reported at enrollment: OS, architecture, container runtime, browser, GPU.</span>
+          <span className="muted">
+            Capability inventory measured on the node, not declared: OS, architecture, Python,
+            container runtime and GPU. A server reports one worker — itself. Fleet workers enrol
+            through a shared queue with <code>tooltrace fleet work</code> and are not registered
+            with this process, so they are not listed here rather than being guessed at.
+          </span>
         </p>
-        <DataTable rows={DEMO_WORKERS} columns={WORKER_COLS} emptyHint="No workers enrolled." />
-        <div className="grid stats">
-          {DEMO_WORKERS.filter((w) => w.status !== 'offline').map((w) => (
-            <div key={w.id} className="card">
-              <Ring value={w.utilization} label={`${w.id} utilization`} />
-              <span>{w.id}</span>
-            </div>
-          ))}
-        </div>
+        <ConsoleData
+          load={listWorkers}
+          demo={DEMO_WORKERS}
+          columns={WORKER_COLS}
+          emptyHint="No workers reported."
+        />
       </section>
     </ServerGate>
   )
 }
 
-interface HealthSnapshot {
-  healthz: boolean
-  readyz: boolean
-  metricsText: string
-}
-
 export function SystemHealthPage() {
-  const [info, setInfo] = useState<HealthSnapshot | null>(null)
-  const [err, setErr] = useState<string | null>(null)
+  const [health, setHealth] = useState<Awaited<ReturnType<typeof fetchHealth>> | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
   useEffect(() => {
-    if (!isServerMode()) return
-    fetchHealth().then(setInfo).catch((e: unknown) => setErr(String(e)))
+    let alive = true
+    fetchHealth()
+      .then((h) => {
+        if (alive) setHealth(h)
+      })
+      .catch((e: unknown) => {
+        if (alive) setError(e instanceof Error ? e.message : String(e))
+      })
+    return () => {
+      alive = false
+    }
   }, [])
+
   return (
     <ServerGate>
       <section>
         <h1>System health</h1>
-        <p><ServerStatus /></p>
-        {err && <ErrorState message={err} />}
-        {!isServerMode() && <EmptyState hint="Connect to a server to view live health, readiness and Prometheus metrics." />}
-        {info && (
-          <>
-            <p>
-              <span className={`badge ${info.healthz ? 'badge-ok' : 'badge-bad'}`}>healthz: {info.healthz ? 'ok' : 'down'}</span>{' '}
-              <span className={`badge ${info.readyz ? 'badge-ok' : 'badge-bad'}`}>readyz: {info.readyz ? 'ready' : 'not ready'}</span>
-            </p>
-            <h2>Prometheus metrics</h2>
-            <pre aria-label="Prometheus metrics">{info.metricsText || '(no metrics)'}</pre>
-          </>
+        <p>
+          <ServerStatus />{' '}
+          <span className="muted">
+            <code>/healthz</code> answers whether the process is up; <code>/readyz</code> whether it
+            is willing to take work. They are separate questions and a single green dot would
+            conflate them.
+          </span>
+        </p>
+        {error && <ErrorState message={error} />}
+        {!health && !error && <Loading />}
+        {health && (
+          <div className="grid stats">
+            <div className="stat">
+              <span className="stat-label">Live (/healthz)</span>
+              <span className="stat-value">{health.healthz ? 'yes' : 'no'}</span>
+            </div>
+            <div className="stat">
+              <span className="stat-label">Ready (/readyz)</span>
+              <span className="stat-value">{health.readyz ? 'yes' : 'no'}</span>
+            </div>
+          </div>
         )}
-        {!info && isServerMode() && !err && <Loading label="Checking server…" />}
-        <NoPermission hint="Pages show this automatically when the server answers HTTP 403 for a gated action." />
       </section>
     </ServerGate>
   )
 }
+
+export { EmptyState, NoPermission }
