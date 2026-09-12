@@ -594,7 +594,31 @@ def _metrics(body: dict[str, Any], user: User | None) -> tuple[int, dict[str, An
 def _create_experiment(body: dict[str, Any], user: User | None) -> tuple[int, dict[str, Any]]:
     if user is None or not authorize(user, "run_experiments", str(body.get("workspace_id", ""))):
         return 403, {"error": "forbidden"}
-    quota = STATE.quotas.get(str(body.get("workspace_id")))
+    workspace_id = str(body.get("workspace_id", ""))
+
+    # Policy is evaluated here, before anything is queued.
+    #
+    # `evaluate_policy` was written, tested, and called by nothing -- so a
+    # workspace could declare allowed providers, allowed models, allowed task
+    # packs and permitted network modes, and the server would queue a run that
+    # violated every one of them. The console described those settings as
+    # governing what a workspace may do; they governed nothing.
+    #
+    # Before the quota, deliberately: a run the policy forbids should not consume
+    # the budget it was never allowed to spend.
+    policy = STATE.policies.get(workspace_id)
+    if policy is not None:
+        verdict = evaluate_policy("run_experiment", body, policy)
+        if not verdict["allowed"]:
+            STATE.audit.append(
+                actor=user.user_id,
+                action="experiment.denied",
+                target=workspace_id,
+                details={"violations": verdict["violations"]},
+            )
+            return 403, {"error": "policy violation", "violations": verdict["violations"]}
+
+    quota = STATE.quotas.get(workspace_id)
     if quota is not None and not quota.consume("runs"):
         return 429, {"error": "quota exceeded"}
     exp_id = "exp-" + secrets.token_hex(6)
@@ -910,6 +934,49 @@ def import_state(snapshot: dict[str, Any]) -> dict[str, Any]:
         "audit_entries": len(snapshot["audit"]),
         "chain_verified": STATE.audit.verify_chain(),
     }
+
+
+@route("POST", "/api/v1/auditor-grants")
+def _issue_auditor_grant(body: dict[str, Any], user: User | None) -> tuple[int, dict[str, Any]]:
+    """Issue a time-boxed, watermarked, read-only grant to an outside reviewer.
+
+    `auditor_grant` had no caller: the role, the expiry and the watermark all
+    existed and there was no way to obtain one, so "auditor mode" was a
+    capability nobody could use.
+
+    The token is returned exactly once, here, and never again -- the store keeps
+    only a hash. An endpoint that could re-read an issued token would make the
+    hashing pointless.
+    """
+    if user is None:
+        return 401, {"error": "unauthorized"}
+    if not authorize(user, "manage_members", user.workspace_id):
+        return 403, {"error": "forbidden"}
+    name = str(body.get("auditor_name") or "").strip()
+    if not name:
+        return 400, {"error": "auditor_name is required"}
+    try:
+        ttl_days = int(body.get("ttl_days", 14))
+    except (TypeError, ValueError):
+        return 400, {"error": "ttl_days must be an integer"}
+    if ttl_days < 1:
+        return 400, {"error": "ttl_days must be at least 1"}
+
+    grant = auditor_grant(
+        STATE.tokens,
+        STATE.users,
+        auditor_name=name,
+        workspace_id=user.workspace_id,
+        issued_by=user.user_id,
+        ttl_days=ttl_days,
+    )
+    STATE.audit.append(
+        actor=user.user_id,
+        action="auditor.grant",
+        target=name,
+        details={"ttl_days": ttl_days, "workspace_id": user.workspace_id},
+    )
+    return 201, grant
 
 
 @route("GET", "/api/v1/export")

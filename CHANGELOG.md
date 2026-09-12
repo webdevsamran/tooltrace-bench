@@ -7,6 +7,14 @@ versioning follows [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- **`scripts/check_reachability.py`** counts public symbols nothing in shipped
+  code refers to — this project's most common defect, by a wide margin. 30 of
+  576: five reached from outside the repository (a pytest hook, plugin
+  protocols, deployment-selected auth providers) and **25 written ahead of a
+  caller**, each named with its reason. The second list is a debt register
+  rather than an exemption list, it is one-directional, and CI fails on a new
+  entry.
+
 - **Backup and restore, because the console was already promising them.**
   `GET /api/v1/export` returns everything this server holds that exists only in
   memory -- users, policies, quotas, approvals, experiments and the audit chain
@@ -207,6 +215,38 @@ versioning follows [Semantic Versioning](https://semver.org/).
   self-contained ones are executed as well.
 
 ### Fixed
+- **Every bundle produced on Windows was unverifiable on Linux and macOS.**
+  `Path.write_text` applies the platform's newline translation, and the manifest
+  checksums are taken over the bytes on disk — so a bundle written on Windows
+  committed CRLF content *and* CRLF checksums, and `tooltrace verify` then
+  reported six checksum mismatches per bundle on every other platform, on
+  bundles nobody had touched.
+
+  It could not be caught locally, because locally everything is Windows. CI
+  caught it on the first push, which is the argument for running the suite on
+  three operating systems. Every bundle file is now written with an explicit
+  `newline="
+"`, as are the committed summary, the HTML report and the
+  generated web data.
+
+- **No `.gitattributes`,** so git normalised on commit and translated on
+  checkout according to whoever cloned the repository. A correct writer still
+  produces a broken checkout without it. Source is now `text=auto eol=lf`;
+  `results/**`, `tests/fixtures/**`, `web/public/data/**` and `data/**` are
+  `-text`, because a checksummed artifact must not be "fixed" in transit.
+
+- **`evaluate_policy` was never called.** A workspace could declare allowed
+  providers, allowed models, allowed task packs and permitted network modes, and
+  the server queued runs that violated every one of them — while the console
+  described those settings as governing the workspace. It is now evaluated in
+  `_create_experiment`, *before* the quota, so a forbidden run does not spend a
+  budget it was never allowed to spend, and the denial is audited.
+
+- **An auditor grant could not be obtained.** The read-only role, the enforced
+  expiry and the watermark all existed with no way to issue one.
+  `POST /api/v1/auditor-grants` issues one; the token is returned exactly once,
+  because the store keeps only a hash.
+
 - **The settings page described two features that did not exist.** It told
   operators retention was "configurable with deletion of expired records" --
   `apply_retention` was written, tested, and called by nothing outside its own
