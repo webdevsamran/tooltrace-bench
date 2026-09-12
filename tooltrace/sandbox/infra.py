@@ -267,7 +267,14 @@ def sample_resource_usage(pid: int | None = None) -> dict[str, Any]:
         if os.name == "posix":
             import resource
 
-            ru = resource.getrusage(resource.RUSAGE_CHILDREN)  # type: ignore[attr-defined]
+            # `unused-ignore` alongside `attr-defined`, because this ignore is
+            # needed on one platform and forbidden on the other. `resource` is
+            # POSIX-only: on Windows mypy cannot resolve `RUSAGE_CHILDREN` and
+            # the ignore is required; on Linux it resolves, the ignore is
+            # unused, and `strict = true` makes that an error. Developing on
+            # Windows and running CI on Linux meant the file could not satisfy
+            # both until the ignore said it might not be needed.
+            ru = resource.getrusage(resource.RUSAGE_CHILDREN)  # type: ignore[attr-defined, unused-ignore]
             info["cpu_seconds"] = ru.ru_utime + ru.ru_stime
             info["max_rss_kb"] = ru.ru_maxrss
         else:
