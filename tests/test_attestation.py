@@ -54,12 +54,29 @@ ELSEWHERE = {
 
 @pytest.fixture
 def bundle(tmp_path: Path) -> Path:
-    source = sorted(_RESULTS.glob("*.tooltrace"))
-    if not source:
-        pytest.skip("no committed bundles")
-    target = tmp_path / source[0].name
-    shutil.copytree(source[0], target)
-    return target
+    """A bundle produced *by this machine*, not copied from the repository.
+
+    It used to copy a committed bundle out of `results/`, which made the
+    load-bearing test below assert that the hardware profile recorded in a file
+    somebody else generated matched the profile of whoever is running the suite.
+    That is only true on the machine the fixtures were last regenerated on: the
+    moment they were regenerated on Windows, `machine_relation` correctly
+    answered `different_machine` on every Linux and macOS runner and the test
+    failed everywhere but here.
+
+    The test is about same-machine versus independent reproduction, so the
+    bundle has to come from the machine running it. Generating it does exactly
+    that and costs one scripted run.
+    """
+    from tooltrace.artifacts.bundles import write_bundle
+    from tooltrace.runners.runner import TaskRunner
+    from tooltrace.tasks import load_all_tasks
+
+    task = next(t for t in load_all_tasks() if t.id == "file-editing/fix-config-typo")
+    script = task.metadata.get("scripted_script")
+    config = {"script": script} if isinstance(script, list) else None
+    result, events, diff = TaskRunner().run(task, "scripted", config)
+    return write_bundle(tmp_path, result, events, task, diff, {})
 
 
 def attest(bundle: Path, **over) -> dict:
