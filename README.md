@@ -11,9 +11,22 @@
 
 **Vendor-neutral, reproducible benchmarking of AI agents** across coding, tool use, file operations, multi-step workflows, failure recovery, latency, cost and reliability.
 
+> **AI agent evaluation that scores the whole run.** Other tools score the tool
+> call, or watch production, or probe security. ToolTrace Bench measures the
+> entire trajectory — correctness, recovery, side effects, cost, latency and
+> prompt-injection resistance — and hands you a checksummed `.tooltrace` bundle
+> that a third party can reproduce and an auditor can accept.
+
+**Use it for:** LLM agent evaluation · tool-calling benchmarks · agent
+reliability testing in CI · MCP conformance testing · prompt-injection and
+OWASP Agentic Top 10 assessment · cost-per-resolved-task analysis · EU AI Act
+and NIST AI RMF evidence · scoring OpenTelemetry GenAI traces from production
+coding agents.
+
 - **Creator / Founder / Lead Maintainer:** [@webdevsamran](https://github.com/webdevsamran)
 - **License:** Apache-2.0
 - **Status:** Beta (v0.3.0)
+- **Runs offline by default.** No telemetry, no phone-home, no account.
 
 ---
 
@@ -31,6 +44,42 @@ Most agent benchmarks optimize for headline scores. They rarely answer the quest
 - Does reliability **degrade as context grows**?
 
 ToolTrace Bench is a **reliability laboratory**, not a leaderboard hype machine. It emphasizes repeatability, tool behavior, failure recovery, complete traces, and CI regression gates — locally and offline by default.
+
+## Who this is for
+
+**Individual developers.** One command points it at the agent you already have
+and tells you what happened. It runs on a laptop, offline, with no account and
+no API key unless you supply one. `tooltrace init --agent subprocess --command
+"my-agent --task {objective}"`.
+
+**Teams shipping agents.** A GitHub Action, CI subsets that fit a normal budget,
+and a PR bot that reports a confidence interval rather than calling a
+two-point move a regression. Merge-queue gating and a token-efficiency gate are
+built in.
+
+**Platform and SRE teams.** Score your *production* traces: Claude Code, GitHub
+Copilot and Codex emit OpenTelemetry GenAI spans, and `tooltrace ingest` turns
+them into scored trajectories. Drift detection, silent-quality-decay alarms,
+SLOs with error budgets, a Prometheus endpoint, and exporters for Langfuse,
+Phoenix, Datadog, W&B and MLflow.
+
+**Security engineers.** An indirect prompt-injection suite, an offline egress
+sink that performs zero network I/O so exfiltration becomes workspace-observable,
+excessive-agency and blast-radius scoring, MCP server fuzzing, and an OWASP
+Agentic Top 10 coverage matrix generated from the packs that actually run.
+
+**Compliance, risk and audit.** A dated, hash-chained evidence dossier mapping
+runs to EU AI Act Art. 9/11/12/15 obligations, NIST AI RMF and ISO/IEC 42001
+control mappings, a system-card generator built from real run data, auditor mode
+with time-boxed read-only grants, and a self-audit command that scores *your own*
+evidence completeness. It never issues a compliance determination — it assembles
+what a reviewer needs to make one.
+
+**Researchers.** Bootstrap and BCa confidence intervals, Newcombe
+difference-of-Wilson comparisons, Bayesian A/B, power analysis and minimum
+detectable effect, variance decomposition separating model from harness
+nondeterminism, and anti-gaming checks that look for leaked expected values,
+modified fixtures and skipped assertions.
 
 ## Point it at your own agent
 
@@ -362,8 +411,10 @@ Two caveats worth stating rather than leaving implied:
 ## Documentation
 
 Full docs hierarchy in [`docs/`](docs/index.md): [getting started](docs/getting-started.md),
-[CLI reference](docs/cli-reference.md) (incl. `lint`, `dry-run`, `self-test`, `snapshot`,
-`server`), [architecture pipeline](docs/architecture-pipeline.md),
+[Use cases](docs/use-cases.md) (nine workflows, from one laptop to an audit
+committee), [why ToolTrace Bench](docs/why-tooltrace-bench.md) (positioning, and when
+to use something else), [CLI reference](docs/cli-reference.md) (incl. `lint`, `dry-run`,
+`self-test`, `snapshot`, `server`), [architecture pipeline](docs/architecture-pipeline.md),
 [self-hosting & teams](docs/self-hosting.md) (RBAC, policy-as-code, audit, quotas,
 signed webhooks), [security threat model](docs/threat-model.md),
 [competitive analysis](docs/competitive-analysis.md), [troubleshooting/FAQ](docs/troubleshooting-faq.md).
@@ -400,6 +451,135 @@ promptfoo, DeepEval) that run and grade them, and **tracing platforms** (Langfus
 AgentOps) that record what happened. ToolTrace Bench spans the first two with a specific
 constraint: the score comes from the execution trace and the final workspace, never from a
 model's opinion of its own work.
+
+## Frequently asked questions
+
+**Is ToolTrace Bench a leaderboard or a testing tool?**
+Both, in that order of importance. It is a harness you run in CI against *your*
+agent; the public leaderboard is generated from bundles anyone can reproduce.
+The score always comes from the execution trace and the final workspace — never
+from a model's opinion of its own work.
+
+**How is this different from SWE-bench, BFCL or tau-bench?**
+Those are *task suites*: they define problems. ToolTrace Bench is a harness that
+runs and grades them, and it also imports from all three
+(`tooltrace import --format swe-bench|bfcl|tau-bench|agentbench`). What it adds
+is the axes nobody else unifies: side effects, recovery, cost, latency, security
+resilience and reproducible evidence in one run.
+
+**How is it different from Langfuse, Phoenix or AgentOps?**
+Those are observability platforms that record what happened in production. They
+are integration targets here, not competitors —
+`tooltrace platforms --target langfuse|phoenix|datadog|wandb|mlflow` exports to
+them. This is the harness that produces the runs they display.
+
+**Does it need an API key or send anything anywhere?**
+No. It is offline by default: tasks run in a temporary workspace with network
+access denied at the tool layer, there is no telemetry, and nothing phones home.
+A key is needed only if *you* choose an adapter that calls a hosted model, and
+even then the config takes the *name* of an environment variable rather than the
+key itself.
+
+**Can I run it against a local model?**
+Yes. Ollama, llama.cpp, LM Studio, vLLM and SGLang all speak the OpenAI chat API
+and run through one adapter. `tooltrace backends` shows which are listening.
+Runs record GPU, VRAM, backend, engine version and quantization, so two numbers
+from two machines are never silently compared.
+
+**What does a `.tooltrace` bundle contain?**
+Six files plus a manifest of SHA-256 checksums: the task as it was run, the full
+trace, the final workspace diff, the score with every assertion, the environment,
+and the result. `tooltrace verify` checks the checksums, the schemas and the
+anti-gaming integrity checks; `tooltrace reproduce` re-runs it.
+
+**Can it produce evidence for the EU AI Act?**
+It can assemble it. `tooltrace evidence` emits a dated, hash-chained dossier
+mapping runs to Art. 9, 11, 12 and 15 obligations, and `--framework` re-files the
+same facts against NIST AI RMF or ISO/IEC 42001. Every mapping lists the controls
+**no benchmark can evidence**, so a partial mapping is never mistaken for
+coverage. It is not a compliance determination and does not claim to be one.
+
+**Is there a hosted version?**
+No, and that is deliberate. It is self-hostable (`tooltrace server`) with RBAC,
+policy-as-code, quotas, signed webhooks and a hash-chained audit log — all of it
+running on your own infrastructure, where the data stays.
+
+**Does it work on Windows and macOS?**
+Yes. CI runs the suite on Ubuntu, Windows and macOS on every push.
+
+**How do I score traces from Claude Code, Copilot or Codex?**
+`tooltrace ingest --format otel-spans --in trace.json` converts OpenTelemetry
+GenAI spans into ToolTrace trace events, which then flow through classification,
+replay and scoring unchanged. See
+[docs/production-traces.md](docs/production-traces.md).
+
+**Is it production-ready?**
+It is Beta (v0.3.0). Every capability claim in this repository is graded in
+[docs/feature-status.md](docs/feature-status.md), machine-checked in CI, and the
+grades include **E** for "works, with external validation blocked" and **N** for
+"does not exist". Read that table before depending on anything.
+
+## Sponsor this project
+
+ToolTrace Bench is Apache-2.0, built in the open, and has no company behind it.
+If it saves your team a customer-facing agent failure — the thing half of
+enterprises surveyed in 2026 said they had already shipped — sponsorship is what
+keeps the task packs, security suites and compliance mappings current.
+
+**[Sponsor @webdevsamran on GitHub](https://github.com/sponsors/webdevsamran)**
+
+What sponsorship funds, in priority order:
+
+1. **Keeping the security suite current.** OWASP's Agentic Top 10 moves, and a
+   prompt-injection corpus that is a year old measures last year's attacks.
+2. **Compliance mappings as the deadlines land.** EU AI Act Annex III duties
+   apply from 2 December 2027 and Annex I from 2 August 2028.
+3. **Task packs in regulated domains** — finance, healthcare and legal — which
+   need review by people who work in them.
+4. **Reproduction infrastructure**, so a published result can be independently
+   re-run rather than taken on trust.
+
+Other ways to help, all of which matter and none of which cost money:
+
+- **Reproduce a published result** and open an attestation
+  (`tooltrace attest <bundle>`). A benchmark nobody has independently re-run is
+  a claim.
+- **Contribute a task pack** from your own domain. The packs are YAML and the
+  guide is in [CONTRIBUTING.md](CONTRIBUTING.md).
+- **Report an honest failure.** A case where the harness scored something wrong
+  is worth more than a feature request.
+- **Star the repository** — it is the only distribution signal this project has.
+
+Sponsors are credited in [SPONSORS.md](SPONSORS.md) unless they ask not to be.
+Sponsorship buys no influence over results: the scoring is deterministic, the
+leaderboard is generated from verified bundles, and there is no mechanism by
+which a sponsor could alter either. That is stated here because it is the first
+question a reader should ask of any benchmark that takes money.
+
+## Credits
+
+ToolTrace Bench stands on work it does not own:
+
+- **[Model Context Protocol](https://modelcontextprotocol.io)** (Anthropic) — the
+  tool layer this project tests conformance against.
+- **[OpenTelemetry GenAI semantic conventions](https://opentelemetry.io/docs/specs/semconv/gen-ai/)**
+  — the span vocabulary that makes production traces scorable.
+- **[OWASP Top 10 for Agentic Applications](https://owasp.org/)** — the taxonomy
+  the security packs are organised around.
+- **[NIST AI Risk Management Framework](https://www.nist.gov/itl/ai-risk-management-framework)**
+  and **ISO/IEC 42001** — the control sets the evidence dossier maps to.
+- **The Holistic Agent Leaderboard** (Princeton) — whose published critique of
+  agent evaluation infrastructure shaped what this project measures.
+- **[BFCL / Gorilla](https://github.com/ShishirPatil/gorilla)**,
+  **[SWE-bench](https://github.com/princeton-nlp/SWE-bench)**, **tau-bench** and
+  **AgentBench** — importers exist for all four, and their task design informed
+  the trajectory scorers.
+
+No corpus from any of these is vendored. Where a licence forbids it — BIPIA is
+NOASSERTION — that is stated rather than worked around.
+
+See [AUTHORS](AUTHORS), [MAINTAINERS](MAINTAINERS) and
+[CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Citation
 
