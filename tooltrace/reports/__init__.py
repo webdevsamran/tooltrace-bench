@@ -174,7 +174,7 @@ def export_report(payload: dict[str, Any], fmt: str, dest: Path | None = None) -
     )
     if dest is not None:
         dest.parent.mkdir(parents=True, exist_ok=True)
-        dest.write_text(text, encoding="utf-8")
+        dest.write_text(text, encoding="utf-8", newline="\n")
     return text
 
 

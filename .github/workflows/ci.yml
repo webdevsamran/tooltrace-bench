@@ -68,6 +68,8 @@ jobs:
         # but was typed by hand. In a sibling repo that drifted into
         # publishing that a live competitor's repo was gone.
         run: python scripts/generate_landscape.py --check
+      - name: No new unreachable public symbols
+        run: python scripts/check_reachability.py --check
       - name: Docs cite modules that exist
         # docs/differentiators.md cited four modules that do not exist, including
         # one describing a capability that never has. The link check only

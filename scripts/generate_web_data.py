@@ -248,12 +248,14 @@ def main() -> int:
         out.mkdir(parents=True, exist_ok=True)
         trace_lines = [
             json.loads(line)
-            for line in (bundle / "trace.jsonl").read_text(encoding="utf-8").splitlines()
+            for line in (bundle / "trace.jsonl")
+            .read_text(encoding="utf-8", newline="\n")
+            .splitlines()
             if line.strip()
         ]
-        (out / "trace.json").write_text(json.dumps(trace_lines), encoding="utf-8")
+        (out / "trace.json").write_text(json.dumps(trace_lines), encoding="utf-8", newline="\n")
         (out / "workspace.diff.txt").write_text(
-            (bundle / "workspace.diff").read_text(encoding="utf-8"), encoding="utf-8"
+            (bundle / "workspace.diff").read_text(encoding="utf-8", newline="\n"), encoding="utf-8"
         )
 
     agents_rows = []
@@ -301,12 +303,19 @@ def main() -> int:
             indent=2,
         ),
         encoding="utf-8",
+        newline="\n",
     )
     (data_dir / "tasks.json").write_text(
-        json.dumps(sorted(tasks.values(), key=lambda t: t["id"]), indent=2), encoding="utf-8"
+        json.dumps(sorted(tasks.values(), key=lambda t: t["id"]), indent=2),
+        encoding="utf-8",
+        newline="\n",
     )
-    (data_dir / "results.json").write_text(json.dumps(results_rows, indent=2), encoding="utf-8")
-    (data_dir / "agents.json").write_text(json.dumps(agents_rows, indent=2), encoding="utf-8")
+    (data_dir / "results.json").write_text(
+        json.dumps(results_rows, indent=2), encoding="utf-8", newline="\n"
+    )
+    (data_dir / "agents.json").write_text(
+        json.dumps(agents_rows, indent=2), encoding="utf-8", newline="\n"
+    )
 
     # The cost/accuracy frontier. `pareto_frontier` had no caller outside the
     # tests, so the question it answers -- which agents is nobody beating on both
@@ -337,6 +346,7 @@ def main() -> int:
             indent=2,
         ),
         encoding="utf-8",
+        newline="\n",
     )
 
     generated_at = max((r["created_at"] for r in results_rows), default="")
@@ -349,6 +359,7 @@ def main() -> int:
             indent=2,
         ),
         encoding="utf-8",
+        newline="\n",
     )
 
     # The reliability badge, so this project's own README can carry the number
@@ -358,7 +369,7 @@ def main() -> int:
     badge_dir = WEB_PUBLIC / "badge"
     badge_dir.mkdir(parents=True, exist_ok=True)
     facts = badge_from_bundles(verified_bundles)
-    (badge_dir / "reliability.svg").write_text(render_svg(facts), encoding="utf-8")
+    (badge_dir / "reliability.svg").write_text(render_svg(facts), encoding="utf-8", newline="\n")
     (badge_dir / "reliability.json").write_text(
         json.dumps(render_endpoint(facts), indent=2), encoding="utf-8"
     )
@@ -371,6 +382,7 @@ def main() -> int:
             build_dossier(verified_bundles, generated_at=generated_at or "unknown"), indent=2
         ),
         encoding="utf-8",
+        newline="\n",
     )
     print(
         f"web data: {len(results_rows)} results, {len(tasks)} tasks, "

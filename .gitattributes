@@ -1,0 +1,33 @@
+# Line endings, decided here rather than by whoever cloned the repository.
+#
+# Without this file git normalises on commit and translates on checkout
+# according to each developer's `core.autocrlf`. For source that is harmless.
+# For a `.tooltrace` bundle it is not: the manifest carries a SHA-256 of every
+# file, taken over the bytes on disk, so a translated checkout hashes to
+# something else and `tooltrace verify` reports a checksum mismatch on a bundle
+# nobody touched.
+#
+# That is not hypothetical. Bundles regenerated on Windows were committed with
+# CRLF content and CRLF checksums, and CI failed on macOS and Linux with six
+# checksum mismatches per bundle.
+
+# Source: normalised to LF in the repository, checked out as LF everywhere.
+* text=auto eol=lf
+
+# Published artifacts: byte-exact, never translated, on any platform. These are
+# checksummed and reproduced; a newline "fixed" in transit breaks both.
+results/** -text
+tests/fixtures/** -text
+web/public/data/** -text
+data/** -text
+
+# Genuinely binary.
+*.png binary
+*.gif binary
+*.jpg binary
+*.ico binary
+*.woff2 binary
+
+# Windows-only scripts need CRLF to run at all.
+*.bat text eol=crlf
+*.cmd text eol=crlf

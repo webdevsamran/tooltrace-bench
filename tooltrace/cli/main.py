@@ -1658,8 +1658,12 @@ def cmd_benchmark(args: argparse.Namespace) -> int:
     if args.out:
         out = Path(args.out)
         out.mkdir(parents=True, exist_ok=True)
+        # LF explicitly: this summary sits beside the bundles in `results/` and
+        # is committed, and `write_text` would otherwise emit CRLF on Windows --
+        # the same platform dependence that made the bundles themselves
+        # unverifiable off-Windows.
         (out / f"benchmark-{bench.run_id}.json").write_text(
-            json.dumps(payload, indent=2), encoding="utf-8"
+            json.dumps(payload, indent=2), encoding="utf-8", newline="\n"
         )
     summary_only = {k: v for k, v in payload.items() if k != "results"}
     _emit(summary_only if args.summary else payload, args.json)
@@ -1692,7 +1696,9 @@ def _cmd_context_sweep(args: argparse.Namespace, tasks: list[TaskDefinition]) ->
     if args.out:
         out = Path(args.out)
         out.mkdir(parents=True, exist_ok=True)
-        (out / "context-sweep.json").write_text(json.dumps(sweep, indent=2), encoding="utf-8")
+        (out / "context-sweep.json").write_text(
+            json.dumps(sweep, indent=2), encoding="utf-8", newline="\n"
+        )
     _emit(sweep, args.json)
     return EXIT_OK
 

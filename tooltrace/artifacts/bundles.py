@@ -39,6 +39,20 @@ def _sha256(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
+#: The newline every bundle file is written with, on every platform.
+#:
+#: `Path.write_text` applies the platform's newline translation, so on Windows
+#: a line feed becomes a carriage return plus a line feed. The manifest
+#: checksums are taken over the bytes that land on disk -- so a bundle produced
+#: on Windows hashed its CRLF content and then failed `verify` on every Linux
+#: and macOS checkout. CI caught it: the bundles committed here had been
+#: unverifiable off-Windows from the moment they were regenerated on one.
+#:
+#: A benchmark artifact whose checksum depends on the operating system that
+#: wrote it is not reproducible, which is the one thing this format promises.
+LF = chr(10)
+
+
 def bundle_slug(result_task_id: str, agent: str, run_id: str) -> str:
     safe_task = result_task_id.replace("/", "-")
     return f"{safe_task}-{agent}-{run_id}"
@@ -65,13 +79,13 @@ def write_bundle(
     bundle_dir.mkdir(exist_ok=True)
 
     (bundle_dir / "result.json").write_text(
-        json.dumps(result.model_dump(mode="json"), indent=2), encoding="utf-8"
+        json.dumps(result.model_dump(mode="json"), indent=2), encoding="utf-8", newline=LF
     )
     (bundle_dir / "trace.jsonl").write_text(
-        "".join(e.model_dump_json() + chr(10) for e in events), encoding="utf-8"
+        "".join(e.model_dump_json() + chr(10) for e in events), encoding="utf-8", newline=LF
     )
     (bundle_dir / "task.yaml").write_text(
-        yaml.safe_dump(task.model_dump(mode="json"), sort_keys=False), encoding="utf-8"
+        yaml.safe_dump(task.model_dump(mode="json"), sort_keys=False), encoding="utf-8", newline=LF
     )
     (bundle_dir / "environment.json").write_text(
         # `agent_config` only supplies the *declared* inference block --
@@ -79,8 +93,9 @@ def write_bundle(
         # detect. It is labelled as declared in the record itself.
         json.dumps(environment_metadata(agent_config), indent=2),
         encoding="utf-8",
+        newline=LF,
     )
-    (bundle_dir / "workspace.diff").write_text(diff_text, encoding="utf-8")
+    (bundle_dir / "workspace.diff").write_text(diff_text, encoding="utf-8", newline=LF)
     (bundle_dir / "scoring.json").write_text(
         json.dumps(
             {
@@ -91,6 +106,7 @@ def write_bundle(
             indent=2,
         ),
         encoding="utf-8",
+        newline=LF,
     )
 
     checksums = {name: _sha256((bundle_dir / name).read_bytes()) for name in BUNDLE_FILES}
@@ -103,7 +119,9 @@ def write_bundle(
         "files": BUNDLE_FILES,
         "checksums": checksums,
     }
-    (bundle_dir / "manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+    (bundle_dir / "manifest.json").write_text(
+        json.dumps(manifest, indent=2), encoding="utf-8", newline=LF
+    )
 
     if validate:
         from tooltrace.artifacts.validation import validate_bundle_artifacts

@@ -454,3 +454,116 @@ def test_retention_says_it_is_not_a_legal_determination() -> None:
     an auditor reads would be a claim this project cannot support."""
     _status, payload = call("/api/v1/retention", make_user(role="admin"), method="POST")
     assert "not a legal-compliance determination" in payload["statement"]
+
+
+# --- policy enforcement and auditor grants -----------------------------------
+#
+# `evaluate_policy` and `auditor_grant` were both written, tested, and called by
+# nothing. So a workspace could declare allowed providers, models, task packs
+# and network modes and the server would queue a run violating every one of
+# them; and "auditor mode" was a role, an expiry and a watermark with no way to
+# obtain one.
+
+
+def test_a_run_the_policy_forbids_is_refused() -> None:
+    STATE.policies["ws1"] = WorkspacePolicy(allowed_providers=["scripted"])
+    status, payload = call(
+        "/api/v1/experiments",
+        make_user(role="runner", ws="ws1"),
+        {"workspace_id": "ws1", "provider": "openai", "network_mode": "offline"},
+        method="POST",
+    )
+    assert status == 403
+    assert "provider not allowed by policy" in payload["violations"]
+
+
+def test_a_run_the_policy_allows_still_goes_through() -> None:
+    """A gate that refuses everything is not a gate."""
+    STATE.policies["ws1"] = WorkspacePolicy(allowed_providers=["scripted"])
+    status, _payload = call(
+        "/api/v1/experiments",
+        make_user(role="runner", ws="ws1"),
+        {"workspace_id": "ws1", "provider": "scripted", "network_mode": "offline"},
+        method="POST",
+    )
+    assert status == 201
+
+
+def test_a_workspace_with_no_policy_is_not_blocked() -> None:
+    """No policy means nothing is configured, not that everything is denied."""
+    status, _payload = call(
+        "/api/v1/experiments",
+        make_user(role="runner", ws="ws-unconfigured"),
+        {"workspace_id": "ws-unconfigured", "provider": "anything"},
+        method="POST",
+    )
+    assert status == 201
+
+
+def test_a_forbidden_run_does_not_consume_the_quota() -> None:
+    """The budget it was never allowed to spend."""
+    STATE.policies["ws1"] = WorkspacePolicy(allowed_providers=["scripted"])
+    STATE.quotas["ws1"] = QuotaTracker({"runs": 5})
+    call(
+        "/api/v1/experiments",
+        make_user(role="runner", ws="ws1"),
+        {"workspace_id": "ws1", "provider": "openai", "network_mode": "offline"},
+        method="POST",
+    )
+    assert STATE.quotas["ws1"].used["runs"] == 0
+
+
+def test_a_policy_denial_is_audited() -> None:
+    """A refusal nobody can see afterwards is indistinguishable from an outage."""
+    STATE.policies["ws1"] = WorkspacePolicy(allowed_providers=["scripted"])
+    call(
+        "/api/v1/experiments",
+        make_user(role="runner", ws="ws1"),
+        {"workspace_id": "ws1", "provider": "openai", "network_mode": "offline"},
+        method="POST",
+    )
+    assert any(e["action"] == "experiment.denied" for e in STATE.audit.entries())
+
+
+def test_an_auditor_grant_can_actually_be_issued() -> None:
+    status, grant = call(
+        "/api/v1/auditor-grants",
+        make_user(role="admin"),
+        {"auditor_name": "External Reviewer", "ttl_days": 7},
+        method="POST",
+    )
+    assert status == 201
+    assert grant["role"] == "auditor"
+    assert grant["token"]
+    assert grant["expires_at"]
+    assert "External Reviewer" in grant["watermark"]
+
+
+def test_the_grant_is_read_only() -> None:
+    """An auditor who could queue runs is not an auditor."""
+    _status, grant = call(
+        "/api/v1/auditor-grants",
+        make_user(role="admin"),
+        {"auditor_name": "Reviewer"},
+        method="POST",
+    )
+    assert "run_experiments" not in grant["scopes"]
+    assert "read_evidence" in grant["scopes"]
+
+
+def test_only_somebody_who_manages_members_can_issue_one() -> None:
+    status, _payload = call(
+        "/api/v1/auditor-grants",
+        make_user(role="runner"),
+        {"auditor_name": "Reviewer"},
+        method="POST",
+    )
+    assert status == 403
+
+
+def test_an_unnamed_grant_is_refused() -> None:
+    """The name is the watermark. A blank one watermarks nothing."""
+    status, _payload = call(
+        "/api/v1/auditor-grants", make_user(role="admin"), {"auditor_name": "  "}, method="POST"
+    )
+    assert status == 400
