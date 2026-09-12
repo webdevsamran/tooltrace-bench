@@ -226,6 +226,7 @@ and a row claiming a task pack has to have that pack on disk.
 | 75cy | The quality bar measured: 360px, layout shift, Lighthouse | I | `web/tests/e2e/smoke.spec.ts` (`quality bar`), `scripts/lighthouse_check.py`, `.github/workflows/ci.yml`. Accessibility, best-practices and SEO are gated at 95; **performance is reported and not gated**, because it is a timing measurement on a shared runner and a gate that fails randomly gets switched off |
 | 75cz | Team-console reads served from real server state | I | `tooltrace/server/core.py` (`_list_users`, `_list_approvals`, `_list_audit`, `_list_policies`, `_list_webhooks`, `_list_workers`, `_list_baselines`), `tests/test_server_read_endpoints.py`. Workspace-scoped by the server, not filtered by the client; the webhook signing secret is never returned |
 | 75da | Demo rows cannot reach a connected console | I | `web/src/pages/workspace/shared.tsx` (`ConsoleData`), `tests/test_demo_rows_never_leak.py`. Every fixture is typed as the type the API returns, so a preview cannot promise a field the product does not produce |
+| 75db | Retention has a caller, and previews before it deletes | I | `tooltrace/server/core.py` (`_retention`), `web/src/pages/workspace/settings.tsx`. `apply_retention` was written, tested and called by nothing while the console described it to operators as working. `dry_run` defaults to true: a deletion endpoint whose default is to delete is one somebody triggers while exploring |
 | 76 | Failure clustering (deterministic vectors; semantic labeled) | I | `tooltrace/analysis/core.py` (`cluster_failures`) |
 | 77 | Root-cause drill-down aggregate → trace/assertion | I | `tooltrace/analysis/failures.py` (`Classification.seq`), `tooltrace/metrics/aggregate.py` (`failure_step`), `tooltrace/cli/main.py` (`cmd_trace`), `web/src/lib/clusters.ts` (`clusterFailures`, `stepLink`) |
 | 78 | Reproducibility score (metadata completeness, not validity) | I | `tooltrace/analysis/core.py` (`reproducibility_score`) |
@@ -271,7 +272,7 @@ and a row claiming a task pack has to have that pack on disk.
 | 118 | SSE event streams for live progress | I | `/api/v1/events` + console monitor |
 | 119 | OpenTelemetry traces/metrics hooks (server mode) | I | `tooltrace/telemetry/`, `tooltrace/exporters/otel.py` (GenAI span export), `tooltrace/ingest/external.py` (import) |
 | 120 | Prometheus-compatible metrics endpoint | I | `/metrics` text format |
-| 121 | Backup/restore and export/import tooling | N | no backup or restore code ships, and `docs/self-hosting.md` does not mention either |
+| 121 | Backup/restore and export/import tooling | I | `tooltrace/server/core.py` (`export_state`, `import_state`, `SNAPSHOT_VERSION`), `tests/test_server_read_endpoints.py`, `web/src/pages/workspace/settings.tsx`. The console had claimed this was supported while this row said no code shipped; the restore is destructive by design, refuses a snapshot from another version whole rather than restoring the half it recognises, and re-verifies the audit chain rather than trusting it. Bundles are deliberately excluded -- they are checksummed files, and inlining them would be a slower `cp` |
 | 122 | Air-gapped deployment mode (local registries, outbound disabled by default) | I | `tooltrace/sandbox/infra.py` (`offline`) |
 ## Summary
 
@@ -281,7 +282,7 @@ previous summary said 113 I / 7 E / 2 P, which adds to 122 but did not match
 the table: #96 was listed under both E and P, #20 was counted E, and one row
 carried the ad-hoc grade `I/P`.
 
-- **Implemented (I):** 106 targets
+- **Implemented (I):** 107 targets
 - **Implemented with deterministic mocks; external validation blocked (E):** 5
   targets — #50 live model endpoints, #53 live A2A ecosystem, #85 keyless
   cosign in CI, #95 Kubernetes cluster soak, #107 real IdP round-trip.
@@ -295,8 +296,10 @@ carried the ad-hoc grade `I/P`.
   #11, #15, #75, #96.
 - **Declared only (D):** 2 targets — #45, #46.
   The type system reserves a place; nothing implements it.
-- **Not implemented (N):** 2 targets — #42, #121.
-  Both were graded **I**; neither has any code.
+- **Not implemented (N):** 1 target — #42.
+  It was graded **I**; nothing implements it. (#121 was also **N** and is now
+  **I**: the console had been claiming backup/restore worked while this table
+  said no code shipped, and the contradiction was resolved by writing the code.)
 
 122 rows in total.
 

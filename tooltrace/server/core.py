@@ -337,6 +337,16 @@ class AuditLog:
         rows = [dict(e) for e in reversed(self._entries)]
         return rows[:limit] if limit else rows
 
+    def restore(self, entries: list[dict[str, Any]]) -> None:
+        """Replace the chain from a snapshot, oldest first.
+
+        `_prev_hash` is set from the last entry so an append after a restore
+        continues the chain rather than starting a second one that verifies on
+        its own and not against what came before.
+        """
+        self._entries = [dict(e) for e in entries]
+        self._prev_hash = self._entries[-1]["entry_hash"] if self._entries else "genesis"
+
     def verify_chain(self) -> bool:
         prev = "genesis"
         for e in self._entries:
@@ -788,6 +798,197 @@ def _list_baselines(body: dict[str, Any], user: User | None) -> tuple[int, dict[
         "baselines": [
             {"name": name, "bundle": str(bundle)} for name, bundle in sorted(registry.items())
         ]
+    }
+
+
+#: What a snapshot is compatible with. A restore is a destructive operation and
+#: this is the only thing standing between "restored" and "silently half
+#: restored" when the state shape changes between releases.
+SNAPSHOT_VERSION = 1
+
+
+def export_state() -> dict[str, Any]:
+    """Everything this process holds that is worth keeping.
+
+    The console's settings page has always told operators that "self-hosted
+    metadata and artifact references support backup/restore", and pointed at a
+    documentation anchor that did not exist, for a feature
+    `docs/feature-status.md` graded **N: no backup or restore code ships**. One
+    of those two statements had to go; this is the other way of resolving it.
+
+    Artifacts are not in here. They are `.tooltrace` bundles on a filesystem,
+    they are checksummed, and a backup tool that copied gigabytes of them into a
+    JSON document would be a worse `cp`. What this captures is the part that
+    only exists in memory.
+    """
+    return {
+        "snapshot_version": SNAPSHOT_VERSION,
+        "exported_at": utc_now_iso(),
+        "users": {
+            uid: {
+                "user_id": u.user_id,
+                "display_name": u.display_name,
+                "role": u.role,
+                "workspace_id": u.workspace_id,
+            }
+            for uid, u in STATE.users.items()
+        },
+        "policies": {ws: p.model_dump(mode="json") for ws, p in STATE.policies.items()},
+        "quotas": {
+            ws: {"limits": dict(q.limits), "used": dict(q.used)} for ws, q in STATE.quotas.items()
+        },
+        "approvals": {
+            rid: r.model_dump(mode="json") for rid, r in STATE.approvals.requests.items()
+        },
+        "experiments": dict(STATE.experiments),
+        "audit": STATE.audit.entries(),
+        "metrics_counters": dict(STATE.metrics_counters),
+    }
+
+
+class SnapshotError(ValueError):
+    """A snapshot this process will not restore, and why."""
+
+
+def import_state(snapshot: dict[str, Any]) -> dict[str, Any]:
+    """Replace this process's state with a snapshot. Destructive, on purpose.
+
+    Merging would be worse: a restore that left yesterday's deleted user in
+    place is not a restore, and an operator who asked for one would have no way
+    to tell. So it replaces, and refuses a snapshot it does not understand
+    rather than restoring the half it recognises.
+
+    The audit chain is restored and then **re-verified**. A backup that quietly
+    accepted a tampered chain would launder exactly the evidence the chain
+    exists to protect.
+    """
+    version = snapshot.get("snapshot_version")
+    if version != SNAPSHOT_VERSION:
+        raise SnapshotError(
+            f"snapshot_version {version!r}, but this server restores {SNAPSHOT_VERSION}"
+        )
+    for required in ("users", "policies", "approvals", "experiments", "audit"):
+        if required not in snapshot:
+            raise SnapshotError(f"snapshot has no {required!r} section")
+
+    STATE.users.clear()
+    for uid, row in dict(snapshot["users"]).items():
+        STATE.users[uid] = User(
+            user_id=str(row["user_id"]),
+            display_name=str(row["display_name"]),
+            role=str(row["role"]),
+            workspace_id=str(row["workspace_id"]),
+        )
+
+    STATE.policies.clear()
+    for ws, row in dict(snapshot["policies"]).items():
+        STATE.policies[ws] = WorkspacePolicy.model_validate(row)
+
+    STATE.quotas.clear()
+    for ws, row in dict(snapshot.get("quotas") or {}).items():
+        tracker = QuotaTracker(dict(row.get("limits") or {}))
+        tracker.used.update(dict(row.get("used") or {}))
+        STATE.quotas[ws] = tracker
+
+    STATE.approvals.requests.clear()
+    for rid, row in dict(snapshot["approvals"]).items():
+        STATE.approvals.requests[rid] = ApprovalRequest.model_validate(row)
+
+    STATE.experiments.clear()
+    STATE.experiments.update(dict(snapshot["experiments"]))
+
+    STATE.metrics_counters.update(dict(snapshot.get("metrics_counters") or {}))
+
+    # Oldest first: the export is newest-first for a reader, and replaying it in
+    # that order would chain every entry to its successor.
+    STATE.audit.restore(list(reversed(list(snapshot["audit"]))))
+
+    return {
+        "restored": True,
+        "users": len(STATE.users),
+        "experiments": len(STATE.experiments),
+        "audit_entries": len(snapshot["audit"]),
+        "chain_verified": STATE.audit.verify_chain(),
+    }
+
+
+@route("GET", "/api/v1/export")
+def _export(body: dict[str, Any], user: User | None) -> tuple[int, dict[str, Any]]:
+    if user is None:
+        return 401, {"error": "unauthorized"}
+    # A full snapshot is every workspace's data at once, so it is an admin
+    # operation rather than a workspace-scoped read.
+    if not authorize(user, "manage_policies", user.workspace_id):
+        return 403, {"error": "forbidden"}
+    STATE.audit.append(actor=user.user_id, action="state.export", target="server")
+    return 200, export_state()
+
+
+@route("POST", "/api/v1/import")
+def _import(body: dict[str, Any], user: User | None) -> tuple[int, dict[str, Any]]:
+    if user is None:
+        return 401, {"error": "unauthorized"}
+    if not authorize(user, "manage_policies", user.workspace_id):
+        return 403, {"error": "forbidden"}
+    try:
+        result = import_state(dict(body.get("snapshot") or {}))
+    except SnapshotError as exc:
+        return 400, {"error": str(exc)}
+    # Appended *after* the restore, so the record of the restore survives it.
+    STATE.audit.append(actor=user.user_id, action="state.import", target="server")
+    return 200, result
+
+
+@route("POST", "/api/v1/retention")
+def _retention(body: dict[str, Any], user: User | None) -> tuple[int, dict[str, Any]]:
+    """Apply the retention policy to experiments. Administrative, not legal.
+
+    `apply_retention` has been written and tested since the server was, with no
+    caller outside its own tests, while the console's settings page described it
+    to operators as a working feature. This is the caller.
+
+    `dry_run` defaults to **true**. A deletion endpoint whose default is to
+    delete is one somebody triggers while exploring.
+    """
+    if user is None:
+        return 401, {"error": "unauthorized"}
+    if not authorize(user, "manage_policies", user.workspace_id):
+        return 403, {"error": "forbidden"}
+    try:
+        max_age_days = int(body.get("max_age_days", 90))
+    except (TypeError, ValueError):
+        return 400, {"error": "max_age_days must be an integer"}
+    if max_age_days < 1:
+        return 400, {"error": "max_age_days must be at least 1"}
+
+    hold = {str(h) for h in (body.get("legal_hold_ids") or [])}
+    dry_run = body.get("dry_run", True) is not False
+    records = [
+        {**e, "id": e.get("id"), "created_at_epoch": float(e.get("created_at_epoch", time.time()))}
+        for e in STATE.experiments.values()
+    ]
+    keep, deleted = apply_retention(records, max_age_days, time.time(), hold)
+    if not dry_run:
+        for rid in deleted:
+            STATE.experiments.pop(rid, None)
+        STATE.audit.append(
+            actor=user.user_id,
+            action="retention.apply",
+            target="experiments",
+            details={"deleted": len(deleted), "max_age_days": max_age_days},
+        )
+    return 200, {
+        "dry_run": dry_run,
+        "max_age_days": max_age_days,
+        "kept": len(keep),
+        "deleted": deleted,
+        "legal_hold_ids": sorted(hold),
+        "statement": (
+            f"{len(deleted)} experiment(s) past {max_age_days} days"
+            + (f", {len(hold)} held" if hold else "")
+            + (". Nothing was deleted: this was a dry run" if dry_run else ". Deleted.")
+            + " Administrative retention only -- this is not a legal-compliance determination"
+        ),
     }
 
 

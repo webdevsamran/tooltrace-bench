@@ -52,9 +52,11 @@ READ_ENDPOINTS = (
 )
 
 
-def call(path: str, user: User | None, body: dict | None = None) -> tuple[int, dict]:
+def call(
+    path: str, user: User | None, body: dict | None = None, method: str = "GET"
+) -> tuple[int, dict]:
     """Invoke a route the way the HTTP handler does, without a socket."""
-    handler = ROUTES[("GET", path)]
+    handler = ROUTES[(method, path)]
     status, payload = handler(body or {}, user)
     return status, payload
 
@@ -76,7 +78,15 @@ def _clean_state():
         dict(STATE.policies),
         dict(STATE.quotas),
         STATE.webhooks,
+        # The audit chain too. One test below tampers with a snapshot on
+        # purpose, and without this that tampering became the next test's
+        # starting state -- which is how a suite starts failing in an order
+        # nobody chose.
+        STATE.audit.entries(),
+        dict(STATE.experiments),
     )
+    STATE.audit.restore([])
+    STATE.experiments.clear()
     STATE.users.clear()
     STATE.approvals.requests.clear()
     STATE.policies.clear()
@@ -92,6 +102,9 @@ def _clean_state():
     STATE.quotas.clear()
     STATE.quotas.update(before[3])
     STATE.webhooks = before[4]
+    STATE.audit.restore(list(reversed(before[5])))
+    STATE.experiments.clear()
+    STATE.experiments.update(before[6])
 
 
 # --- they exist at all -------------------------------------------------------
@@ -291,3 +304,153 @@ def test_a_corrupt_registry_does_not_take_the_endpoint_down(tmp_path, monkeypatc
     assert status == 200
     assert payload["baselines"] == []
     assert "unreadable" in payload["note"]
+
+
+# --- backup, restore and retention -------------------------------------------
+#
+# `docs/feature-status.md` row 121 graded backup/restore **N: no backup or
+# restore code ships**, while the console's settings page told operators it was
+# supported and linked to a documentation anchor that did not exist. One of
+# those two statements had to go. `apply_retention` was the same shape: written,
+# tested, described to users as working, and called by nothing.
+
+
+def test_export_captures_the_state_that_only_exists_in_memory() -> None:
+    STATE.users["alice"] = make_user(uid="alice")
+    STATE.experiments["exp-1"] = {"id": "exp-1", "status": "queued"}
+    status, snapshot = call("/api/v1/export", make_user(role="admin"))
+    assert status == 200
+    assert snapshot["users"]["alice"]["role"] == "admin"
+    assert snapshot["experiments"]["exp-1"]["status"] == "queued"
+
+
+def test_export_does_not_try_to_be_a_worse_cp() -> None:
+    """Bundles are checksummed files on a disk. A backup that inlined gigabytes
+    of them into a JSON document would be slower and no safer."""
+    _status, snapshot = call("/api/v1/export", make_user(role="admin"))
+    assert "bundles" not in snapshot
+    assert "artifacts" not in snapshot
+
+
+def test_only_an_administrator_can_export_every_workspace_at_once() -> None:
+    status, _payload = call("/api/v1/export", make_user(role="runner"))
+    assert status == 403
+
+
+def test_a_snapshot_round_trips() -> None:
+    from tooltrace.server.core import export_state, import_state
+
+    STATE.users["bob"] = make_user(uid="bob", role="reviewer")
+    STATE.policies["ws1"] = WorkspacePolicy(max_runs_per_day=7)
+    STATE.audit.append(actor="bob", action="experiment.create", target="exp-9")
+    snapshot = export_state()
+
+    STATE.users.clear()
+    STATE.policies.clear()
+    result = import_state(snapshot)
+
+    assert result["restored"] is True
+    assert STATE.users["bob"].role == "reviewer"
+    assert STATE.policies["ws1"].max_runs_per_day == 7
+
+
+def test_a_restored_audit_chain_is_re_verified_rather_than_trusted() -> None:
+    """A backup that laundered a tampered chain would defeat the chain."""
+    from tooltrace.server.core import export_state, import_state
+
+    STATE.audit.append(actor="a", action="x", target="t")
+    STATE.audit.append(actor="a", action="y", target="t")
+    snapshot = export_state()
+    assert import_state(snapshot)["chain_verified"] is True
+
+    snapshot["audit"][0]["actor"] = "mallory"
+    assert import_state(snapshot)["chain_verified"] is False
+
+
+def test_appending_after_a_restore_continues_the_same_chain() -> None:
+    """Otherwise the restore starts a second chain that verifies on its own and
+    not against anything that came before it."""
+    from tooltrace.server.core import export_state, import_state
+
+    STATE.audit.append(actor="a", action="x", target="t")
+    import_state(export_state())
+    STATE.audit.append(actor="a", action="after-restore", target="t")
+    assert STATE.audit.verify_chain() is True
+
+
+def test_a_snapshot_from_another_version_is_refused_whole() -> None:
+    """Restoring the half it recognises is not a restore."""
+    from tooltrace.server.core import SnapshotError, import_state
+
+    with pytest.raises(SnapshotError, match="snapshot_version"):
+        import_state({"snapshot_version": 999, "users": {}})
+
+
+def test_a_snapshot_missing_a_section_is_refused() -> None:
+    from tooltrace.server.core import SNAPSHOT_VERSION, SnapshotError, import_state
+
+    with pytest.raises(SnapshotError, match="audit"):
+        import_state(
+            {
+                "snapshot_version": SNAPSHOT_VERSION,
+                "users": {},
+                "policies": {},
+                "approvals": {},
+                "experiments": {},
+            }
+        )
+
+
+def test_retention_defaults_to_a_dry_run() -> None:
+    """A deletion endpoint whose default is to delete is one somebody triggers
+    while exploring the API."""
+    STATE.experiments["old"] = {"id": "old", "created_at_epoch": 0.0}
+    status, payload = call("/api/v1/retention", make_user(role="admin"), method="POST")
+    assert status == 200
+    assert payload["dry_run"] is True
+    assert payload["deleted"] == ["old"]
+    assert "old" in STATE.experiments, "a dry run deleted something"
+
+
+def test_retention_deletes_when_asked_and_records_that_it_did() -> None:
+    STATE.experiments["old"] = {"id": "old", "created_at_epoch": 0.0}
+    before = len(STATE.audit.entries())
+    _status, payload = call(
+        "/api/v1/retention",
+        make_user(role="admin"),
+        {"dry_run": False, "max_age_days": 1},
+        method="POST",
+    )
+    assert payload["deleted"] == ["old"]
+    assert "old" not in STATE.experiments
+    assert len(STATE.audit.entries()) > before, "a deletion left no audit entry"
+
+
+def test_a_legal_hold_survives_retention() -> None:
+    import time as _time
+
+    STATE.experiments["held"] = {"id": "held", "created_at_epoch": 0.0}
+    STATE.experiments["free"] = {"id": "free", "created_at_epoch": 0.0}
+    _status, payload = call(
+        "/api/v1/retention",
+        make_user(role="admin"),
+        {"dry_run": False, "max_age_days": 1, "legal_hold_ids": ["held"]},
+        method="POST",
+    )
+    assert payload["deleted"] == ["free"]
+    assert "held" in STATE.experiments
+    assert _time is not None  # the endpoint uses wall-clock; this pins the import
+
+
+def test_retention_refuses_a_nonsense_window() -> None:
+    status, _payload = call(
+        "/api/v1/retention", make_user(role="admin"), {"max_age_days": 0}, method="POST"
+    )
+    assert status == 400
+
+
+def test_retention_says_it_is_not_a_legal_determination() -> None:
+    """Deleting on a schedule is administrative. Saying otherwise in a console
+    an auditor reads would be a claim this project cannot support."""
+    _status, payload = call("/api/v1/retention", make_user(role="admin"), method="POST")
+    assert "not a legal-compliance determination" in payload["statement"]

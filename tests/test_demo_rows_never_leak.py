@@ -29,8 +29,13 @@ WORKSPACE = ROOT / "web" / "src" / "pages" / "workspace"
 DEMO_DATA = ROOT / "web" / "src" / "pages" / "demoData.ts"
 API = ROOT / "web" / "src" / "api.ts"
 
-#: `DEMO_THING` anywhere in a page.
-DEMO_REF = re.compile(r"\bDEMO_[A-Z_]+\b")
+#: A fixture constant, however it is spelled.
+#:
+#: `DEMO_*` was the first pattern, and `policies.tsx` walked straight past it
+#: with a local `POLICY_DEMO` that it rendered unconditionally -- the same bug
+#: under a different variable name. A check that only catches the naming
+#: convention catches only the developers who follow it.
+DEMO_REF = re.compile(r"\b(?:DEMO_[A-Z_]+|[A-Z][A-Z_]*_DEMO)\b")
 
 
 def pages() -> dict[str, str]:
@@ -91,7 +96,7 @@ def test_a_page_that_fetches_does_not_hand_the_table_a_fixture(name: str) -> Non
     through `ConsoleData` or through a branch, never as the literal `rows`.
     """
     source = PAGES[name]
-    direct = re.findall(r"rows=\{(DEMO_[A-Z_]+)\}", source)
+    direct = re.findall(r"rows=\{((?:DEMO_[A-Z_]+|[A-Z][A-Z_]*_DEMO))\}", source)
     assert not direct, (
         f"{name} passes {direct} straight to a table; it would render on a connected server"
     )
