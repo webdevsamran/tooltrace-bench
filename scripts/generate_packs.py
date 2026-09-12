@@ -8,6 +8,7 @@ the deterministic scripted agent, used by `tooltrace task test` and CI.
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 import yaml
 
@@ -19,7 +20,7 @@ def lines(*rows: str) -> str:
     return NL.join(rows) + NL
 
 
-def task(**kw) -> dict:
+def task(**kw: Any) -> dict[str, Any]:
     kw.setdefault("version", "1.0.0")
     kw.setdefault("difficulty", "easy")
     kw.setdefault("tags", [])
@@ -31,7 +32,7 @@ def task(**kw) -> dict:
     return kw
 
 
-PACKS: dict[str, list[dict]] = {
+PACKS: dict[str, list[dict[str, Any]]] = {
     "file-editing": [
         task(
             id="file-editing/fix-config-typo",

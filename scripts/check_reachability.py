@@ -116,9 +116,15 @@ def public_definitions() -> dict[str, tuple[str, int]]:
     for path in python_files(PACKAGE):
         tree = ast.parse(path.read_text(encoding="utf-8"))
         for node in tree.body:
-            is_definition = isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef)
-            if is_definition and not node.name.startswith("_"):
-                found[node.name] = (path.relative_to(ROOT).as_posix(), node.lineno)
+            # Guard clauses rather than a nested `if` or a boolean variable.
+            # Ruff rejects the nested form (SIM102); assigning the isinstance
+            # result to a name loses the narrowing, so mypy then reports `stmt
+            # has no attribute "name"`. Early `continue` satisfies both.
+            if not isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
+                continue
+            if node.name.startswith("_"):
+                continue
+            found[node.name] = (path.relative_to(ROOT).as_posix(), node.lineno)
     return found
 
 

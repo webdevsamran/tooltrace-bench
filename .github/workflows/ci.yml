@@ -28,8 +28,12 @@ jobs:
         run: ruff check tooltrace scripts tests
       - name: Format check (ruff format)
         run: ruff format --check tooltrace scripts tests
+      # `scripts/` too, since a CI gate that only type-checks the package
+      # let `Path.read_text(newline=...)` -- valid on 3.13, a TypeError on
+      # the 3.12 this job runs -- reach the frontend job and fail there at
+      # run time instead of here as a type error.
       - name: Type check (mypy)
-        run: mypy tooltrace
+        run: mypy tooltrace scripts
       - name: Test + coverage
         run: pytest --cov=tooltrace --cov-report=term-missing --cov-fail-under=80
       - name: Validate schemas + task packs

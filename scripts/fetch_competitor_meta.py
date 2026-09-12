@@ -11,6 +11,7 @@ import json
 import subprocess
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 REGISTRY = Path("data/competitor-registry.json")
 
@@ -88,7 +89,11 @@ def main() -> None:
         if meta is None:  # pragma: no cover - gh_json raises instead now
             raise FetchError(f"{repo}: no metadata returned")
         else:
-            lic = meta.get("license") or {}
+            # Narrowed rather than assumed: the GitHub API returns `null`
+            # for a repository with no detected licence, and `.get` on
+            # `object` is what mypy was objecting to.
+            raw_license = meta.get("license")
+            lic: dict[str, Any] = raw_license if isinstance(raw_license, dict) else {}
             entry["repo"] = meta.get("full_name") or repo
             entry.update(
                 {
