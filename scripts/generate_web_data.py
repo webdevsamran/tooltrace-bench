@@ -248,14 +248,19 @@ def main() -> int:
         out.mkdir(parents=True, exist_ok=True)
         trace_lines = [
             json.loads(line)
-            for line in (bundle / "trace.jsonl")
-            .read_text(encoding="utf-8", newline="\n")
-            .splitlines()
+            # No `newline=` here: it is a write-side argument, and
+            # `Path.read_text` only accepts one on Python 3.13+. CI runs 3.12,
+            # where this was a TypeError at run time rather than a type error --
+            # and `mypy tooltrace` does not cover `scripts/`, so nothing local
+            # caught it either.
+            for line in (bundle / "trace.jsonl").read_text(encoding="utf-8").splitlines()
             if line.strip()
         ]
         (out / "trace.json").write_text(json.dumps(trace_lines), encoding="utf-8", newline="\n")
         (out / "workspace.diff.txt").write_text(
-            (bundle / "workspace.diff").read_text(encoding="utf-8", newline="\n"), encoding="utf-8"
+            (bundle / "workspace.diff").read_text(encoding="utf-8"),
+            encoding="utf-8",
+            newline="\n",
         )
 
     agents_rows = []
