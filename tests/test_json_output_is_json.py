@@ -71,6 +71,7 @@ EXEMPT = {
     "report": "needs bundles",
     "power": "covered by its own tests",
     "fleet": "a sub-command group needing a queue directory, covered by tests/test_shard_merge_sign.py",
+    "govern": "a sub-command group; every branch is covered by tests/test_governance_has_a_surface.py",
     "merge": "needs shard directories, covered by tests/test_shard_merge_sign.py",
     "sign": "needs bundle paths, covered by tests/test_shard_merge_sign.py",
 }

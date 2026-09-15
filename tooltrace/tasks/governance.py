@@ -52,6 +52,11 @@ class FixtureProvenance(BaseModel):
     path: str
     sha256: str
     origin: FixtureOrigin
+    #: Which mapping on the task the content came from: `fixtures` or
+    #: `starting_workspace`. Both are authored content a manifest has to cover,
+    #: they are separate namespaces, and the same path can legitimately appear
+    #: in each -- so the kind is recorded rather than merged away.
+    kind: str = "fixtures"
 
 
 class ProvenanceManifest(BaseModel):
@@ -75,19 +80,28 @@ def build_provenance_manifest(
 ) -> ProvenanceManifest:
     """Build a provenance manifest for a task (v1 or v2).
 
-    ``origins`` maps fixture path -> origin; unlisted fixtures get a default
-    'authored' origin. Integrity hashes cover fixture contents.
+    ``origins`` maps fixture path -> origin; unlisted files get a default
+    'authored' origin. Integrity hashes cover both authored content mappings.
+
+    It used to cover `task.fixtures` alone. Every task this project ships keeps
+    its content in `starting_workspace` and leaves `fixtures` empty, so a
+    manifest listed zero files while reporting itself verified -- a provenance
+    document that proves nothing about the data it is attached to. Nothing
+    noticed because nothing ever built one: the function had no caller outside
+    its own tests.
     """
     origins = origins or {}
     fixtures: list[FixtureProvenance] = []
-    for path, content in sorted(dict(getattr(task, "fixtures", {}) or {}).items()):
-        fixtures.append(
-            FixtureProvenance(
-                path=path,
-                sha256=sha256_text(content),
-                origin=origins.get(path, FixtureOrigin(source="authored")),
+    for kind in ("fixtures", "starting_workspace"):
+        for path, content in sorted(dict(getattr(task, kind, {}) or {}).items()):
+            fixtures.append(
+                FixtureProvenance(
+                    path=path,
+                    sha256=sha256_text(content),
+                    origin=origins.get(path, FixtureOrigin(source="authored")),
+                    kind=kind,
+                )
             )
-        )
     manifest = ProvenanceManifest(
         task_id=str(task.id),
         task_version=str(getattr(task, "version", "1.0.0")),
@@ -105,13 +119,23 @@ def verify_provenance_manifest(manifest: ProvenanceManifest, task: Any) -> list[
         problems.append("manifest checksum mismatch (manifest was modified)")
     if manifest.task_sha256 != sha256_text(canonical_json(_task_payload(task))):
         problems.append(f"task definition hash mismatch for {manifest.task_id}")
-    fixtures = dict(getattr(task, "fixtures", {}) or {})
+    content = {
+        kind: dict(getattr(task, kind, {}) or {}) for kind in ("fixtures", "starting_workspace")
+    }
     for fp in manifest.fixtures:
-        actual = fixtures.get(fp.path)
+        actual = content.get(fp.kind, {}).get(fp.path)
         if actual is None:
-            problems.append(f"fixture missing from task: {fp.path}")
+            problems.append(f"{fp.kind} entry missing from task: {fp.path}")
         elif sha256_text(actual) != fp.sha256:
-            problems.append(f"fixture content hash mismatch: {fp.path}")
+            problems.append(f"{fp.kind} content hash mismatch: {fp.path}")
+    # A file added to the task after the manifest was written is not covered by
+    # it. Reporting only mismatches would let new, unvouched-for content pass as
+    # verified, which is the failure mode a provenance document exists to stop.
+    covered = {(fp.kind, fp.path) for fp in manifest.fixtures}
+    for kind, mapping in content.items():
+        for path in sorted(mapping):
+            if (kind, path) not in covered:
+                problems.append(f"{kind} entry not covered by the manifest: {path}")
     return problems
 
 
@@ -156,21 +180,36 @@ def parse_semver(version: str) -> tuple[int, int, int] | None:
     return int(m.group(1)), int(m.group(2)), int(m.group(3))
 
 
+def parse_range(range_spec: str) -> list[tuple[str, tuple[int, int, int]]] | None:
+    """Clauses of a supported range, or None when the format is not understood.
+
+    Separate from `satisfies_range` so a caller can tell "this pack does not
+    satisfy your range" from "that is not a range I know how to read". Both
+    answer False from `satisfies_range`, and telling a user their pack is
+    incompatible when in fact `^1.0.0` was never parsed is a lie in the one
+    direction that matters -- they would go looking for a version problem that
+    does not exist.
+    """
+    clauses: list[tuple[str, tuple[int, int, int]]] = []
+    for raw in range_spec.split(","):
+        match = re.match(r"^(>=|<=|==)(.+)$", raw.strip())
+        if not match:
+            return None
+        bound = parse_semver(match.group(2).strip())
+        if bound is None:
+            return None
+        clauses.append((match.group(1), bound))
+    return clauses or None
+
+
 def satisfies_range(version: str, range_spec: str) -> bool:
     """Minimal semver range support: '>=X.Y.Z', '<=X.Y.Z', '==X.Y.Z' joined
     by commas (AND). Unknown formats fail closed."""
     parsed = parse_semver(version)
-    if parsed is None:
+    clauses = parse_range(range_spec)
+    if parsed is None or clauses is None:
         return False
-    for clause in range_spec.split(","):
-        clause = clause.strip()
-        m = re.match(r"^(>=|<=|==)(.+)$", clause)
-        if not m:
-            return False
-        bound = parse_semver(m.group(2))
-        if bound is None:
-            return False
-        op = m.group(1)
+    for op, bound in clauses:
         if op == ">=" and not parsed >= bound:
             return False
         if op == "<=" and not parsed <= bound:

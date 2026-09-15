@@ -1189,6 +1189,203 @@ def _parse_shard(args: argparse.Namespace) -> tuple[int, int] | None:
     return index, count
 
 
+def cmd_govern(args: argparse.Namespace) -> int:
+    """Provenance, pack indexes, duplicate detection and contamination risk.
+
+    `tooltrace/tasks/governance.py` is 380 lines of dataset governance --
+    provenance manifests with integrity hashes, versioned pack indexes with
+    semver compatibility ranges, cross-pack fingerprint deduplication, and a
+    contamination-risk assessor. Seven of its public functions had no caller
+    outside their own tests. An auditor asking "where did this data come from
+    and could the model have seen it" could be answered by this package and not
+    by this tool.
+
+    Wiring it up immediately found what the unreachability had hidden:
+    `build_provenance_manifest` hashed `task.fixtures`, and all 44 shipping
+    tasks keep their content in `starting_workspace`, so a manifest covered
+    zero files and still reported itself verified.
+
+        tooltrace govern provenance --task file-editing/fix-config-typo
+        tooltrace govern provenance --verify manifest.json
+        tooltrace govern index --pack security --requires ">=1.0.0"
+        tooltrace govern duplicates
+        tooltrace govern contamination
+    """
+    from tooltrace.tasks import load_all_tasks
+    from tooltrace.tasks.governance import (
+        ProvenanceManifest,
+        assess_contamination,
+        build_pack_index,
+        build_provenance_manifest,
+        find_duplicates,
+        parse_range,
+        satisfies_range,
+        verify_provenance_manifest,
+    )
+    from tooltrace.tasks.v2 import ContaminationRisk
+
+    tasks = load_all_tasks()
+    by_id = {str(t.id): t for t in tasks}
+    command = args.govern_cmd
+
+    if command == "provenance":
+        if args.verify:
+            path = Path(args.verify)
+            if not path.is_file():
+                print(f"error: no such manifest: {path}", file=sys.stderr)
+                return EXIT_TASK
+            manifest = ProvenanceManifest.model_validate_json(path.read_text(encoding="utf-8"))
+            task = by_id.get(manifest.task_id)
+            if task is None:
+                print(
+                    f"error: the manifest is for {manifest.task_id}, which is not installed",
+                    file=sys.stderr,
+                )
+                return EXIT_TASK
+            problems = verify_provenance_manifest(manifest, task)
+            _emit(
+                {
+                    "task": manifest.task_id,
+                    "verified": not problems,
+                    "files_covered": len(manifest.fixtures),
+                    "problems": problems,
+                },
+                args.json,
+            )
+            return EXIT_OK if not problems else EXIT_TASK
+
+        task = by_id.get(args.task) if args.task else None
+        if args.task and task is None:
+            print(f"error: no such task: {args.task}", file=sys.stderr)
+            return EXIT_TASK
+        selected = [task] if task else tasks
+        manifests = [build_provenance_manifest(t) for t in selected]
+        if args.out:
+            out = Path(args.out)
+            out.mkdir(parents=True, exist_ok=True)
+            for manifest in manifests:
+                name = manifest.task_id.replace("/", "__") + ".provenance.json"
+                (out / name).write_text(
+                    manifest.model_dump_json(indent=2), encoding="utf-8", newline=chr(10)
+                )
+        payload = [
+            {
+                "task": m.task_id,
+                "task_sha256": m.task_sha256,
+                "files_covered": len(m.fixtures),
+                "manifest_sha256": m.manifest_sha256,
+            }
+            for m in manifests
+        ]
+        if args.json:
+            _emit(payload if len(payload) > 1 else payload[0], True)
+        else:
+            for m in manifests:
+                print(f"{m.task_id}  {len(m.fixtures)} file(s)  {m.task_sha256[:12]}")
+            if args.out:
+                print(f"\nwrote {len(manifests)} manifest(s) to {args.out}")
+        return EXIT_OK
+
+    if command == "index":
+        if args.requires and parse_range(args.requires) is None:
+            print(
+                f"error: {args.requires!r} is not a range this understands. Supported: "
+                ">=X.Y.Z, <=X.Y.Z, ==X.Y.Z, joined by commas for AND",
+                file=sys.stderr,
+            )
+            return EXIT_USAGE
+        packs = sorted({str(t.id).split("/", 1)[0] for t in tasks})
+        wanted = [args.pack] if args.pack else packs
+        unknown = [p for p in wanted if p not in packs]
+        if unknown:
+            print(f"error: no such pack(s): {', '.join(unknown)}", file=sys.stderr)
+            return EXIT_TASK
+        rows = []
+        incompatible = 0
+        for pack in wanted:
+            index = build_pack_index(pack, [t for t in tasks if str(t.id).startswith(f"{pack}/")])
+            entry: dict[str, Any] = {
+                "pack": pack,
+                "index_version": index.index_version,
+                "tasks": len(index.tasks),
+                "index_sha256": index.index_sha256,
+            }
+            if args.requires:
+                # The range check is the point of versioning an index: a caller
+                # pinned to `>=1.1.0` needs to be told this pack is 1.0.0
+                # rather than silently handed it.
+                ok = satisfies_range(index.index_version, args.requires)
+                entry["satisfies"] = args.requires
+                entry["compatible"] = ok
+                incompatible += 0 if ok else 1
+            rows.append(entry)
+        if args.json:
+            _emit(rows, True)
+        else:
+            for entry in rows:
+                mark = ""
+                if args.requires:
+                    mark = "  OK" if entry["compatible"] else f"  INCOMPATIBLE with {args.requires}"
+                print(
+                    f"{entry['pack']:<24} v{entry['index_version']}  {entry['tasks']} task(s){mark}"
+                )
+        return EXIT_OK if not incompatible else EXIT_TASK
+
+    if command == "duplicates":
+        groups = find_duplicates(tasks)
+        _emit(
+            {"scanned": len(tasks), "duplicate_groups": groups, "duplicates": len(groups)},
+            args.json,
+        )
+        if groups and not args.json:
+            print("\nTwo tasks with the same fingerprint measure the same thing twice.")
+        return EXIT_OK if not groups else EXIT_TASK
+
+    # contamination
+    understated: list[str] = []
+    rows = []
+    order = {"none": 0, "low": 1, "medium": 2, "high": 3}
+    for task in tasks:
+        names = sorted(
+            {
+                *(getattr(task, "fixtures", {}) or {}),
+                *(getattr(task, "starting_workspace", {}) or {}),
+            }
+        )
+        assessed = assess_contamination(
+            str(task.id),
+            objective_text=str(getattr(task, "objective", "")),
+            fixture_names=names,
+        )
+        raw = (getattr(task, "metadata", {}) or {}).get("contamination_risk")
+        declared = ContaminationRisk.model_validate(raw) if isinstance(raw, dict) else None
+        row: dict[str, Any] = {
+            "task": str(task.id),
+            "assessed": assessed.level,
+            "reason": assessed.reason,
+            "declared": declared.level if declared else None,
+        }
+        # A declaration that sits below the evidence is the case worth
+        # reporting: it is the only direction in which the author's judgement
+        # makes the benchmark look better than the evidence supports.
+        if declared and order[declared.level] < order[assessed.level]:
+            understated.append(str(task.id))
+            row["understated"] = True
+        rows.append(row)
+    flagged = [r for r in rows if r["assessed"] != "none"]
+    if args.json:
+        _emit({"tasks": rows, "flagged": len(flagged), "understated": understated}, True)
+    else:
+        for row in sorted(flagged, key=lambda r: str(r["task"])):
+            mark = " (declared {})".format(row["declared"]) if row["declared"] else ""
+            print(f"{row['assessed']:<7} {row['task']}{mark}\n        {row['reason']}")
+        print(f"\n{len(flagged)} of {len(rows)} task(s) carry a public-exposure signal.")
+        print("This is declared evidence, not proof: a level of 'none' means no signal matched.")
+        if understated:
+            print(f"declared below the evidence: {', '.join(understated)}")
+    return EXIT_OK if not understated else EXIT_TASK
+
+
 def cmd_fleet(args: argparse.Namespace) -> int:
     """A queue, workers that claim from it, and a merge that refuses on conflict.
 
@@ -3503,6 +3700,22 @@ def build_parser() -> argparse.ArgumentParser:
         default=1,
         help="runs per arm. One is a coin flip with a nondeterministic agent",
     )
+
+    gv = sub.add_parser("govern", help="dataset provenance, indexes, duplicates, contamination")
+    gvsub = gv.add_subparsers(dest="govern_cmd", required=True)
+    gv_prov = gvsub.add_parser("provenance", help="build or verify a task's provenance manifest")
+    gv_prov.add_argument("--task", help="task id (default: every installed task)")
+    gv_prov.add_argument("--out", help="write one manifest per task into this directory")
+    gv_prov.add_argument("--verify", help="check an existing manifest against the task on disk")
+    gv_index = gvsub.add_parser("index", help="versioned pack index with a compatibility range")
+    gv_index.add_argument("--pack", help="pack name (default: every pack)")
+    gv_index.add_argument("--requires", help='semver range the index must satisfy, e.g. ">=1.0.0"')
+    gvsub.add_parser("duplicates", help="tasks that share a fingerprint, across packs")
+    gvsub.add_parser("contamination", help="public-exposure risk per task, declared vs assessed")
+    for _gov_sub in (gv_prov, gv_index, *gvsub.choices.values()):
+        if not any(a.dest == "json" for a in _gov_sub._actions):
+            _gov_sub.add_argument("--json", action="store_true", help="structured JSON output")
+    gv.set_defaults(func=cmd_govern)
 
     fl = sub.add_parser("fleet", help="run one sweep across a fleet of workers")
     flsub = fl.add_subparsers(dest="fleet_cmd", required=True)

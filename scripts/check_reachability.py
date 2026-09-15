@@ -85,16 +85,10 @@ KNOWN_UNREACHED: dict[str, str] = {
     "frozen_time": "deterministic-clock helper; no runner path uses it yet",
     "recovery_score": "superseded by analysis/behaviour.py recovery_quality, which is wired",
     "sample_resource_usage": "resource sampling; nothing records it into a bundle yet",
-    # Dataset governance: snapshots, provenance and contamination, with a CLI
-    # surface for `snapshot` only.
-    "assess_contamination": "dataset governance; only `snapshot` has a CLI surface",
-    "build_pack_index": "dataset governance; only `snapshot` has a CLI surface",
-    "build_provenance_manifest": "dataset governance; only `snapshot` has a CLI surface",
-    "build_snapshot": "dataset governance; only `snapshot` has a CLI surface",
-    "find_duplicates": "dataset governance; only `snapshot` has a CLI surface",
-    "satisfies_range": "semver range helper for pack indexes, which have no CLI surface",
-    "verify_provenance_manifest": "dataset governance; only `snapshot` has a CLI surface",
-    "ContaminationRisk": "declared on TaskDefinitionV2; no task sets it and nothing reads it",
+    # Provenance, indexes, duplicates and contamination are now reachable
+    # through `tooltrace govern`. This one is a second dataset-snapshot format
+    # sitting beside `analysis.generate_snapshot`, which is the one that ships.
+    "build_snapshot": "duplicate snapshot format; analysis.generate_snapshot is the shipping one",
     # Suite manifests: the selection machinery predates `--task`/`--limit`.
     "build_suite": "suite manifests; task selection ships as --task/--limit/--shuffle instead",
     "sample_suite": "suite manifests; task selection ships as --task/--limit/--shuffle instead",

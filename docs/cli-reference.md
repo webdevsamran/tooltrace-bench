@@ -77,6 +77,7 @@ whichever shell's quoting rules you are subject to.
 | `dry-run --task ID` | Validate fixtures/assertions/sandbox lifecycle without any model |
 | `self-test` | Harness self-test: sandbox cleanup, scoring determinism, monotonic timers, fixture/trace integrity |
 | `snapshot --source DIR --output F [--changelog S] [--verify]` | Generate/verify hashed dataset snapshots |
+| `govern provenance\|index\|duplicates\|contamination` | Where the task data came from, and whether a model could already have seen it. `provenance` builds a manifest hashing every authored file a task carries and `--verify` checks one back, reporting content **added** since as uncovered rather than passing it -- checking only the manifest's own entries would let new, unvouched-for files through. `index` builds a versioned per-pack index and `--requires` checks a semver range against it, saying plainly when a range is one it cannot read instead of reporting the pack incompatible. `duplicates` groups tasks sharing a fingerprint across packs -- two tasks with one fingerprint measure the same thing twice. `contamination` reports public-exposure signals per task and flags any author declaration that sits **below** the evidence, which is the only direction that makes the benchmark look better than it is. Declared evidence, never proof: `none` means no signal matched |
 | `validate --path PACK` · `task validate/test/scaffold` | Schema validation, pack tests, scaffolding |
 
 ## Ingestion (external traces)
