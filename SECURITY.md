@@ -47,3 +47,26 @@ Out of scope:
   (API keys, bearer tokens, credentials) are redacted.
 - Publication checks fail on likely secrets before anything is exported.
 - CI uses least-privilege permissions, pinned Action SHAs, and no secrets.
+
+## Static-analysis findings that are open on purpose
+
+CodeQL (`security-extended`) runs on every push. Three alerts are open and are
+not defects. They are recorded here rather than only in a dismissal box, so the
+reasoning is reviewable and can be re-checked when the code changes.
+
+All three come from CodeQL's **name-based** sensitive-data classifier: it treats
+identifiers spelled `key`, `secret` or `password` as sensitive sources and then
+cannot prove, through a `dict` passed into a function, that the value does not
+come back out. The property each alert doubts is instead proven empirically by
+[`tests/test_secrets_do_not_leak.py`](tests/test_secrets_do_not_leak.py), which
+plants real-shaped secrets and asserts on the actual bytes.
+
+| Alert | Query | Location | Why it fires, and why it is wrong |
+|---|---|---|---|
+| #4, #5 | `py/clear-text-logging-sensitive-data` | `tooltrace/cli/main.py` (`_emit`) | A verification key reaches `a2a.report()`, whose result is printed. Inside, the key is used only as the first argument to `hmac.new` and `hmac.compare_digest`; the returned structure holds signature *states*, algorithm names and prose. Two tests drive both output paths with a real key and assert it appears in neither stdout nor stderr. |
+| #3 | `py/clear-text-storage-sensitive-data` | `tooltrace/security/redaction.py` (`write_record`) | The record contains `residual_secret_classes` -- the **labels** of secret patterns that still match after sanitisation, such as `aws_access_key`, never the matched text. `Finding` documented that in a comment and nothing checked it; a test now plants an email, a card number and an AWS key and asserts none appears in the report, the record, or either file written to disk. |
+
+These are not suppressed in source. A `# codeql[...]` comment on `_emit` would
+blanket every command that prints anything, which is exactly the kind of
+chokepoint exemption that hides the next real finding -- the same reason the
+secret scanner marks single lines instead of exempting `tests/`.
