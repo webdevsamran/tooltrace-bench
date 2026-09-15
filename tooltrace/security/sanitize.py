@@ -19,6 +19,15 @@ _PATTERNS: list[tuple[str, re.Pattern[str]]] = [
     ("gitlab-token", re.compile(r"\bglpat-[A-Za-z0-9_-]{16,}\b")),
     ("slack-token", re.compile(r"\bxox[abprs]-[A-Za-z0-9-]{10,}\b")),
     ("google-api-key", re.compile(r"\bAIza[0-9A-Za-z_-]{35}\b")),
+    # These two were in `scripts/secret_scan.py` -- the gate that stops *this
+    # repository* publishing a secret -- and missing here, which is the sanitiser
+    # that stops a *user's* trace recording one. A Stripe live key or an npm
+    # token appearing in an agent's tool output was written into the bundle
+    # unredacted, while the identical string in this repo blocked a release.
+    # The asymmetry ran the wrong way: their data was protected less carefully
+    # than ours. `tests/test_secret_scan_catches_secrets.py` now checks parity.
+    ("stripe-live-key", re.compile(r"\bsk_live_[0-9A-Za-z]{16,}\b")),
+    ("npm-token", re.compile(r"\bnpm_[0-9A-Za-z]{36}\b")),
     ("private-key-block", re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----")),
     (
         "bearer-token",
@@ -46,10 +55,23 @@ _REDACTED = "[REDACTED]"
 
 @dataclass(frozen=True)
 class SecretFinding:
+    """Where a secret-shaped string was found, and what shape it was.
+
+    There used to be a `preview` field holding `text[start:start + 6]` -- the
+    first six characters of every detected secret -- annotated "never the full
+    secret", which is a materially weaker promise than the one this module's
+    own docstring makes. Nothing read it. It was six characters of live
+    credential riding inside a dataclass that any caller could log, serialise
+    or put in a bundle, bought for no functionality at all.
+
+    A finding says *that* something matched and *which* pattern. Recovering the
+    text is what `start` and `end` are for, against the string the caller
+    already holds -- so the secret stays in one place instead of two.
+    """
+
     label: str
     start: int
     end: int
-    preview: str  # first 6 chars only — never the full secret
 
 
 def find_secrets(text: str) -> list[SecretFinding]:
@@ -57,14 +79,7 @@ def find_secrets(text: str) -> list[SecretFinding]:
     findings: list[SecretFinding] = []
     for label, pattern in _PATTERNS:
         for m in pattern.finditer(text):
-            findings.append(
-                SecretFinding(
-                    label=label,
-                    start=m.start(),
-                    end=m.end(),
-                    preview=text[m.start() : m.start() + 6],
-                )
-            )
+            findings.append(SecretFinding(label=label, start=m.start(), end=m.end()))
     return findings
 
 

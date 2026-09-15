@@ -165,7 +165,12 @@ def redaction_report(bundle_dir: Path) -> dict[str, Any]:
     # And a check that it did not miss anything it claims to catch. A secret
     # pattern still matching after sanitisation is a defect in the sanitiser,
     # not a finding about the run.
-    residual_secrets = sorted({f.label for text in texts.values() for f in find_secrets(text)})
+    # The *names* of the patterns that still match -- "aws_access_key", not
+    # the key. This was called `residual_secrets`, which is what the value
+    # would be if the promise on `Finding` had ever been broken, and reading
+    # the name instead of the expression is how a reviewer concludes this
+    # record leaks. It never did; the name did.
+    residual_classes = sorted({f.label for text in texts.values() for f in find_secrets(text)})
 
     return {
         "bundle": bundle_dir.name,
@@ -173,7 +178,7 @@ def redaction_report(bundle_dir: Path) -> dict[str, Any]:
         "files_scanned": sorted(texts),
         "redaction_markers": redaction_markers,
         "secret_classes_checked": len(SECRET_PATTERNS),
-        "residual_secret_classes": residual_secrets,
+        "residual_secret_classes": residual_classes,
         "pii_findings": [
             {"label": f.label, "count": f.count, "files": list(f.files), "note": f.note}
             for f in findings
@@ -181,7 +186,7 @@ def redaction_report(bundle_dir: Path) -> dict[str, Any]:
         "undetectable": list(UNDETECTABLE),
         # A determination, not a certification, and named so.
         "safe_to_publish": None,
-        "statement": _statement(findings, redaction_markers, residual_secrets),
+        "statement": _statement(findings, redaction_markers, residual_classes),
         "not_differential_privacy": (
             "This is redaction, not differential privacy. DP means calibrated noise under "
             "an epsilon budget; a bundle's value is that a third party can reproduce it "
@@ -196,16 +201,16 @@ def redaction_report(bundle_dir: Path) -> dict[str, Any]:
     }
 
 
-def _statement(findings: list[Finding], markers: int, residual: list[str]) -> str:
+def _statement(findings: list[Finding], markers: int, residual_classes: list[str]) -> str:
     parts: list[str] = []
     if markers:
         parts.append(f"{markers} value(s) were redacted on capture")
     else:
         parts.append("nothing matched a secret pattern on capture")
-    if residual:
+    if residual_classes:
         parts.append(
-            f"**{len(residual)} secret class(es) still match after sanitisation "
-            f"({', '.join(residual)}), which is a defect in the sanitiser rather than "
+            f"**{len(residual_classes)} secret class(es) still match after sanitisation "
+            f"({', '.join(residual_classes)}), which is a defect in the sanitiser rather than "
             "a property of the run**"
         )
     if findings:

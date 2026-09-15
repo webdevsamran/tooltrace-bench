@@ -28,6 +28,7 @@ Three deliberate constraints:
 from __future__ import annotations
 
 import json
+import re
 import shutil
 import subprocess
 import sys
@@ -47,6 +48,32 @@ ADAPTERS: dict[str, str] = {
     "openai_compat": "an OpenAI-compatible chat endpoint (including local servers)",
     "scripted": "a fixed script of tool calls - the deterministic demo, no model",
 }
+
+#: A POSIX environment variable name.
+#:
+#: Necessary but **not sufficient** to tell a name from a key. `ghp_...` and
+#: `sk_live_...` are letters, digits and underscores throughout -- a charset
+#: test admits both, and an earlier version of this check said otherwise and was
+#: simply wrong. What actually separates them is shape, which this project
+#: already has a detector for, so `_is_variable_name` asks that detector too.
+_ENV_NAME_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
+
+#: Longer than any environment variable name anyone writes, shorter than the
+#: credentials worth protecting. A backstop for a key shape nothing recognises
+#: yet, since a new provider is one press release away.
+_MAX_ENV_NAME = 64
+
+
+def _is_variable_name(value: str) -> bool:
+    """True when *value* is plausibly a variable name rather than a credential."""
+    from tooltrace.security.sanitize import find_secrets
+
+    if not _ENV_NAME_RE.fullmatch(value) or len(value) > _MAX_ENV_NAME:
+        return False
+    # The project's own secret-shape detector, rather than a second opinion
+    # maintained separately from it: a pattern added there protects this too.
+    return not find_secrets(value)
+
 
 #: Local servers, offered by name because knowing that Ollama is on 11434 and
 #: LM Studio on 1234 is exactly the friction this command exists to remove. Each
@@ -230,10 +257,29 @@ def plan(
                 "than the agent"
             )
     elif adapter == "openai_compat" and result.agent_config.get("api_key_env"):
-        result.notes.append(
-            f"set {result.agent_config['api_key_env']} in your environment; "
-            "the key is never written to the config"
-        )
+        # The *name* of an environment variable, never its value -- that is the
+        # rule everywhere credentials appear in this project. Nothing enforced
+        # it here, and this note is printed to stdout and returned in the JSON
+        # payload: someone who pastes the key itself into the field named
+        # `api_key_env` (an easy mistake, and the field most likely to receive
+        # one) had it echoed straight back out and into their shell scrollback.
+        #
+        # Refuse rather than print, and say which field is wrong without
+        # quoting back what was in it.
+        name = str(result.agent_config["api_key_env"])
+        if _is_variable_name(name):
+            result.notes.append(
+                f"set {name} in your environment; the key is never written to the config"
+            )
+        else:
+            result.agent_config.pop("api_key_env", None)
+            result.notes.append(
+                "api_key_env must be the NAME of an environment variable "
+                "(letters, digits and underscores), not the key itself. The value "
+                "given does not look like a variable name, so it has been dropped "
+                "rather than printed back. If you pasted a real key, rotate it: it "
+                "is in your shell history."
+            )
     if not tasks:
         result.notes.append("no task packs are installed, so there is nothing to run")
     return result

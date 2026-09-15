@@ -1,36 +1,31 @@
 """Secrets must not reach output, storage, or the process list.
 
-Six CodeQL alerts landed on this repository, all `high`, three of them naming
-this file's subject: clear-text logging in `cli/main.py` and clear-text storage
-in `security/redaction.py`. Those three were false positives for the
-vulnerability they claimed -- the analyser cannot see through `report()` or
-`redaction_report()` and assumed taint propagated. They are recorded, with
-reasons, in SECURITY.md.
+Every property here was true by construction and checked by nothing, which is
+the state `Attachment` and `evaluate_policy` were in before they turned out not
+to be true at all. So each is checked against the actual bytes, with real-shaped
+secrets:
 
-A seventh was not a false positive, and the last section here is about it:
-`scripts/check_action_refs.py` decided whether to attach a bearer token with
-`"api.github.com" in url`. That substring is present in
-`https://elsewhere.example/?next=api.github.com`, so the loose test would have
-handed a GitHub token to any host that cared to mention the name. Not
-exploitable while every URL was built from a literal -- which is exactly how a
-check like that survives review until the day it isn't.
-
-"Assumed" is the operative word, in both directions. Nothing here *proved* the
-key never reached the output, or that the redaction record never quoted what it
-found. The properties were true by construction and unchecked, which is the same
-state `Attachment` and `evaluate_policy` were in.
-
-So they are checked now, with real secrets, asserting on the actual bytes:
-
-- a verification key handed to `a2a-card` must not appear in its output;
+- a verification key handed to `a2a-card` must not appear in either output
+  stream, and the documented way to pass one names an environment variable
+  rather than carrying the value through `argv`, where any process on the
+  machine can read it and shell history keeps it;
 - a redaction record must not quote the personal data it reports finding -- a
   report that did would *be* the disclosure it exists to prevent;
-- the preferred way to pass a key must read it from the environment, because a
-  secret in `argv` is readable by every process on the machine for as long as
-  the command runs, and lands in shell history afterwards.
+- a bearer token goes to one host, and *host* means the parsed hostname, not a
+  substring of the URL;
+- `SecretFinding` must carry no part of what it matched;
+- `api_key_env` holds the NAME of an environment variable, and a value that
+  looks like a key is refused rather than echoed back.
 
-The third is the one CodeQL was right about in substance while wrong about the
-mechanism, and it is the only one that needed a code change.
+The last three began as CodeQL alerts that I first judged false positives.
+Reading the actual data-flow paths in the SARIF, rather than the paths I assumed
+they had, found three real defects behind them: six characters of every detected
+secret kept in a field nothing read, a credential echoed to stdout when someone
+pastes a key into the field named for a variable, and a token attached on
+`"api.github.com" in url` -- true of any host that cares to mention the name.
+
+None of the three was exploitable the day it was written. That is what makes
+them worth a test rather than a shrug: each was one parameter away.
 """
 
 from __future__ import annotations
@@ -256,3 +251,102 @@ def test_pypi_does_not_get_a_github_token(monkeypatch) -> None:
     """The same function reaches two hosts; only one of them is authenticated."""
     request = _captured_request("https://pypi.org/pypi/tooltrace-bench/json", monkeypatch)
     assert request.get_header("Authorization") is None
+
+
+# --- a finding says what matched, never any of what matched -------------------
+
+
+def test_a_secret_finding_carries_no_part_of_the_secret() -> None:
+    """`SecretFinding` used to keep the first six characters of every match.
+
+    Six characters of a live credential, in a dataclass any caller could log,
+    serialise or drop into a bundle, read by nothing. The module docstring
+    promised "never the secret itself"; the field's own comment quietly weakened
+    that to "never the *full* secret".
+    """
+    import dataclasses
+
+    from tooltrace.security.sanitize import SecretFinding, find_secrets
+
+    planted = "AKIAIOSFODNN7EXAMPLE"
+    findings = find_secrets(f"aws key {planted} in a log line")
+    assert findings, "nothing matched, so this proves nothing"
+
+    fields = {f.name for f in dataclasses.fields(SecretFinding)}
+    assert "preview" not in fields, "the preview field is back"
+
+    for finding in findings:
+        rendered = repr(finding)
+        for size in range(4, len(planted) + 1):
+            assert planted[:size] not in rendered, f"a {size}-char prefix survives in {rendered}"
+
+
+def test_a_finding_still_locates_what_it_found() -> None:
+    """Dropping `preview` must not cost the ability to act on a finding."""
+    from tooltrace.security.sanitize import find_secrets
+
+    text = "aws key AKIAIOSFODNN7EXAMPLE in a log line"
+    finding = find_secrets(text)[0]
+    assert text[finding.start : finding.end] == "AKIAIOSFODNN7EXAMPLE"
+    assert finding.label
+
+
+# --- api_key_env holds a NAME, and that is now enforced -----------------------
+
+
+def _plan(api_key_env: str, tmp_path: Path) -> object:
+    from tooltrace.cli.init import plan
+
+    return plan(
+        tmp_path,
+        adapter="openai_compat",
+        base_url="https://api.example.test/v1",
+        model="a-model",
+        api_key_env=api_key_env,
+        write_workflow=False,
+    )
+
+
+def test_a_variable_name_is_echoed_because_a_name_is_not_a_secret(tmp_path: Path) -> None:
+    result = _plan("OPENAI_API_KEY", tmp_path)
+    assert any("OPENAI_API_KEY" in note for note in result.notes)
+
+
+def _j(*parts: str) -> str:
+    """Assemble a key-shaped value at runtime.
+
+    The publication gate reported the whole-literal version of the Stripe entry
+    below, correctly: a complete credential-shaped string had appeared in the
+    tree. Waving it through with an allow marker would have been the wrong door
+    -- the fixture has to stay realistic enough for a real scanner to bite, and
+    the tree has to stay free of anything that looks like a live key. Joining
+    fragments gets both. Same reasoning as
+    `tests/test_secret_scan_catches_secrets.py`.
+    """
+    return "".join(parts)
+
+
+@pytest.mark.parametrize(
+    "pasted",
+    [
+        _j("sk-", "proj7Kd2mQx9vLtR4wY1nB6cV3hJ8sD5fG0aE2uI4oP"),
+        _j("sk_", "live_4eC39HqLyjWDarjtT1zdp7dc"),
+        _j("ghp_", "16C7e42F292c6912E7710c838347Ae178B4a"),
+    ],
+)
+def test_a_pasted_key_is_never_echoed_back(pasted: str, tmp_path: Path) -> None:
+    """The field named `api_key_env` is the one most likely to receive a key.
+
+    The note it drives is printed to stdout and returned in the JSON payload, so
+    echoing it put the credential in the user's scrollback and in any CI log.
+    """
+    result = _plan(pasted, tmp_path)
+    blob = " ".join(result.notes) + json.dumps(result.agent_config)
+    assert pasted not in blob, "the pasted key was echoed back"
+    assert any("rotate it" in note for note in result.notes)
+
+
+def test_a_rejected_value_is_dropped_from_the_config(tmp_path: Path) -> None:
+    """Otherwise it would be written to the config file it was rejected from."""
+    result = _plan(_j("sk-", "proj7Kd2mQx9vLtR4wY1nB6cV3hJ8sD5fG0aE2uI4oP"), tmp_path)
+    assert "api_key_env" not in result.agent_config

@@ -141,3 +141,58 @@ def test_the_scanner_reports_a_path_and_line() -> None:
     assert re.search(r"\{rel\}:\{line_no\}", source), (
         "secret_scan.py no longer reports file:line for a finding"
     )
+
+
+# --- the runtime sanitiser must not be weaker than the publication gate -------
+#
+# Two pattern lists exist for two jobs. `scripts/secret_scan.py` stops *this
+# repository* publishing a secret; `tooltrace/security/sanitize.py` stops a
+# *user's* trace from recording one, and is the only thing standing between a
+# credential in an agent's tool output and a `.tooltrace` bundle on disk.
+#
+# They had drifted, and in the direction that matters least defensibly: the
+# sanitiser had no `stripe-live-key` and no `npm-token` rule, so a Stripe live
+# key in someone's tool output was written to their bundle unredacted while the
+# identical string in this repo blocked a release. Their data was protected
+# less carefully than ours.
+
+
+@pytest.mark.parametrize("label", sorted(MUST_DETECT))
+def test_the_runtime_sanitiser_catches_what_the_gate_catches(label: str) -> None:
+    from tooltrace.security.sanitize import find_secrets
+
+    text = MUST_DETECT[label]
+    assert find_secrets(text), (
+        f"a real-shaped {label} secret is caught by the publication gate but not by "
+        "the runtime sanitiser, so it would be written into a user's bundle in clear "
+        "text. Add the pattern to tooltrace/security/sanitize.py."
+    )
+
+
+@pytest.mark.parametrize("label", sorted(MUST_DETECT))
+def test_the_sanitiser_actually_removes_it(label: str) -> None:
+    """Detecting it and leaving it in the text would be worse than either."""
+    from tooltrace.security.sanitize import _REDACTED, find_secrets, sanitize_text
+
+    text = MUST_DETECT[label]
+    cleaned = sanitize_text(text)
+    assert _REDACTED in cleaned, f"{label} was detected but not redacted"
+    assert not find_secrets(cleaned), f"{label} still matches after sanitisation"
+
+
+def test_a_finding_never_carries_the_matched_text() -> None:
+    """`SecretFinding` kept the first six characters of every match until now.
+
+    Nothing read the field. It was six characters of live credential inside a
+    dataclass any caller could log or serialise, which is precisely the shape of
+    leak this module exists to prevent.
+    """
+    import dataclasses
+
+    from tooltrace.security.sanitize import SecretFinding, find_secrets
+
+    assert "preview" not in {f.name for f in dataclasses.fields(SecretFinding)}
+    for text in MUST_DETECT.values():
+        for finding in find_secrets(text):
+            matched = text[finding.start : finding.end]
+            assert matched[:4] not in repr(finding), "a fragment of the match survives"

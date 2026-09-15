@@ -48,30 +48,58 @@ Out of scope:
 - Publication checks fail on likely secrets before anything is exported.
 - CI uses least-privilege permissions, pinned Action SHAs, and no secrets.
 
-## Static-analysis findings that are open on purpose
+## What CodeQL found, and what was behind it
 
-CodeQL (`security-extended`) runs on every push. Three alerts are open and are
-not defects. A fourth was raised and **was** a defect -- a bearer token attached
-after an `"api.github.com" in url` substring test, which is true of any host that
-mentions the name. That one was fixed in `scripts/check_action_refs.py` rather
-than explained away, and `tests/test_secrets_do_not_leak.py` now proves three
-lookalike hosts receive no credential.
+CodeQL (`security-extended`) runs on every push. Seven alerts have been raised
+against this project. Four were real, and this section exists partly to record
+that the first reading of three of them was wrong.
 
-The three below are different in kind. They are recorded here rather than only in
-a dismissal box, so the reasoning is reviewable and can be re-checked when the
-code changes.
+They were dismissed as false positives on the basis of the flows they *appeared*
+to describe. Reading the actual data-flow paths out of the SARIF showed the
+analyser was following entirely different routes, and three defects were sitting
+at the far end of them:
 
-All three come from CodeQL's **name-based** sensitive-data classifier: it treats
-identifiers spelled `key`, `secret` or `password` as sensitive sources and then
-cannot prove, through a `dict` passed into a function, that the value does not
-come back out. The property each alert doubts is instead proven empirically by
-[`tests/test_secrets_do_not_leak.py`](tests/test_secrets_do_not_leak.py), which
-plants real-shaped secrets and asserts on the actual bytes.
+- **A bearer token gated on a substring.** `scripts/check_action_refs.py`
+  attached a GitHub token when `"api.github.com" in url`. That is true of
+  `https://elsewhere.example/?next=api.github.com`. Now compares the parsed
+  hostname.
+- **Six characters of every detected secret, kept for nobody.**
+  `SecretFinding.preview` held `text[start:start + 6]`, annotated "never the
+  *full* secret" -- a quieter promise than the module's own "never the secret
+  itself". Nothing read it. Removed; `start`/`end` already locate the match.
+- **A pasted key echoed to stdout.** `tooltrace init` printed
+  `api_key_env` in a note, unvalidated. The field named for a variable is the
+  one most likely to receive the key itself, and the note reaches stdout and the
+  JSON payload. Now refused, dropped from the config, and answered with advice
+  to rotate -- without quoting the value back.
 
-| Alert | Query | Location | Why it fires, and why it is wrong |
-|---|---|---|---|
-| #2, #3 | `py/clear-text-logging-sensitive-data` | `tooltrace/cli/main.py` (`_emit`) | A verification key reaches `a2a.report()`, whose result is printed. Inside, the key is used only as the first argument to `hmac.new` and `hmac.compare_digest`; the returned structure holds signature *states*, algorithm names and prose. Two tests drive both output paths with a real key and assert it appears in neither stdout nor stderr. |
-| #1 | `py/clear-text-storage-sensitive-data` | `tooltrace/security/redaction.py` (`write_record`) | The record contains `residual_secret_classes` -- the **labels** of secret patterns that still match after sanitisation, such as `aws_access_key`, never the matched text. `Finding` documented that in a comment and nothing checked it; a test now plants an email, a card number and an AWS key and asserts none appears in the report, the record, or either file written to disk. |
+A fourth finding came out of the same pass without an alert behind it: the
+runtime sanitiser in `tooltrace/security/sanitize.py` had no `stripe-live-key`
+or `npm-token` rule, both of which `scripts/secret_scan.py` has. A Stripe live
+key in an agent's tool output was written into the user's bundle unredacted,
+while the identical string in this repository blocked a release -- their data
+protected less carefully than ours. `tests/test_secret_scan_catches_secrets.py`
+now checks the two lists for parity on every run.
+
+### The three that remain open
+
+| Alert | Query | Location |
+|---|---|---|
+| #2, #3 | `py/clear-text-logging-sensitive-data` | `tooltrace/cli/main.py` (`_emit`) |
+| #1 | `py/clear-text-storage-sensitive-data` | `tooltrace/security/redaction.py` (`write_record`) |
+
+All three now trace to one source: `redaction_report` builds a list of the
+**names** of secret patterns that still match after sanitisation --
+`aws-access-key`, not the key -- which flows into the record written to disk and
+printed by `tooltrace redaction`. CodeQL's sensitive-data classifier is
+name-based, the variable was called `residual_secrets`, and that name is what a
+reviewer reads before the expression. It is `residual_classes` now, which is
+what it always held.
+
+The property is proven rather than asserted:
+[`tests/test_secrets_do_not_leak.py`](tests/test_secrets_do_not_leak.py) plants
+an email, a card number and an AWS key in a bundle and checks that none appears
+in the report, the record, or either file written to disk.
 
 These are not suppressed in source. A `# codeql[...]` comment on `_emit` would
 blanket every command that prints anything, which is exactly the kind of
