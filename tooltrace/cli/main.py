@@ -15,6 +15,7 @@ from __future__ import annotations
 import argparse
 import contextlib
 import json
+import os
 import random
 import shutil
 import sys
@@ -787,12 +788,36 @@ def cmd_a2a_card(args: argparse.Namespace) -> int:
         print(f"error: {path} is not an object", file=sys.stderr)
         return EXIT_TASK
 
+    # From the caller, never from the card. A signature checked against a key
+    # the document itself names proves only that the document agrees with
+    # itself.
+    #
+    # Two forms, and the env-var one is the documented default. Every other
+    # credential path in this project takes the *name* of an environment
+    # variable rather than a value -- `openai_compat`, `anthropic` and `gemini`
+    # all say so in their own docstrings -- and this command was the one place
+    # that took the secret itself. A secret in `argv` is readable by any process
+    # on the machine for as long as the command runs, and it lands in shell
+    # history and CI logs afterwards.
     keys: dict[str, bytes] | None = None
-    if args.key:
-        # From the caller, never from the card. A signature checked against a
-        # key the document itself names proves the document agrees with itself.
+    if args.key_env or args.key:
         keys = {}
-        for pair in args.key:
+        for pair in args.key_env or []:
+            kid, _, var = pair.partition("=")
+            name = var or kid
+            value = os.environ.get(name)
+            if value is None:
+                print(f"error: --key-env names ${name}, which is not set", file=sys.stderr)
+                return EXIT_USAGE
+            keys[kid if var else "default"] = value.encode("utf-8")
+        if args.key:
+            print(
+                "note: --key puts the secret in this process's command line, where any "
+                "user on this machine can read it, and in your shell history afterwards. "
+                "--key-env KID=VARNAME reads it from the environment instead",
+                file=sys.stderr,
+            )
+        for pair in args.key or []:
             kid, _, secret = pair.partition("=")
             keys[kid if secret else "default"] = (secret or kid).encode("utf-8")
 
@@ -3190,9 +3215,22 @@ def build_parser() -> argparse.ArgumentParser:
     ac = add("a2a-card", cmd_a2a_card, "check an A2A Agent Card and its signature")
     ac.add_argument("card", help="path to an agent-card.json")
     ac.add_argument(
+        "--key-env",
+        action="append",
+        metavar="KID=ENV_VAR",
+        help=(
+            "verification key read from an environment variable by name -- the form to "
+            "prefer. Supplied by you and never read from the card"
+        ),
+    )
+    ac.add_argument(
         "--key",
         action="append",
-        help="verification key as KID=SECRET, supplied by you and never read from the card",
+        metavar="KID=SECRET",
+        help=(
+            "verification key given literally. Visible in the process list and your shell "
+            "history for as long as the command runs; prefer --key-env"
+        ),
     )
 
     ms = add("mcp-scan", cmd_mcp_scan, "score many MCP servers at once")

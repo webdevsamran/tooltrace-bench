@@ -244,6 +244,26 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
  * always ends in a slash, so this is correct at the root, under a GitHub Pages
  * project subpath, and at any route depth.
  */
+/**
+ * A bundle name, or null.
+ *
+ * Bundle directories are named by `bundle_slug` in `tooltrace/artifacts/
+ * bundles.py`, which produces lowercase alphanumerics with dots, dashes and
+ * underscores. Anything else did not come from this project.
+ *
+ * The value reaching `assetUrl` is read out of a `<select>` whose options the
+ * app rendered from published data, so the practical risk is low -- but it is
+ * still DOM text being interpolated into a URL, which is what CodeQL's
+ * `js/xss-through-dom` alert on the trace explorer was pointing at. Validating
+ * against the shape the producer actually emits costs nothing and removes the
+ * question: a `..` segment cannot repoint the link, and nothing that is not a
+ * bundle name can reach a fetch.
+ */
+export function safeBundleName(value: string | null | undefined): string | null {
+  if (!value) return null
+  return /^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(value) ? value : null
+}
+
 export function assetUrl(path: string): string {
   return `${import.meta.env.BASE_URL}${path.replace(/^\/+/, '')}`
 }

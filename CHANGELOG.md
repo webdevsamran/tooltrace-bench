@@ -7,6 +7,24 @@ versioning follows [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- **`a2a-card --key-env KID=ENV_VAR`**, and it is the documented form. Every
+  other credential path in this project takes the *name* of an environment
+  variable rather than its value -- `openai_compat`, `anthropic` and `gemini`
+  all say so in their own docstrings -- and `--key KID=SECRET` was the one place
+  that took the secret itself. A secret in `argv` is readable by any process on
+  the machine for as long as the command runs, and lands in shell history and CI
+  logs afterwards. `--key` still works, and now says that on stderr.
+
+- **`tests/test_secrets_do_not_leak.py`** proves, with real secrets and against
+  the actual bytes, that a verification key never reaches either output stream,
+  that the redaction record never quotes the personal data it reports finding --
+  `Finding` had said "never the matched text" in a comment and nothing checked
+  it -- and that no other command takes a credential as an argument value.
+
+- **`safeBundleName`** in the dashboard, with nine cases covering traversal,
+  schemes, query strings, markup and whitespace. A bundle name reaches three
+  URLs in the trace explorer and is now validated once, against the shape
+  `bundle_slug` actually produces, before any of them.
 - **`scripts/check_reachability.py`** counts public symbols nothing in shipped
   code refers to — this project's most common defect, by a wide margin. 30 of
   576: five reached from outside the repository (a pytest hook, plugin

@@ -123,7 +123,13 @@ def test_bfcl_is_cited_by_its_leaderboard_not_a_release_tag() -> None:
     assert "ShishirPatil/gorilla" in text, "BFCL is not covered at all"
     section = text[text.index("### BFCL") :]
     section = section[: section.index("\n### ")] if "\n### " in section else section
-    assert "gorilla.cs.berkeley.edu" in section, "BFCL must be cited by its leaderboard"
+    # A link to the leaderboard, matched as a URL rather than as a substring of
+    # prose. The substring form is what CodeQL's URL-sanitisation query flags,
+    # and it would also have accepted the hostname appearing inside some other
+    # address.
+    assert re.search(r"https?://gorilla\.cs\.berkeley\.edu[/\s)]", section), (
+        "BFCL must be cited by a link to its leaderboard"
+    )
     releases = _meta()["repos"]["ShishirPatil/gorilla"].get("latest_release") or {}
     assert releases.get("tag") == "v1.3", (
         "the Gorilla repo's latest release tag changed; re-check the citation note, "

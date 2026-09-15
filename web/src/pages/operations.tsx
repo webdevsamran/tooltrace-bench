@@ -13,6 +13,7 @@ import {
   getIndex,
   getPareto,
   getResults,
+  safeBundleName,
   useAsync,
   type IndexData,
   type ParetoPoint,
@@ -81,8 +82,13 @@ export function TraceExplorerPage() {
   const [view, setView] = useState<TraceView>('all')
   const [diffText, setDiffText] = useState<string | null>(null)
 
+  // Validated once, here, rather than at each of the three places it is
+  // interpolated into a URL. A name that is not a bundle name is treated as no
+  // selection at all.
+  const bundle = safeBundleName(selected)
+
   useEffect(() => {
-    if (!selected) return
+    if (!bundle) return
     setOpenEvent(null)
     setEvents(null)
     setTraceError(null)
@@ -92,16 +98,16 @@ export function TraceExplorerPage() {
     // `trace.json` (a JSON array) and `workspace.diff.txt`, so every fetch here
     // 404'd and the Trace Explorer had never displayed a trace at all. The
     // published names are the contract; the names inside the bundle are not.
-    fetch(assetUrl(`bundles/${selected}/trace.json`))
+    fetch(assetUrl(`bundles/${bundle}/trace.json`))
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
       .then((events) => setEvents(events as TraceEvent[]))
       .catch((e) => setTraceError(String(e)))
     // Workspace diff is optional bundle content; absence is not an error.
-    fetch(assetUrl(`bundles/${selected}/workspace.diff.txt`))
+    fetch(assetUrl(`bundles/${bundle}/workspace.diff.txt`))
       .then((r) => (r.ok ? r.text() : ''))
       .then((text) => setDiffText(text || null))
       .catch(() => setDiffText(null))
-  }, [selected])
+  }, [bundle])
 
   const filtered = useMemo(
     () =>
@@ -137,7 +143,7 @@ export function TraceExplorerPage() {
           ))}
         </select>
       </label>
-      {selected && (
+      {bundle && (
         <>
           <div className="trace-toolbar" role="toolbar" aria-label="Trace view mode">
             <label className="field">
@@ -213,7 +219,7 @@ export function TraceExplorerPage() {
                 {/* Same correction as the fetch above: the published file is
                     trace.json, and the link needs the site base or it points
                     at a path relative to whatever route the reader is on. */}
-                <a href={assetUrl(`bundles/${selected}/trace.json`)} download>
+                <a href={assetUrl(`bundles/${bundle}/trace.json`)} download>
                   Download raw trace
                 </a>
               </p>
@@ -221,7 +227,7 @@ export function TraceExplorerPage() {
           )}
         </>
       )}
-      {!selected && <p className="state empty">Select a bundle to load its trace.</p>}
+      {!bundle && <p className="state empty">Select a bundle to load its trace.</p>}
     </section>
   )
 }
