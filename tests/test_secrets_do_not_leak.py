@@ -2,9 +2,18 @@
 
 Six CodeQL alerts landed on this repository, all `high`, three of them naming
 this file's subject: clear-text logging in `cli/main.py` and clear-text storage
-in `security/redaction.py`. Every one turned out to be a false positive for the
-vulnerability it claimed -- the analyser cannot see through `report()` or
-`redaction_report()` and assumed taint propagated.
+in `security/redaction.py`. Those three were false positives for the
+vulnerability they claimed -- the analyser cannot see through `report()` or
+`redaction_report()` and assumed taint propagated. They are recorded, with
+reasons, in SECURITY.md.
+
+A seventh was not a false positive, and the last section here is about it:
+`scripts/check_action_refs.py` decided whether to attach a bearer token with
+`"api.github.com" in url`. That substring is present in
+`https://elsewhere.example/?next=api.github.com`, so the loose test would have
+handed a GitHub token to any host that cared to mention the name. Not
+exploitable while every URL was built from a literal -- which is exactly how a
+check like that survives review until the day it isn't.
 
 "Assumed" is the operative word, in both directions. Nothing here *proved* the
 key never reached the output, or that the redaction record never quoted what it
@@ -188,3 +197,62 @@ def test_the_record_still_reports_that_it_found_something(tmp_path: Path) -> Non
     )
     record = redaction_report(bundle)
     assert record["pii_findings"], "nothing was detected, so the leak check proves nothing"
+
+
+# --- a token goes to one host, and host means host ----------------------------
+
+
+def _captured_request(url: str, monkeypatch) -> object:
+    """Run `_get_json` against `url`, returning the Request it would have sent."""
+    import importlib.util
+    import sys as _sys
+    import urllib.error
+    import urllib.request
+
+    spec = importlib.util.spec_from_file_location(
+        "ttb_check_action_refs_test",
+        Path(__file__).resolve().parent.parent / "scripts" / "check_action_refs.py",
+    )
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    _sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+
+    seen: list[object] = []
+
+    def fake_urlopen(request, *a, **k):
+        seen.append(request)
+        raise urllib.error.URLError("not sent")
+
+    monkeypatch.setenv("GITHUB_TOKEN", SECRET)
+    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+    with pytest.raises(urllib.error.URLError):
+        module._get_json(url)
+    return seen[0]
+
+
+def test_the_api_host_gets_the_token(monkeypatch) -> None:
+    """The check has to still work, or the test below proves nothing."""
+    request = _captured_request("https://api.github.com/repos/o/r/contents/action.yml", monkeypatch)
+    assert request.get_header("Authorization") == f"Bearer {SECRET}"
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        # Each of these contains the literal "api.github.com", and none of them
+        # IS api.github.com. A substring test sent the credential to all three.
+        "https://elsewhere.example/collect?next=api.github.com",
+        "https://api.github.com.evil.example/repos/o/r",
+        "https://evil.example/api.github.com/repos/o/r",
+    ],
+)
+def test_a_lookalike_host_never_gets_the_token(url: str, monkeypatch) -> None:
+    request = _captured_request(url, monkeypatch)
+    assert request.get_header("Authorization") is None, f"the token was sent to {url}"
+
+
+def test_pypi_does_not_get_a_github_token(monkeypatch) -> None:
+    """The same function reaches two hosts; only one of them is authenticated."""
+    request = _captured_request("https://pypi.org/pypi/tooltrace-bench/json", monkeypatch)
+    assert request.get_header("Authorization") is None

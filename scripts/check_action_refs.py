@@ -38,6 +38,7 @@ import os
 import re
 import sys
 import urllib.error
+import urllib.parse
 import urllib.request
 from pathlib import Path
 
@@ -69,8 +70,14 @@ def _get_json(url: str) -> object | None:
         url,
         headers={"Accept": "application/vnd.github+json", "User-Agent": "check-action-refs"},
     )
+    # Compare the parsed host, never a substring. `"api.github.com" in url` is
+    # true of `https://elsewhere.example/?x=api.github.com`, and what hangs off
+    # this test is whether a credential is attached -- so the loose form is a
+    # token-disclosure bug waiting for the day the URL stops being a literal.
+    # CodeQL flagged exactly this, and unlike the three alerts recorded in
+    # SECURITY.md it was right about the mechanism.
     token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN")
-    if token and "api.github.com" in url:
+    if token and urllib.parse.urlsplit(url).hostname == "api.github.com":
         request.add_header("Authorization", f"Bearer {token}")
     try:
         # Fixed https hosts, built below from literals.
