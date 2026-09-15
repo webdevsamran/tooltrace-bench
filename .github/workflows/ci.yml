@@ -67,6 +67,13 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: python scripts/check_action_pins.py
+      - name: Documented uses of our own action resolve and install
+        # docs/recipes.md said `@v0.3.0`, the one tag this project has ever cut,
+        # which predates action.yml and so contains none. The recipe failed
+        # before a task ran, and every test of action.yml passed anyway.
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python scripts/check_action_refs.py
       - name: Landscape table matches the fetched competitor data
         # The table states its own method ("fetched via the GitHub API")
         # but was typed by hand. In a sibling repo that drifted into
@@ -226,6 +233,73 @@ jobs:
           docker build -t tooltrace-bench:ci .
           docker run --rm tooltrace-bench:ci tasks --json > /dev/null
           docker run --rm tooltrace-bench:ci doctor --json > /dev/null
+
+  # `tests/test_github_action_is_usable.py` parses action.yml and checks its
+  # shape: inputs documented, outputs wired to a step, no third-party actions.
+  # It cannot check that the thing runs, and nothing else did either -- the
+  # composite body, the argument assembly and the threshold logic had never
+  # executed in any job, in this repository or anywhere else, while the README
+  # and docs told people to depend on it.
+  action:
+    name: The published action actually runs
+    runs-on: ubuntu-latest
+    steps:
+      # actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      # actions/setup-python@v5
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: "3.12"
+      # install: false below, so this is the copy under test.
+      - run: pip install -e .
+
+      - name: Run it the way the docs tell people to
+        id: bench
+        uses: ./
+        with:
+          agent: scripted
+          runs: "1"
+          limit: "3"
+          shuffle: "true"
+          seed: "0"
+          install: "false"
+
+      - name: The outputs must be real values, not empty strings
+        shell: bash
+        env:
+          RATE: ${{ steps.bench.outputs.success-rate }}
+          TASKS: ${{ steps.bench.outputs.tasks-run }}
+          SUBSET: ${{ steps.bench.outputs.is-subset }}
+          SUMMARY: ${{ steps.bench.outputs.summary-path }}
+        run: |
+          set -euo pipefail
+          echo "rate=$RATE tasks=$TASKS subset=$SUBSET summary=$SUMMARY"
+          [ -n "$RATE" ]
+          [ "$TASKS" = "3" ]
+          [ "$SUBSET" = "true" ]
+          [ -s "$SUMMARY" ]
+          python -c "import json,sys; json.load(open(sys.argv[1]))" "$SUMMARY"
+
+      - name: A floor the run cannot meet must fail the step
+        id: floor
+        continue-on-error: true
+        uses: ./
+        with:
+          agent: scripted
+          runs: "1"
+          limit: "2"
+          install: "false"
+          # Above 1.0 on purpose: this asserts the gate fires, without
+          # depending on some task failing to make it fire.
+          min-success-rate: "1.1"
+
+      - name: ...and that failure must be reported, not swallowed
+        shell: bash
+        env:
+          OUTCOME: ${{ steps.floor.outcome }}
+        run: |
+          set -euo pipefail
+          [ "$OUTCOME" = "failure" ] || { echo "the threshold did not fail the step"; exit 1; }
 
   audit:
     name: Dependency audit (blocking)

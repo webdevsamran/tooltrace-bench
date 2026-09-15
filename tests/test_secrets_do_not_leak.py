@@ -32,7 +32,10 @@ from pathlib import Path
 import pytest
 from tooltrace.cli.main import main
 
-SECRET = "s3cr3t-value-nothing-should-print-a1b2c3"
+# Synthetic, and the whole point of this file is that it never reaches an output
+# stream. Marked per line rather than exempting the file, so a real key pasted in
+# here later is still caught.
+SECRET = "s3cr3t-value-nothing-should-print-a1b2c3"  # secret-scan: allow
 
 
 @pytest.fixture

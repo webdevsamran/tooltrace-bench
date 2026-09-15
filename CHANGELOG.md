@@ -6,6 +6,36 @@ versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+- **The GitHub Action had never run anywhere, and the recipe for it was broken
+  twice over.** GitHub offered to publish it to the Marketplace, which is what
+  prompted the check. `action.yml` is well-formed --
+  `tests/test_github_action_is_usable.py` proves inputs are documented, outputs
+  are wired to a step and no third-party action is pulled in on a caller's
+  behalf -- and every one of those tests passed while:
+  - `docs/recipes.md` said `uses: webdevsamran/tooltrace-bench@v0.3.0`. That tag
+    is the only release this project has cut, it predates the action, and it
+    contains no `action.yml`. A caller copying the recipe got "Can't find
+    'action.yml'" before a task ran.
+  - the action's defaults are `install: true` and `version: tooltrace-bench`, so
+    the default path is `pip install tooltrace-bench` -- a 404, because PyPI
+    publishing is gated on a repository variable that has never been set.
+  - nothing had ever executed the composite body. The argument assembly, the
+    inline Python, the `GITHUB_OUTPUT` writes and the threshold logic existed,
+    were documented, were tested as text, and had never run.
+
+  CI now runs the action against the checked-out source (`uses: ./`), asserts
+  its four outputs are real values, and asserts that a floor the run cannot meet
+  actually fails the step. `scripts/check_action_refs.py` resolves every
+  documented `uses:` of this repository and fails when the ref carries no action
+  or when a recipe relies on an install that PyPI cannot serve; both rules go
+  quiet on their own once a release ships. A failed install now prints what
+  happened and the two ways forward instead of a bare pip 404.
+
+- **A clean run no longer reports failures.** `none` is the taxonomy bucket for
+  runs that did not fail, so eight passing tasks rendered as
+  `Failures: none x 8` in the job summary.
+
 ### Added
 - **`a2a-card --key-env KID=ENV_VAR`**, and it is the documented form. Every
   other credential path in this project takes the *name* of an environment

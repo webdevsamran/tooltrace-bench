@@ -105,9 +105,20 @@ tooltrace trace runs/<bundle>.tooltrace --assertions --json
 
 ## Gate a pull request on agent reliability
 
-The published composite action runs a trimmed benchmark and fails the step when
-the success rate drops below a floor. It installs no third-party actions, so set
-up Python with whatever pinning policy your repository already applies.
+The composite action runs a trimmed benchmark and fails the step when the
+success rate drops below a floor. It installs no third-party actions, so set up
+Python with whatever pinning policy your repository already applies.
+
+Two things about the reference, because getting either wrong fails the job
+before any benchmark runs:
+
+- **`@main`, not `@v0.3.0`.** The action landed after v0.3.0 was tagged, so that
+  tag contains no `action.yml` at all and resolving it fails outright. Pin to a
+  commit SHA for the same supply-chain reason this repository pins every
+  third-party action it uses; move to a version tag once a release ships one.
+- **`install: false`.** `tooltrace-bench` is not on PyPI yet, so the action's
+  default `pip install tooltrace-bench` has nothing to fetch. Install from source
+  yourself, or set `version:` to a VCS specifier and leave `install` alone.
 
 ```yaml
 name: Agent reliability
@@ -121,8 +132,10 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
-      - uses: webdevsamran/tooltrace-bench@v0.3.0
+      - run: pip install "tooltrace-bench @ git+https://github.com/webdevsamran/tooltrace-bench@main"
+      - uses: webdevsamran/tooltrace-bench@main
         with:
+          install: "false"
           agent: scripted
           runs: "3"
           limit: "8"
@@ -130,6 +143,12 @@ jobs:
           seed: "0"
           min-success-rate: "0.9"
 ```
+
+Once the package is published, the explicit install step goes away and the
+action's defaults take over — `install` back to true, `version` left alone, and
+the reference moved to whichever release tag ships the action. `scripts/check_action_refs.py`
+runs in CI and fails the build if this page starts describing that state before
+it is true.
 
 `limit` is what makes this affordable on every pull request. The selection is
 recorded rather than silently cut: the job summary states how many of how many

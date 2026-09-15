@@ -85,7 +85,16 @@ runs:
     - name: Install tooltrace-bench
       if: inputs.install == 'true'
       shell: bash
-      run: python -m pip install --disable-pip-version-check "${{ inputs.version }}"
+      env:
+        TTB_VERSION: ${{ inputs.version }}
+      run: |
+        # Until the distribution is on PyPI this is the first thing every
+        # caller hits, and a bare pip failure reads as an unexplained 404 in
+        # somebody else's CI log. Say what happened and what to do instead.
+        if ! python -m pip install --disable-pip-version-check "$TTB_VERSION"; then
+          echo "::error::could not install '${TTB_VERSION}'. If tooltrace-bench is not on PyPI yet, either install it yourself and pass install: false, or point version: at a source checkout, e.g. 'tooltrace-bench @ git+https://github.com/webdevsamran/tooltrace-bench@main'."
+          exit 1
+        fi
 
     - name: Benchmark
       id: bench
@@ -145,7 +154,11 @@ runs:
                 md.write(f"### ToolTrace Bench\n\n")
                 md.write(f"- Success rate: **{rate if rate is not None else 'n/a'}**{interval}\n")
                 md.write(f"- Runs: {overall.get('n', 'n/a')}\n")
-                taxonomy = overall.get("failure_taxonomy") or {}
+                # `none` is the taxonomy bucket for runs that did not fail, so
+                # a clean sweep used to render as "Failures: none×8".
+                taxonomy = {
+                    k: v for k, v in (overall.get("failure_taxonomy") or {}).items() if k != "none"
+                }
                 if taxonomy:
                     md.write(f"- Failures: {', '.join(f'{k}×{v}' for k, v in taxonomy.items())}\n")
                 md.write(subset + "\n")

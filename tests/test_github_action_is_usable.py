@@ -14,13 +14,29 @@ Python with whatever policy they already apply.
 
 from __future__ import annotations
 
+import importlib.util
+import sys
 from pathlib import Path
+from typing import Any
 
 import pytest
 import yaml
 
 _ROOT = Path(__file__).resolve().parent.parent
 _ACTION = _ROOT / "action.yml"
+_CI = _ROOT / ".github" / "workflows" / "ci.yml"
+
+
+def load_ref_checker() -> Any:
+    """Import `scripts/check_action_refs.py`, which is not a package module."""
+    spec = importlib.util.spec_from_file_location(
+        "ttb_check_action_refs", _ROOT / "scripts" / "check_action_refs.py"
+    )
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
 
 
 @pytest.fixture(scope="module")
@@ -104,3 +120,120 @@ def test_the_documented_flags_exist_on_the_cli(action: dict) -> None:
         "--json",
     ):
         assert flag in flags, f"action.yml passes {flag}, which benchmark does not accept"
+
+
+# --- the action has to run somewhere, not only parse -------------------------
+
+
+def test_ci_actually_runs_the_action() -> None:
+    """Every test above this line reads YAML. None executes the composite body.
+
+    The argument assembly, the inline Python, the `GITHUB_OUTPUT` writes and the
+    threshold logic had never run in any job, in this repository or anywhere
+    else, while the docs told people to depend on them.
+    """
+    body = _CI.read_text(encoding="utf-8")
+    assert "uses: ./" in body, "no CI job runs the action itself"
+
+
+def test_ci_proves_the_threshold_can_fail_a_build() -> None:
+    """A gate nobody has watched fire is a gate nobody knows fires."""
+    body = _CI.read_text(encoding="utf-8")
+    assert "min-success-rate" in body
+    assert "continue-on-error: true" in body
+
+
+def test_a_failed_install_explains_itself() -> None:
+    """The default path is `pip install tooltrace-bench`, and that 404s today.
+
+    A bare pip failure in somebody else's CI log names neither the cause nor a
+    way forward.
+    """
+    body = _ACTION.read_text(encoding="utf-8")
+    assert "::error::could not install" in body
+    assert "install: false" in body, "the message does not name the way out"
+
+
+def test_a_clean_run_is_not_reported_as_failures() -> None:
+    """`none` is the taxonomy bucket for runs that did not fail.
+
+    Eight clean runs rendered as "Failures: none x 8" in the job summary.
+    """
+    assert 'if k != "none"' in _ACTION.read_text(encoding="utf-8")
+
+
+# --- the documented recipes ---------------------------------------------------
+
+
+def test_no_documented_recipe_points_at_the_only_release_tag() -> None:
+    """`v0.3.0` is the one tag this project has cut, and it predates the action.
+
+    `uses: webdevsamran/tooltrace-bench@v0.3.0` fails with "Can't find
+    'action.yml'" before a task runs. Checked here as well as over the network
+    in `scripts/check_action_refs.py`, because this half needs neither.
+    """
+    module = load_ref_checker()
+    offenders = []
+    for path in module.DOCS:
+        if not path.is_file():
+            continue
+        for lineno, ref, _ in module.recipes(path):
+            if ref == "v0.3.0":
+                offenders.append(f"{path.name}:{lineno}")
+    assert offenders == [], f"these reference a tag with no action in it: {offenders}"
+
+
+def _doc(tmp_path: Path, *body: str) -> Path:
+    path = tmp_path / "recipe.md"
+    path.write_text("```yaml\n" + "\n".join(body) + "\n```\n", encoding="utf-8")
+    return path
+
+
+def test_the_checker_sees_a_recipe_that_assumes_pypi(tmp_path: Path) -> None:
+    module = load_ref_checker()
+    doc = _doc(
+        tmp_path,
+        "      - uses: webdevsamran/tooltrace-bench@main",
+        "        with:",
+        "          agent: scripted",
+    )
+    ((lineno, ref, opts_out),) = module.recipes(doc)
+    assert (lineno, ref, opts_out) == (2, "main", False)
+
+
+def test_an_explicit_install_false_is_an_opt_out(tmp_path: Path) -> None:
+    module = load_ref_checker()
+    doc = _doc(
+        tmp_path,
+        "      - uses: webdevsamran/tooltrace-bench@main",
+        "        with:",
+        '          install: "false"',
+    )
+    assert module.recipes(doc)[0][2] is True
+
+
+def test_a_source_version_is_an_opt_out(tmp_path: Path) -> None:
+    """Leaving `install` alone is fine when `version:` names a checkout."""
+    module = load_ref_checker()
+    doc = _doc(
+        tmp_path,
+        "      - uses: webdevsamran/tooltrace-bench@main",
+        "        with:",
+        "          version: tooltrace-bench @ git+https://github.com/o/r@main",
+    )
+    assert module.recipes(doc)[0][2] is True
+
+
+def test_a_later_step_is_not_read_as_this_step(tmp_path: Path) -> None:
+    """Otherwise one opted-out step would excuse every recipe on the page."""
+    module = load_ref_checker()
+    doc = _doc(
+        tmp_path,
+        "      - uses: webdevsamran/tooltrace-bench@main",
+        "        with:",
+        "          agent: scripted",
+        "      - uses: actions/checkout@v5",
+        "        with:",
+        '          install: "false"',
+    )
+    assert module.recipes(doc)[0][2] is False
