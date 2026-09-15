@@ -346,6 +346,30 @@ def test_a_pasted_key_is_never_echoed_back(pasted: str, tmp_path: Path) -> None:
     assert any("rotate it" in note for note in result.notes)
 
 
+@pytest.mark.parametrize(
+    "name",
+    ["OPENAI_API_KEY", "ANTHROPIC_API_KEY", "MY_TOKEN", "TOKEN", "HOME", "PATH", "K"],
+)
+def test_real_variable_names_are_accepted(name: str, tmp_path: Path) -> None:
+    """A check that rejected ordinary names would just be turned off."""
+    result = _plan(name, tmp_path)
+    assert any(name in note for note in result.notes), f"{name} was rejected"
+
+
+def test_a_prefixless_key_is_still_refused(tmp_path: Path) -> None:
+    """The case both firm tests miss.
+
+    A bare 32-character hex key is alphanumeric, so the charset test admits it,
+    and carries no prefix any pattern knows. What gives it away is shape: no
+    underscore and far longer than anyone's variable name.
+    """
+    bare = "a1b2c3d4e5f60718293a4b5c6d7e8f90"
+    assert len(bare) == 32
+    result = _plan(bare, tmp_path)
+    blob = " ".join(result.notes) + json.dumps(result.agent_config)
+    assert bare not in blob, "a prefixless key was echoed back"
+
+
 def test_a_rejected_value_is_dropped_from_the_config(tmp_path: Path) -> None:
     """Otherwise it would be written to the config file it was rejected from."""
     result = _plan(_j("sk-", "proj7Kd2mQx9vLtR4wY1nB6cV3hJ8sD5fG0aE2uI4oP"), tmp_path)

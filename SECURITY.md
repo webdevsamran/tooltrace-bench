@@ -81,25 +81,28 @@ while the identical string in this repository blocked a release -- their data
 protected less carefully than ours. `tests/test_secret_scan_catches_secrets.py`
 now checks the two lists for parity on every run.
 
-### The three that remain open
+### The two that remain
 
 | Alert | Query | Location |
 |---|---|---|
 | #2, #3 | `py/clear-text-logging-sensitive-data` | `tooltrace/cli/main.py` (`_emit`) |
-| #1 | `py/clear-text-storage-sensitive-data` | `tooltrace/security/redaction.py` (`write_record`) |
 
-All three now trace to one source: `redaction_report` builds a list of the
-**names** of secret patterns that still match after sanitisation --
-`aws-access-key`, not the key -- which flows into the record written to disk and
-printed by `tooltrace redaction`. CodeQL's sensitive-data classifier is
-name-based, the variable was called `residual_secrets`, and that name is what a
-reviewer reads before the expression. It is `residual_classes` now, which is
-what it always held.
+`#1` and `#4` closed when the defects behind them were fixed. These two now
+trace to a single source: the note `tooltrace init` prints naming the
+environment variable to set. That value is user-supplied, so CodeQL is right
+that it reaches `print` -- and it reaches it through `_is_variable_name`, which
+requires the POSIX variable-name charset, a length bound, no match from this
+project's own secret detector, and a shape test that rejects a long unbroken
+alphanumeric run. Three real key formats and a prefixless 32-character hex key
+are asserted refused in
+[`tests/test_secrets_do_not_leak.py`](tests/test_secrets_do_not_leak.py); seven
+ordinary variable names are asserted accepted, because a check that rejected
+`OPENAI_API_KEY` would simply be switched off.
 
-The property is proven rather than asserted:
-[`tests/test_secrets_do_not_leak.py`](tests/test_secrets_do_not_leak.py) plants
-an email, a card number and an AWS key in a bundle and checks that none appears
-in the report, the record, or either file written to disk.
+CodeQL does not model that guard as a barrier, which is a limitation of the
+analyser rather than a property of the code. Printing the variable name is the
+point of the note: telling someone to "set the variable you named" without
+naming it is not guidance.
 
 These are not suppressed in source. A `# codeql[...]` comment on `_emit` would
 blanket every command that prints anything, which is exactly the kind of

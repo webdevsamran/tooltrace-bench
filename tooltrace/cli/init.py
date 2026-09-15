@@ -58,21 +58,42 @@ ADAPTERS: dict[str, str] = {
 #: already has a detector for, so `_is_variable_name` asks that detector too.
 _ENV_NAME_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 
-#: Longer than any environment variable name anyone writes, shorter than the
-#: credentials worth protecting. A backstop for a key shape nothing recognises
-#: yet, since a new provider is one press release away.
+#: Longer than any environment variable name anyone writes.
 _MAX_ENV_NAME = 64
+
+#: Above this, an unbroken run of letters and digits with no underscore stops
+#: looking like a name and starts looking like a key.
+_MAX_UNBROKEN_NAME = 24
 
 
 def _is_variable_name(value: str) -> bool:
-    """True when *value* is plausibly a variable name rather than a credential."""
+    """True when *value* is plausibly a variable name rather than a credential.
+
+    Three tests, in increasing order of how much they are guessing.
+
+    The first two are firm: the charset a POSIX variable name is drawn from,
+    and this project's own secret-shape detector -- so a pattern added to
+    `sanitize.py` protects this path too, rather than a second opinion drifting
+    beside it. Between them they cover every prefixed credential format in wide
+    circulation: `sk-`, `sk_live_`, `ghp_`, `npm_`, `AKIA`, `AIza`, `xox`,
+    `glpat-`.
+
+    The third is a heuristic and is written down as one. A provider issuing a
+    bare 32-character hex key with no prefix defeats both tests above: it is
+    alphanumeric, and no pattern knows it. What it is not is *shaped* like a
+    name -- `OPENAI_API_KEY` has underscores, `HOME` and `PATH` are short, and
+    an unbroken 32-character run of alphanumerics is not something anyone types
+    as a variable. Being a heuristic it will one day be wrong in both
+    directions; the cost of a false reject is a clear message telling the user
+    exactly which field to fix, which is why it errs toward rejecting.
+    """
     from tooltrace.security.sanitize import find_secrets
 
     if not _ENV_NAME_RE.fullmatch(value) or len(value) > _MAX_ENV_NAME:
         return False
-    # The project's own secret-shape detector, rather than a second opinion
-    # maintained separately from it: a pattern added there protects this too.
-    return not find_secrets(value)
+    if find_secrets(value):
+        return False
+    return "_" in value or len(value) <= _MAX_UNBROKEN_NAME
 
 
 #: Local servers, offered by name because knowing that Ollama is on 11434 and
